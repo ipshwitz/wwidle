@@ -1,5 +1,8 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,11 +22,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
@@ -49,6 +54,17 @@ fun LairCard(
         (owned.cycleProgressSeconds / lair.baseProductionSeconds).toFloat().coerceIn(0f, 1f)
     }
     val fillFraction = if (owned.isReadyToCollect) 1f else progress
+    // GameEngine only pushes a new fillFraction every TICK_INTERVAL_MS, which
+    // would otherwise render as visible steps — animating linearly across
+    // that same window turns it back into continuous motion.
+    val animatedFillFraction by animateFloatAsState(
+        targetValue = fillFraction,
+        animationSpec = tween(
+            durationMillis = GameEngine.TICK_INTERVAL_MS.toInt(),
+            easing = LinearEasing,
+        ),
+        label = "lairFill",
+    )
     val rarity = rarityColor(lair.tier)
 
     Box(
@@ -60,11 +76,11 @@ fun LairCard(
             .border(1.dp, rarity.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
             .clickable(enabled = owned.isReadyToCollect, onClick = onPlunder),
     ) {
-        if (owned.count > 0 && fillFraction > 0f) {
+        if (owned.count > 0) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(fraction = fillFraction)
+                    .fillMaxWidth(fraction = animatedFillFraction)
                     .background(rarity.copy(alpha = 0.55f)),
             )
         }

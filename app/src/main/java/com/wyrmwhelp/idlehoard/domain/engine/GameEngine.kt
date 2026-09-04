@@ -227,7 +227,12 @@ class GameEngine @Inject constructor() {
         return owned.copy(cycleProgressSeconds = remaining) to earned
     }
 
-    private companion object {
+    companion object {
+        /**
+         * How often [start] advances production. Public so the UI can match its
+         * progress-fill animation duration to this and avoid visibly stepping
+         * between updates — see `LairCard`.
+         */
         const val TICK_INTERVAL_MS = 200L
     }
 }

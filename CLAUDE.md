@@ -43,7 +43,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.5.3** (redesigned lair cards — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.5.4** (smoothed the lair-card fill animation — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -90,6 +90,11 @@ These apply to every change made in this repo, however small:
     (`rarityColor(tier)`, a 5-band green→blue→purple→orange→gold ramp) at
     different alpha, so the whole card doubles as its own progress bar and
     stays translucent enough to show `GameScreen`'s background art through.
+    The fill's target value is wrapped in `animateFloatAsState` (linear
+    easing, duration = `GameEngine.TICK_INTERVAL_MS`) — `GameEngine` only
+    pushes a new value every tick, which reads as visible steps without this;
+    animating linearly across that same window turns it back into continuous
+    motion. Keep the two in sync if either changes.
   - `AuthViewModel` — Supabase auth
   - `SettingsViewModel` — user preferences
   - `ConsentViewModel` — privacy/ad consent

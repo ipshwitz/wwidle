@@ -3,6 +3,21 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.5.4] - 2026-09-04 05:14 PM EDT
+
+- Fixed choppy lair-card fill animation: `GameEngine` only updates state
+  every 200ms (`TICK_INTERVAL_MS`), so the fill was visibly stepping instead
+  of flowing. It now animates linearly across that same 200ms window
+  (`animateFloatAsState`), turning the discrete updates back into continuous
+  motion. Made `TICK_INTERVAL_MS` public so the UI reads it directly instead
+  of duplicating the number.
+- Confirmed each lair has its own production time that scales up with tier
+  (0.6s for Kobold Warren through multi-hour for the endgame lairs, per the
+  AdCap-derived tuning from v0.5.1) — that part was already working as
+  intended, the choppiness was purely an animation issue.
+- Sent a short screen recording (repeated Kobold Warren cycles) for visual
+  confirmation, since a static screenshot can't show animation smoothness.
+
 ## [0.5.3] - 2026-09-04 05:06 PM EDT
 
 - Redesigned the lair cards: more compact (tighter padding, smaller buttons,
