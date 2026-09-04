@@ -25,10 +25,24 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.1.0** (initial scaffold — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.2.0** (GameEngine + Creature Lair data model — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
+
+## Build environment notes
+
+- **Windows JDK loopback-socket bug (JDK-8305163):** running `gradlew` from a
+  shell whose `TEMP`/`TMPDIR` resolves to a long path (as happens under this
+  Claude Code session's scratchpad) makes the JVM fail with
+  `java.io.IOException: Unable to establish loopback connection` before any
+  build task runs — it's a Unix-domain-socket path-length limit, unrelated to
+  the project. Fix: point Java at a short temp dir for the invocation, e.g.
+  `TMPDIR="D:/gtmp" TEMP="D:\gtmp" TMP="D:\gtmp" JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=D:/gtmp" ./gradlew.bat <task>`.
+- **compileSdk 36 / AGP 8.13.2 dependency ceiling:** don't bump
+  `androidx.core`/`androidx.core-ktx` past 1.17.x or `androidx.lifecycle-*`
+  past 2.9.x without also bumping AGP — newer versions require compileSdk 37,
+  which needs AGP 9.1.0+.
 
 ## Tech stack & architecture
 
@@ -81,10 +95,18 @@ Free-to-play: rewarded ads (boosts, offline-earnings multipliers) + optional IAP
 ## Core game design
 
 - **Generators — Creature Lairs/Dens:** direct analog to Adventure Capitalist's
-  businesses. Each lair is a themed monster den (e.g. Goblin Den, Troll Cave,
-  Dragon Roost) that passively produces gold over time. Tapping a lair gives a
-  manual production boost. Whelps/Wyrms are a separate collectible/pet system
-  layered on top of the lair economy (details TBD as we build it out).
+  businesses. Each lair is a themed monster den, using real D&D 5E SRD
+  creatures/Challenge Ratings for flavor and tuning anchor, from Kobold Warren
+  (CR 1/8) up through the Ancient Dragon's Hoard (CR 24) — see
+  `domain/catalog/CreatureLairCatalog.kt` for the full 14-tier list and
+  `domain/model/CreatureLair.kt` / `OwnedLair.kt` / `GameState.kt` for the data
+  model. `domain/engine/GameEngine.kt` is the app-scoped singleton tick loop:
+  each lair produces gold on a cycle timer; without a hired Steward, a
+  finished cycle sits full and waits for the player to tap it ("plunder") —
+  it never silently completes a second cycle underneath them. A Steward
+  auto-collects every completed cycle, online or offline. Whelps/Wyrms are a
+  separate collectible/pet system layered on top of the lair economy (details
+  TBD as we build it out — not yet started).
 - **Prestige — Molt:** resets the current hoard/lairs in exchange for **Scale
   Shards**, a permanent-bonus currency that boosts all future runs.
 - **Art style:** vector/flat illustration, built with Compose (custom vector
@@ -98,7 +120,17 @@ we'll pin these down as we build each system.
 ## Open questions / not yet decided
 
 - Whelp/Wyrm collectible system mechanics (how it interacts with lairs)
-- Full currency list (gold + premium currency name, any specialty currencies)
-- Large-number formatting convention (e.g. suffixes vs. scientific notation)
+- Full currency list (gold + premium currency name, any specialty currencies) —
+  Gold Pieces and Platinum Pieces are wired into `GameState`, but Platinum has
+  no spend sink yet (IAP/shop not built)
+- Large-number formatting convention (e.g. suffixes vs. scientific notation) —
+  `GameState.goldPieces` is a raw `Double` for now; late-game lair costs already
+  reach into the tens of billions, so this needs solving before a UI layer
+  displays it
+- Lair cost/income/timing balance in `CreatureLairCatalog` is a first-pass
+  guess, not playtested
+- Upgrade system (AdCap-style income multipliers per lair at ownership
+  milestones) — not implemented; each lair's income currently scales linearly
+  with units owned only
 - Leaderboard scope (global hoard value? fastest Molt? per-lair records?)
 - Target device scope (phone-only vs. tablet/landscape support)
