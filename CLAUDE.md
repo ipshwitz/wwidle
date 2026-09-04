@@ -14,6 +14,14 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   projects (e.g. a prior food/kitchen-themed idle game). If a name doesn't fit a
   fantasy hoard/dragon theme, rename it before it lands in the codebase.
 
+## Assets
+
+- **`/assets`** (repo root) holds source game assets — logos, background art,
+  and other raw design files. This is separate from Android's own
+  `app/src/main/assets` runtime-assets folder (for files bundled into the APK
+  and read via `AssetManager`); nothing lives there yet. Files land in
+  `/assets` before being turned into Compose-usable drawables/resources.
+
 ## Workflow rules
 
 These apply to every change made in this repo, however small:
@@ -25,7 +33,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.3.0** (GameViewModel + first Compose UI — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.3.1** (added `/assets` convention — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.

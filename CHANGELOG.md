@@ -3,6 +3,11 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.3.1] - 2026-09-04 03:59 PM EDT
+
+- Added a `/assets` folder at the repo root for source game assets (logos,
+  background art, etc.), documented in CLAUDE.md.
+
 ## [0.3.0] - 2026-09-04 03:40 PM EDT
 
 - Built `GameViewModel` (`@HiltViewModel`): starts `GameEngine`'s tick loop and
