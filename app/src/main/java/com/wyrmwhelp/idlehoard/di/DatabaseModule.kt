@@ -1,0 +1,37 @@
+package com.wyrmwhelp.idlehoard.di
+
+import android.content.Context
+import androidx.room.Room
+import com.wyrmwhelp.idlehoard.data.local.GameStateDao
+import com.wyrmwhelp.idlehoard.data.local.RoomGameRepository
+import com.wyrmwhelp.idlehoard.data.local.WyrmWhelpDatabase
+import com.wyrmwhelp.idlehoard.domain.repository.GameRepository
+import dagger.Binds
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): WyrmWhelpDatabase =
+        Room.databaseBuilder(context, WyrmWhelpDatabase::class.java, "wyrmwhelp.db").build()
+
+    @Provides
+    fun provideGameStateDao(database: WyrmWhelpDatabase): GameStateDao = database.gameStateDao()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RepositoryModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindGameRepository(impl: RoomGameRepository): GameRepository
+}

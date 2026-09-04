@@ -33,7 +33,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.3.1** (added `/assets` convention — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.4.0** (Room local persistence — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -80,7 +80,14 @@ These apply to every change made in this repo, however small:
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt.
 - **Data:**
-  - **Room** — local persistence (`GameState`, lairs/generators, upgrades, milestones)
+  - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
+    (single-row table for currencies/meta) + `OwnedLairEntity` (one row per
+    claimed lair), `GameStateDao`, `WyrmWhelpDatabase`. `RoomGameRepository`
+    implements the domain-layer `GameRepository` interface
+    (`domain/repository/GameRepository.kt`) — `GameViewModel` loads the save
+    on creation (before applying offline earnings/starting the tick loop) and
+    autosaves every 30s. Upgrades/milestones tables don't exist yet (those
+    systems aren't built).
   - **Supabase** — auth, cloud saves, leaderboard
   - **DataStore** — user preferences, consent state, ad-watch tracking
   - Repositories wrap each data source; ViewModels never touch Room/Supabase directly.

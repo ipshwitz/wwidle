@@ -3,6 +3,22 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.4.0] - 2026-09-04 04:09 PM EDT
+
+- Added local save persistence with Room: `GameStateEntity` (currencies/meta)
+  + `OwnedLairEntity` (one row per claimed lair), wrapped by
+  `RoomGameRepository` behind a new domain-layer `GameRepository` interface.
+  `GameViewModel` now loads the save on startup (before settling offline
+  earnings or starting the tick loop) and autosaves every 30 seconds.
+- Fixed a real bug this surfaced during testing: a brand-new save started
+  with 0 gold, but every lair costs gold to claim — there was no way to ever
+  get started. New saves now begin with 25 gp, enough to claim the first
+  Kobold Warren.
+- Verified end-to-end on an emulator: claimed a lair, waited past the
+  autosave interval, force-stopped the app, and relaunched — gold and owned
+  lair count both survived, confirmed via `uiautomator dump` (screenshots
+  still blocked by the environment issue noted below).
+
 ## [0.3.1] - 2026-09-04 03:59 PM EDT
 
 - Added a `/assets` folder at the repo root for source game assets (logos,

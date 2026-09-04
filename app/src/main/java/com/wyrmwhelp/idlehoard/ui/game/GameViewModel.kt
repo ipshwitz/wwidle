@@ -1,16 +1,22 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.engine.OfflineEarnings
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
+import com.wyrmwhelp.idlehoard.domain.repository.GameRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Presentation-layer wrapper around [GameEngine]. [GameEngine] itself is an
@@ -21,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 @HiltViewModel
 class GameViewModel @Inject constructor(
     private val gameEngine: GameEngine,
+    private val gameRepository: GameRepository,
 ) : ViewModel() {
 
     val gameState: StateFlow<GameState> = gameEngine.state
@@ -31,11 +38,23 @@ class GameViewModel @Inject constructor(
     val welcomeBackEarnings: StateFlow<OfflineEarnings?> = _welcomeBackEarnings.asStateFlow()
 
     init {
-        val earnings = gameEngine.applyOfflineEarnings()
-        if (earnings.goldEarned > 0.0) {
-            _welcomeBackEarnings.value = earnings
+        viewModelScope.launch {
+            gameRepository.loadGameState()?.let { saved -> gameEngine.loadState(saved) }
+
+            val earnings = gameEngine.applyOfflineEarnings()
+            if (earnings.goldEarned > 0.0) {
+                _welcomeBackEarnings.value = earnings
+            }
+            gameEngine.start()
+            runAutosaveLoop()
         }
-        gameEngine.start()
+    }
+
+    private suspend fun CoroutineScope.runAutosaveLoop() {
+        while (isActive) {
+            delay(AUTOSAVE_INTERVAL_MS)
+            gameRepository.saveGameState(gameEngine.state.value)
+        }
     }
 
     fun dismissWelcomeBack() {
@@ -52,5 +71,9 @@ class GameViewModel @Inject constructor(
 
     fun plunderLair(lairId: String) {
         gameEngine.plunderLair(lairId)
+    }
+
+    private companion object {
+        const val AUTOSAVE_INTERVAL_MS = 30_000L
     }
 }

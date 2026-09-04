@@ -4,9 +4,10 @@ import java.time.Instant
 
 /**
  * Aggregate root for a player's save. This is the shape that gets persisted to
- * Room locally and synced to Supabase's `cloud_saves` table as a single jsonb
- * blob (see CLAUDE.md). No persistence wiring yet — this is the in-memory model
- * [com.wyrmwhelp.idlehoard.domain.engine.GameEngine] operates on.
+ * Room locally (see `data/local/`) and will sync to Supabase's `cloud_saves`
+ * table as a single jsonb blob (see CLAUDE.md) once that layer exists. This is
+ * also the in-memory model [com.wyrmwhelp.idlehoard.domain.engine.GameEngine]
+ * operates on.
  *
  * @property goldPieces Primary currency (gp), earned from Creature Lairs.
  * @property platinumPieces Premium currency (pp) — 5E's rarest standard coin,
@@ -23,7 +24,10 @@ import java.time.Instant
  * @property totalMolts Number of times the player has Molted (prestiged).
  */
 data class GameState(
-    val goldPieces: Double = 0.0,
+    // Enough to claim the first Kobold Warren (10 gp) with a small buffer — a
+    // brand-new save with 0 gold could never claim anything, since every lair
+    // costs gold and only owned lairs produce it.
+    val goldPieces: Double = 25.0,
     val platinumPieces: Double = 0.0,
     val scaleShards: Long = 0,
     val lairs: Map<String, OwnedLair> = emptyMap(),
