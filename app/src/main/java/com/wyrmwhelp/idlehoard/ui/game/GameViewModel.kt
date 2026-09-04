@@ -1,5 +1,6 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
@@ -7,6 +8,9 @@ import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.engine.OfflineEarnings
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
+import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
+import com.wyrmwhelp.idlehoard.domain.repository.AuthRepository
+import com.wyrmwhelp.idlehoard.domain.repository.CloudSaveRepository
 import com.wyrmwhelp.idlehoard.domain.repository.GameRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -28,6 +32,8 @@ import kotlinx.coroutines.launch
 class GameViewModel @Inject constructor(
     private val gameEngine: GameEngine,
     private val gameRepository: GameRepository,
+    private val authRepository: AuthRepository,
+    private val cloudSaveRepository: CloudSaveRepository,
 ) : ViewModel() {
 
     val gameState: StateFlow<GameState> = gameEngine.state
@@ -39,12 +45,33 @@ class GameViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            gameRepository.loadGameState()?.let { saved -> gameEngine.loadState(saved) }
+            val local = gameRepository.loadGameState()
+
+            // Cloud sync is best-effort: a network hiccup or Supabase outage should
+            // never block local play, so every step here degrades to local-only.
+            val userId = runCatching { authRepository.ensureSignedIn() }
+                .onFailure { Log.w(TAG, "Sign-in failed, continuing offline", it) }
+                .getOrNull()
+            val cloud = userId?.let { id ->
+                runCatching { cloudSaveRepository.downloadSave(id) }
+                    .onFailure { Log.w(TAG, "Cloud download failed, continuing offline", it) }
+                    .getOrNull()
+            }
+
+            mergeGameStates(local, cloud)?.let { gameEngine.loadState(it) }
 
             val earnings = gameEngine.applyOfflineEarnings()
             if (earnings.goldEarned > 0.0) {
                 _welcomeBackEarnings.value = earnings
             }
+
+            val settled = gameEngine.state.value
+            gameRepository.saveGameState(settled)
+            if (userId != null) {
+                runCatching { cloudSaveRepository.uploadSave(userId, settled) }
+                    .onFailure { Log.w(TAG, "Cloud upload failed, continuing offline", it) }
+            }
+
             gameEngine.start()
             runAutosaveLoop()
         }
@@ -74,6 +101,7 @@ class GameViewModel @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "GameViewModel"
         const val AUTOSAVE_INTERVAL_MS = 30_000L
     }
 }

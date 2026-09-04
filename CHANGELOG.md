@@ -3,6 +3,29 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.5.0] - 2026-09-04 04:38 PM EDT
+
+- Added Supabase cloud sync: anonymous sign-in on launch, then downloads the
+  cloud save and merges it against the local one (whichever save is more
+  progressed wins — higher Molt count first, then net worth), loads the
+  winner, and re-uploads it after offline earnings settle.
+- Every network step degrades gracefully to local-only play if it fails
+  (network issue, Supabase misconfigured, etc.) instead of crashing or
+  blocking — confirmed by testing with anonymous sign-in still disabled
+  before flipping it on.
+- Added `/SQL` (repo root) for sequentially-numbered database scripts —
+  `SQL/001_create_cloud_saves_table.sql` creates the `cloud_saves` table with
+  row-level security so each player can only read/write their own save.
+  (Supersedes the one-off `supabase/schema.sql` from earlier — same content,
+  new home/convention.)
+- Config: `SUPABASE_URL`/`SUPABASE_ANON_KEY` go in `local.properties`
+  (gitignored) and are exposed to the app via `BuildConfig`.
+- Verified for real against the live Supabase project — not just "it builds":
+  pulled the app's own session token off the emulator (`run-as` on the debug
+  build) and queried the `cloud_saves` table directly over REST, confirming a
+  claimed lair and updated gold correctly reached the actual database and
+  came back through RLS as expected.
+
 ## [0.4.0] - 2026-09-04 04:09 PM EDT
 
 - Added local save persistence with Room: `GameStateEntity` (currencies/meta)

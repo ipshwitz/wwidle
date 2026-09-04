@@ -21,6 +21,12 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   `app/src/main/assets` runtime-assets folder (for files bundled into the APK
   and read via `AssetManager`); nothing lives there yet. Files land in
   `/assets` before being turned into Compose-usable drawables/resources.
+- **`/SQL`** (repo root) holds every SQL script that needs to be run against
+  the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
+  `002_...`) in the order they should be applied. Each is a one-time script run
+  manually in the Supabase Dashboard's SQL Editor (no migration tooling wired
+  up) — see the file's own header comment for exactly what to run and any
+  dashboard-only settings (e.g. toggles) it doesn't cover.
 
 ## Workflow rules
 
@@ -33,7 +39,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.4.0** (Room local persistence — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.5.0** (Supabase cloud sync — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -88,7 +94,15 @@ These apply to every change made in this repo, however small:
     on creation (before applying offline earnings/starting the tick loop) and
     autosaves every 30s. Upgrades/milestones tables don't exist yet (those
     systems aren't built).
-  - **Supabase** — auth, cloud saves, leaderboard
+  - **Supabase** — auth + cloud saves implemented (`data/remote/`):
+    `SupabaseAuthRepository` (anonymous sign-in, implements domain
+    `AuthRepository`) and `SupabaseCloudSaveRepository` (upload/download the
+    `cloud_saves` row as jsonb via `GameStateDto`, implements domain
+    `CloudSaveRepository`). `SupabaseModule` (`di/`) provides the
+    `SupabaseClient` (Auth + Postgrest plugins) from `BuildConfig.SUPABASE_URL`
+    / `SUPABASE_ANON_KEY`, which are read from `local.properties` (gitignored —
+    see below). Merge-on-launch logic lives in `domain/model/GameStateExtensions.kt`
+    (`mergeGameStates`, `estimatedNetWorth`). Leaderboard not started.
   - **DataStore** — user preferences, consent state, ad-watch tracking
   - Repositories wrap each data source; ViewModels never touch Room/Supabase directly.
 - **DI bindings:** `@Singleton` for `GameEngine`, `AdManager`, `ConsentManager`;
@@ -97,25 +111,46 @@ These apply to every change made in this repo, however small:
 
 ### Save data & cloud sync
 
-- **Local:** Room. `GameEngine` autosaves every 30s (toggleable in Settings).
+- **Local:** Room. `GameEngine` autosaves every 30s (toggleable in Settings —
+  Settings screen not built yet, so not actually toggleable in-app).
 - **Cloud:** Supabase `cloud_saves` table, entire game state as one `jsonb` blob
   (not normalized relational tables — simplest for idle-game state + offline math).
-- **Sync triggers:** manual "Save to Cloud" button in Settings, on Molt (prestige),
-  on login/register.
-- **Merge logic (sign-in mid-session):** compare local vs. cloud progress, keep
-  whichever is higher, upload the winner to Supabase and overwrite local Room with it.
-- **Offline earnings:** `lastSavedTimestamp` stored in `GameState`. On launch,
-  `GameEngine.initialize()` computes `elapsed = now - lastSavedTimestamp` and
-  calls `calculateOfflineEarnings(elapsed, applyOfflineCap = true)`. Cap is
-  `offlineCapHours`, default 4h, upgradeable via game progression.
-- **Guest mode:** plays entirely from local Room, no Supabase sync. On sign-in:
-  local save uploads if no cloud save exists yet, otherwise merge logic applies.
+  Table/RLS policies defined in `SQL/001_create_cloud_saves_table.sql`.
+- **Sync triggers — implemented:** once per app launch, right after anonymous
+  sign-in resolves (`GameViewModel` init). **Not yet implemented:** manual "Save
+  to Cloud" button in Settings, on-Molt sync, any periodic/backgrounding push —
+  none of those exist yet (no Settings screen, no Molt). See open questions.
+- **Merge logic:** `domain/model/GameStateExtensions.kt#mergeGameStates` —
+  compares local vs. cloud `GameState`, higher `totalMolts` wins outright,
+  `estimatedNetWorth()` (liquid currency + what owned lairs cost to claim from
+  scratch) breaks ties within the same prestige count. The winner is loaded
+  into `GameEngine`, then re-saved to both Room and Supabase after offline
+  earnings settle.
+- **Offline earnings:** `GameState.lastSavedAt` (whichever save — local or
+  cloud — won the merge) feeds `GameEngine.applyOfflineEarnings()`, capped by
+  `offlineCapHours` (default 4h, upgradeable via game progression, not
+  implemented yet).
+- **Resilience:** every network step (sign-in, download, upload) in
+  `GameViewModel` is wrapped individually so a failure degrades to local-only
+  play instead of blocking or crashing — see `Log.w(TAG, ...)` call sites.
+- **Guest mode:** doesn't really exist as a separate mode anymore — anonymous
+  auth means every install gets cloud sync from the first launch (falling back
+  to local-only only if the network/Supabase call actually fails).
 
 ### Auth
 
 Supabase anonymous auth first — players start instantly with cloud sync/leaderboard
 eligibility from the first session. They can later link email/Google to carry
-progress across devices and reinstalls without losing anonymous-session progress.
+progress across devices and reinstalls without losing anonymous-session progress
+(linking not implemented yet — currently every install/reinstall is a brand new
+anonymous identity with no way to recover a previous one).
+
+**Project config:** `SUPABASE_URL` / `SUPABASE_ANON_KEY` live in `local.properties`
+(gitignored, not committed) and are exposed to the app via `BuildConfig` fields
+(`app/build.gradle.kts` reads `local.properties` at build time). A fresh clone
+needs these two lines added to its own `local.properties` before cloud sync will
+work — ask whoever has the Supabase project for the values, or create a new
+Supabase project and run the scripts in `/SQL` against it.
 
 ### Monetization
 
@@ -164,3 +199,10 @@ we'll pin these down as we build each system.
   with units owned only
 - Leaderboard scope (global hoard value? fastest Molt? per-lair records?)
 - Target device scope (phone-only vs. tablet/landscape support)
+- Cloud sync only happens once per app launch (right after anonymous sign-in);
+  no manual button, Molt trigger, or backgrounding push yet — a long session
+  with no restart won't push its progress to the cloud until it's closed and
+  reopened. Add more triggers once Settings/Molt exist.
+- Anonymous identity isn't recoverable — no email/Google linking yet, so a
+  reinstall or a cleared app means a brand new (empty) cloud identity, not a
+  restored one.
