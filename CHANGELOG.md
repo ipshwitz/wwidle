@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.5.1] - 2026-09-04 04:52 PM EDT
+
+- Rebalanced the whole lair economy to match AdVenture Capitalist's real
+  Earth Businesses: Kobold Warren through Troll Warren (tiers 0-9) now use
+  AdCap's actual Lemonade Stand → Oil Company costs, cost-growth rates, cycle
+  times, income, and manager prices 1:1 (gold pieces for dollars). Wyvern
+  Aerie through the Ancient Dragon's Hoard (tiers 10-13, beyond what Earth
+  has) extend the same ~12x-cost-per-tier and ~50%-income-to-cost patterns,
+  with gentler cycle-time growth since we don't have AdCap's repeated
+  prestige resets yet to claw long cycle times back down.
+- Matched AdCap's actual onboarding too: a new save now starts owning one
+  Kobold Warren already (instead of 0 lairs + a flat starting-gold grant),
+  mirroring AdCap's free starting Lemonade Stand.
+- Verified on an emulator: fresh install shows the exact expected numbers
+  (Giant Rat Burrow "Claim — 60 gp", Goblin Camp "Claim — 720 gp", etc.,
+  matching AdCap's published values), and plundering the starting Kobold
+  Warren correctly grants 1 gp.
+
 ## [0.5.0] - 2026-09-04 04:38 PM EDT
 
 - Added Supabase cloud sync: anonymous sign-in on launch, then downloads the

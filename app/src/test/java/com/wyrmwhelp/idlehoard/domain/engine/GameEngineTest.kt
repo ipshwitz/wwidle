@@ -19,9 +19,17 @@ class GameEngineTest {
     }
 
     @Test
+    fun `a new game starts owning one Kobold Warren and no gold`() {
+        val state = GameState()
+
+        assertEquals(0.0, state.goldPieces, 0.0001)
+        assertEquals(1, state.ownedLair("kobold_warren").count)
+    }
+
+    @Test
     fun `purchasing the first unit of a lair deducts its base cost`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
-        engine.loadState(GameState(goldPieces = lair.baseCostGp))
+        engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
 
         val purchased = engine.purchaseLair("kobold_warren")
 
@@ -32,7 +40,7 @@ class GameEngineTest {
 
     @Test
     fun `purchase fails when gold is insufficient`() {
-        engine.loadState(GameState(goldPieces = 0.0))
+        engine.loadState(GameState(goldPieces = 0.0, lairs = emptyMap()))
 
         val purchased = engine.purchaseLair("kobold_warren")
 
@@ -43,7 +51,7 @@ class GameEngineTest {
     @Test
     fun `unmanaged lair caps at one completed cycle awaiting collection`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
-        engine.loadState(GameState(goldPieces = lair.baseCostGp))
+        engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
         engine.purchaseLair("kobold_warren")
 
         // Advance far past several production cycles' worth of time in one tick.
@@ -57,7 +65,7 @@ class GameEngineTest {
     @Test
     fun `plundering a ready lair grants its income and resets the cycle`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
-        engine.loadState(GameState(goldPieces = lair.baseCostGp))
+        engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
         engine.purchaseLair("kobold_warren")
         engine.tick(lair.baseProductionSeconds)
 
@@ -71,7 +79,12 @@ class GameEngineTest {
     @Test
     fun `steward auto-collects every completed cycle without a tap`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
-        engine.loadState(GameState(goldPieces = lair.baseCostGp + lair.stewardCostGp))
+        engine.loadState(
+            GameState(
+                goldPieces = lair.baseCostGp + lair.stewardCostGp,
+                lairs = emptyMap(),
+            ),
+        )
         engine.purchaseLair("kobold_warren")
         engine.hireSteward("kobold_warren")
 
@@ -89,6 +102,7 @@ class GameEngineTest {
         engine.loadState(
             GameState(
                 goldPieces = lair.baseCostGp + lair.stewardCostGp,
+                lairs = emptyMap(),
                 offlineCapHours = 1.0,
                 lastSavedAt = lastSaved,
             ),

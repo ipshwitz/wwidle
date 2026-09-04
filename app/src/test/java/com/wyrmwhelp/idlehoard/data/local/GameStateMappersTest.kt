@@ -45,7 +45,10 @@ class GameStateMappersTest {
 
     @Test
     fun `a GameState with no owned lairs round-trips to an empty lairs map`() {
-        val original = GameState(lastSavedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS))
+        val original = GameState(
+            lairs = emptyMap(),
+            lastSavedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+        )
 
         val (stateEntity, lairEntities) = original.toEntities()
         val restored = stateEntity.toDomain(lairEntities)

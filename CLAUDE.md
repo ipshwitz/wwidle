@@ -39,7 +39,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.5.0** (Supabase cloud sync — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.5.1** (AdCap-derived economy rebalance — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -172,6 +172,13 @@ Free-to-play: rewarded ads (boosts, offline-earnings multipliers) + optional IAP
   auto-collects every completed cycle, online or offline. Whelps/Wyrms are a
   separate collectible/pet system layered on top of the lair economy (details
   TBD as we build it out — not yet started).
+- **Balance:** tiers 0–9 (Kobold Warren through Troll Warren) use AdVenture
+  Capitalist's real Earth Business numbers 1:1 (gold pieces standing in for
+  dollars) — see `CreatureLairCatalog`'s class doc for exactly which AdCap
+  business maps to which lair and how tiers 10–13 (D&D has no Earth
+  equivalent past Oil Company) extend the same cost/income patterns with a
+  tempered cycle-time curve. A new save starts owning one Kobold Warren
+  already (matching AdCap's free starting Lemonade Stand) with 0 gold.
 - **Prestige — Molt:** resets the current hoard/lairs in exchange for **Scale
   Shards**, a permanent-bonus currency that boosts all future runs.
 - **Art style:** vector/flat illustration, built with Compose (custom vector
@@ -192,8 +199,9 @@ we'll pin these down as we build each system.
   `ui/format/GoldFormat.kt` (K/M/B/T/Qa/... suffixes); `GameState.goldPieces`
   is still a raw `Double` underneath, which will need revisiting once the
   economy grows past what a `Double` represents precisely
-- Lair cost/income/timing balance in `CreatureLairCatalog` is a first-pass
-  guess, not playtested
+- Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
+  Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
+  our own extrapolation of the same patterns, still not playtested
 - Upgrade system (AdCap-style income multipliers per lair at ownership
   milestones) — not implemented; each lair's income currently scales linearly
   with units owned only

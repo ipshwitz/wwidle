@@ -38,7 +38,7 @@ class GameStateExtensionsTest {
         val lairId = "kobold_warren"
         val owned = OwnedLair(lairId = lairId, count = 3)
         val withLairs = GameState(goldPieces = 0.0, lairs = mapOf(lairId to owned))
-        val goldOnly = GameState(goldPieces = withLairs.estimatedNetWorth())
+        val goldOnly = GameState(goldPieces = withLairs.estimatedNetWorth(), lairs = emptyMap())
 
         // Same net worth either way — neither should "win" over the other.
         assertEquals(goldOnly.estimatedNetWorth(), withLairs.estimatedNetWorth(), 0.0001)

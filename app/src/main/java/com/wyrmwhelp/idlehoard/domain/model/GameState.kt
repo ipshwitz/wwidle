@@ -24,13 +24,15 @@ import java.time.Instant
  * @property totalMolts Number of times the player has Molted (prestiged).
  */
 data class GameState(
-    // Enough to claim the first Kobold Warren (10 gp) with a small buffer — a
-    // brand-new save with 0 gold could never claim anything, since every lair
-    // costs gold and only owned lairs produce it.
-    val goldPieces: Double = 25.0,
+    val goldPieces: Double = 0.0,
     val platinumPieces: Double = 0.0,
     val scaleShards: Long = 0,
-    val lairs: Map<String, OwnedLair> = emptyMap(),
+    // A brand-new save starts owning one Kobold Warren already — matching
+    // AdVenture Capitalist's own onboarding (a free first Lemonade Stand) —
+    // since 0 gold and 0 owned lairs would be a permanent dead end otherwise.
+    val lairs: Map<String, OwnedLair> = mapOf(
+        "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1),
+    ),
     val offlineCapHours: Double = 4.0,
     val lastSavedAt: Instant = Instant.now(),
     val totalMolts: Int = 0,
