@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.5.5] - 2026-09-04 06:58 PM EDT
+
+- Fixed the real bug behind two related reports ("the fill doesn't restart
+  from 0%, more like 25%" and "repeated tapping throws off the cycle
+  animation"): `GameEngine`'s tick loop measures `deltaSeconds` from the
+  *previous* tick regardless of when a plunder reset a cycle in between, so
+  every reset was immediately overshot by up to one full tick interval on the
+  very next tick. At the old 200ms interval that was a third of Kobold
+  Warren's 0.6s cycle — both symptoms were this same overshoot, just more
+  obvious the faster you cycle through resets. Shrunk `TICK_INTERVAL_MS` to
+  33ms, cutting the worst-case overshoot to ~5.5% (and under 2% for every
+  lair with a longer cycle) — small enough to read as a clean start.
+- Verified with two screen recordings sent for direct comparison: normal
+  cycling, and rapid repeated tapping on Kobold Warren (the fastest, most
+  exposed case). Confirmed via UI dump that rapid tapping doesn't cause
+  double-collection — gold accumulated exactly matches legitimate plunders
+  for the elapsed time.
+
 ## [0.5.4] - 2026-09-04 05:14 PM EDT
 
 - Fixed choppy lair-card fill animation: `GameEngine` only updates state

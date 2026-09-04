@@ -232,7 +232,17 @@ class GameEngine @Inject constructor() {
          * How often [start] advances production. Public so the UI can match its
          * progress-fill animation duration to this and avoid visibly stepping
          * between updates — see `LairCard`.
+         *
+         * Deliberately short: a tick's `deltaSeconds` is measured from the
+         * *previous* tick regardless of when a cycle reset (a plunder) happened
+         * in between, so any reset is immediately "overshot" by up to one full
+         * tick interval on the very next tick. At the old 200ms that was a third
+         * of Kobold Warren's 0.6s cycle — visibly skipping the start of the fill
+         * and, for fast cycles, making repeated taps look like they were
+         * corrupting the animation. At 33ms the same overshoot is ~5.5% of even
+         * that fastest cycle (and under 2% for every longer one) — small enough
+         * to read as a clean start.
          */
-        const val TICK_INTERVAL_MS = 200L
+        const val TICK_INTERVAL_MS = 33L
     }
 }
