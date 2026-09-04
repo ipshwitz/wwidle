@@ -25,7 +25,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.2.0** (GameEngine + Creature Lair data model — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.3.0** (GameViewModel + first Compose UI — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -43,6 +43,17 @@ These apply to every change made in this repo, however small:
   `androidx.core`/`androidx.core-ktx` past 1.17.x or `androidx.lifecycle-*`
   past 2.9.x without also bumping AGP — newer versions require compileSdk 37,
   which needs AGP 9.1.0+.
+- **Emulator screencap/screenrecord returns a blank frame on this host:** the
+  local Pixel_8 AVD (headless, `-no-window`) produces a byte-identical blank
+  white capture from both `adb shell screencap` and `screenrecord` regardless
+  of GPU mode (`swiftshader_indirect`, `angle_indirect`) or HWUI renderer
+  backend (`skiagl`) — a host/driver-level compositor bug, not an app bug.
+  The view hierarchy is still trustworthy: `adb shell uiautomator dump` (pull
+  with `adb pull //sdcard/window_dump.xml <path>`, double leading slash to
+  dodge Git Bash path mangling) reports real widget text/state and is the
+  reliable way to verify UI content from this environment until real
+  screenshots work again (try a different AVD system image, or verify on a
+  physical device/Android Studio instead).
 
 ## Tech stack & architecture
 
@@ -50,7 +61,11 @@ These apply to every change made in this repo, however small:
 
 - **Presentation (UI):** Jetpack Compose screens/composables. ViewModels expose
   `StateFlow` to the UI. `@HiltViewModel` throughout.
-  - `GameViewModel` — main game state, lair purchases, upgrades
+  - `GameViewModel` — implemented (`ui/game/GameViewModel.kt`): wraps
+    `GameEngine`, starts its tick loop and settles offline earnings once on
+    creation, exposes claim/hire-Steward/plunder actions. `GameScreen`/
+    `LairCard`/`WelcomeBackDialog` (`ui/game/`) are the first real screen,
+    wired up in `MainActivity` via `by viewModels()`.
   - `AuthViewModel` — Supabase auth
   - `SettingsViewModel` — user preferences
   - `ConsentViewModel` — privacy/ad consent
@@ -123,10 +138,10 @@ we'll pin these down as we build each system.
 - Full currency list (gold + premium currency name, any specialty currencies) —
   Gold Pieces and Platinum Pieces are wired into `GameState`, but Platinum has
   no spend sink yet (IAP/shop not built)
-- Large-number formatting convention (e.g. suffixes vs. scientific notation) —
-  `GameState.goldPieces` is a raw `Double` for now; late-game lair costs already
-  reach into the tens of billions, so this needs solving before a UI layer
-  displays it
+- Large-number formatting convention — first-pass answer landed in
+  `ui/format/GoldFormat.kt` (K/M/B/T/Qa/... suffixes); `GameState.goldPieces`
+  is still a raw `Double` underneath, which will need revisiting once the
+  economy grows past what a `Double` represents precisely
 - Lair cost/income/timing balance in `CreatureLairCatalog` is a first-pass
   guess, not playtested
 - Upgrade system (AdCap-style income multipliers per lair at ownership

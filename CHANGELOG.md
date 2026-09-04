@@ -3,6 +3,27 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.3.0] - 2026-09-04 03:40 PM EDT
+
+- Built `GameViewModel` (`@HiltViewModel`): starts `GameEngine`'s tick loop and
+  settles offline earnings once on first creation (never stops the engine in
+  `onCleared`, since it's an app-scoped singleton that outlives any one
+  screen), and exposes actions for claiming a lair, hiring a Steward, and
+  plundering a finished cycle.
+- Built the first real screen: `GameScreen`/`LairCard`/`WelcomeBackDialog`
+  (Compose, Material3) replacing the default template UI in `MainActivity`.
+  Shows the full lair list with owned count, claim/Steward-hire buttons,
+  production progress, and a "while you were away" dialog for offline
+  earnings.
+- Added `GoldFormat`, a first-pass large-number display formatter
+  (K/M/B/T/Qa/... suffixes) — a placeholder answer to the still-open
+  number-formatting question now that there's a UI to display gold in.
+- Verified via a full debug build + install on an Android emulator: confirmed
+  correct via the live accessibility-tree dump (exact expected lair names/
+  costs/owned counts present), though actual pixel screenshots were blocked
+  by a screencap/screenrecord bug on this host's emulator setup (see
+  CLAUDE.md build environment notes).
+
 ## [0.2.0] - 2026-09-03 08:28 PM EDT
 
 - Wired up Hilt + KSP (app-scoped DI) and connected the local repo to
