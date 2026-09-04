@@ -3,6 +3,22 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.5.3] - 2026-09-04 05:06 PM EDT
+
+- Redesigned the lair cards: more compact (tighter padding, smaller buttons,
+  trimmed the redundant status line), colored by a 5-band "rarity" ramp
+  across the catalog's tiers (green → blue → purple → orange → gold), and
+  translucent so the background art shows through every card, not just the
+  gaps between them.
+- The whole card is now the production-cycle timer: instead of a thin
+  progress strip, a same-colored fill grows left-to-right behind the text
+  from 0% to 100% of the cycle. At 100% (ready to plunder) the card is fully
+  "loaded" and tappable; tapping collects and the fill drains back to 0% to
+  start the next cycle, exactly mirroring the existing tap-gating logic (no
+  engine/ViewModel changes — this was a pure `LairCard` rewrite).
+- Verified visually on the emulator — screenshot tooling is working again
+  this session.
+
 ## [0.5.2] - 2026-09-04 04:59 PM EDT
 
 - Added the lair screen's background art: `assets/main-bg.png` (a fantasy

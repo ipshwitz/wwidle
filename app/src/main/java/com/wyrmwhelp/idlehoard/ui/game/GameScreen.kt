@@ -66,8 +66,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(viewModel.lairs, key = { it.id }) { lair ->
                     val owned = state.ownedLair(lair.id)
