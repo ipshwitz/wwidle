@@ -19,8 +19,12 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
 - **`/assets`** (repo root) holds source game assets — logos, background art,
   and other raw design files. This is separate from Android's own
   `app/src/main/assets` runtime-assets folder (for files bundled into the APK
-  and read via `AssetManager`); nothing lives there yet. Files land in
-  `/assets` before being turned into Compose-usable drawables/resources.
+  and read via `AssetManager`). Files land in `/assets` before being copied
+  into `app/src/main/res/drawable-nodpi/` (as-is, no density upscaling — for
+  single full-bleed art rather than density-bucketed icon sets) to actually
+  use from Compose. `main-bg.png` → `drawable-nodpi/main_bg.png` is the first
+  one in use: `GameScreen`'s background (behind a 50%-opacity white overlay so
+  the art doesn't fight with the lair list for attention).
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -39,7 +43,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.5.1** (AdCap-derived economy rebalance — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.5.2** (lair-screen background art — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -57,17 +61,15 @@ These apply to every change made in this repo, however small:
   `androidx.core`/`androidx.core-ktx` past 1.17.x or `androidx.lifecycle-*`
   past 2.9.x without also bumping AGP — newer versions require compileSdk 37,
   which needs AGP 9.1.0+.
-- **Emulator screencap/screenrecord returns a blank frame on this host:** the
-  local Pixel_8 AVD (headless, `-no-window`) produces a byte-identical blank
-  white capture from both `adb shell screencap` and `screenrecord` regardless
-  of GPU mode (`swiftshader_indirect`, `angle_indirect`) or HWUI renderer
-  backend (`skiagl`) — a host/driver-level compositor bug, not an app bug.
-  The view hierarchy is still trustworthy: `adb shell uiautomator dump` (pull
-  with `adb pull //sdcard/window_dump.xml <path>`, double leading slash to
-  dodge Git Bash path mangling) reports real widget text/state and is the
-  reliable way to verify UI content from this environment until real
-  screenshots work again (try a different AVD system image, or verify on a
-  physical device/Android Studio instead).
+- **Emulator screencap/screenrecord returned a blank frame on this host for
+  several sessions**, then started working again unexplained (same Pixel_8
+  AVD, `-no-window`, `swiftshader_indirect`) — likely a transient host/driver
+  compositor issue rather than anything fixable in-project. Don't assume
+  either state: try a real `screencap` first, and if it comes back
+  byte-identical to a previous blank capture (or a suspiciously round file
+  size), fall back to `adb shell uiautomator dump` (pull with
+  `adb pull //sdcard/window_dump.xml <path>`, double leading slash to dodge
+  Git Bash path mangling) to verify UI text/state instead.
 
 ## Tech stack & architecture
 

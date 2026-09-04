@@ -3,6 +3,21 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.5.2] - 2026-09-04 04:59 PM EDT
+
+- Added the lair screen's background art: `assets/main-bg.png` (a fantasy
+  village/castle landscape, signposted "Goblin Cave" and "Dragon Peak" —
+  thematically on the nose) now renders behind the lair list, copied into
+  `app/src/main/res/drawable-nodpi/main_bg.png` for actual use from Compose.
+  A 50%-opacity white overlay sits between the art and the UI so it stays
+  atmospheric without competing with the lair cards for attention. Both the
+  top bar and Scaffold background are transparent so the art shows through
+  everywhere, not just around the cards.
+- Verified visually on the emulator — screenshots that had been reliably
+  blank all session (see build environment notes) started working again
+  partway through this change, unexplained; confirmed the art and overlay
+  render correctly and the lair list/top bar are still fully legible on top.
+
 ## [0.5.1] - 2026-09-04 04:52 PM EDT
 
 - Rebalanced the whole lair economy to match AdVenture Capitalist's real
