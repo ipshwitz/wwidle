@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.20.2** (Kobold Warren, Giant Rat Burrow, and
-     Bugbear Warcamp get real creature portrait art in place of the
-     lettered placeholder disc — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.21.0** (a themed pop-up now announces every
+     milestone rung reached, naming the reward — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -658,6 +658,34 @@ These apply to every change made in this repo, however small:
     that don't pass one (existing tests, mainly) get the no-bonus default of
     1.0. `nextMilestoneThreshold(unitsOwned)` (smallest rung still ahead, or
     null past 10,000) is what `BuyQuantity.NEXT` targets.
+  - **Milestone-reached pop-up (v0.21.0)** — `GameStateExtensions.milestonesCrossed(lairId,
+    previousCount, catalog)` is the pure, unit-tested detection function: given
+    the *post*-purchase `GameState` plus the owned count *before* the
+    purchase, it returns every `MilestoneStep` rung actually crossed as a
+    `MilestoneAnnouncement(lairName, threshold, multiplier, isGlobal)` — this
+    lair's own individual rungs first (a bulk buy can jump straight past
+    several, e.g. 10→100 reports 25, 50, *and* 100), then any "Everything"
+    global rung this purchase newly unlocked by raising the catalog-wide
+    minimum (`lairName = "Everything"`, matching `UnlocksContent`'s own
+    grouping label). `GameViewModel.claimLair` snapshots the owned count
+    before calling `purchaseLairs`, then diffs against the post-purchase
+    state to build the list and hands it to `enqueueMilestoneAnnouncements` —
+    multiple rungs from one purchase queue up (`pendingMilestoneAnnouncements: ArrayDeque`)
+    and surface one at a time via `milestoneAnnouncement: StateFlow<MilestoneAnnouncement?>`,
+    each drained by `dismissMilestoneAnnouncement()`. `MilestoneReachedDialog.kt`
+    (`ui/game/`) is the pop-up itself — deliberately built as a near-copy of
+    `WelcomeBackDialog`'s chrome (plain `Dialog`, parchment gradient, carved
+    wood border, `open_chest` art for "a reward was just opened",
+    `GlowingGoldText` as the focal number, a `WoodenButton` to dismiss) rather
+    than inventing a second dialog look — shows "Kobold Warren — x100" / "2x
+    Speed" / "for this lair" (or "Everything" / "for every lair" for a global
+    rung). Copy is worded "x Speed" to match `UnlocksContent`'s existing
+    label for the same bonus — keep the two in sync if either wording
+    changes, since they describe the same `MILESTONE_STEPS` multiplier.
+    `GameScreen` collects `milestoneAnnouncement` and renders the dialog
+    exactly like `welcomeBackEarnings`. Only triggers off `claimLair`
+    (purchases) — milestones are ownership-count-based, not tick-based, so
+    nothing needs to watch the tick loop for this.
   - **`UnlocksContent`** (`ui/unlocks/UnlocksContent.kt`) — the Unlocks
     section's real content (see `SectionOverlayCard` above), redesigned in
     0.19.1: grouped by lair — a "Kobold Warren" header followed by a

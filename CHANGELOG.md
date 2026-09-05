@@ -3,6 +3,27 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.21.0] - 2026-09-05 7:04 PM EDT
+
+- Reaching an ownership milestone (25, 50, 100 owned of a lair, or the
+  "Everything" bonus once every lair has caught up) now pops up a themed
+  announcement naming which milestone was reached and its reward — e.g.
+  "Kobold Warren — x100, 2x Speed, for this lair" — instead of the bonus
+  only being visible later in the Unlocks screen. Styled to match the
+  game's existing cozy-fantasy pop-ups (parchment card, carved wood
+  border, treasure-chest art, glowing reward text, a wooden "Nice!"
+  button to dismiss).
+- A single big purchase that jumps past several rungs at once (e.g.
+  buying up from 10 to 100 owned crosses 25, 50, and 100 in one go) queues
+  each announcement and shows them one at a time rather than bundling
+  them into one pop-up.
+- Verified on the emulator: buying up Kobold Warren from 50 to 106 owned
+  correctly announced only the newly-crossed "x100" rung (not "x50" again,
+  already announced earlier), the dialog dismissed cleanly on "Nice!",
+  and gold/production continued unaffected afterward. The domain logic
+  for multi-rung purchases and the global "Everything" rung is covered by
+  new unit tests in `GameStateExtensionsTest.kt`.
+
 ## [0.20.2] - 2026-09-05 6:39 PM EDT
 
 - Kobold Warren, Giant Rat Burrow, and Bugbear Warcamp now show real

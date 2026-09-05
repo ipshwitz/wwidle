@@ -11,8 +11,10 @@ import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.engine.OfflineEarnings
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
+import com.wyrmwhelp.idlehoard.domain.model.MilestoneAnnouncement
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
+import com.wyrmwhelp.idlehoard.domain.model.milestonesCrossed
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
@@ -67,6 +69,14 @@ class GameViewModel @Inject constructor(
 
     private val _adUnavailableMessage = MutableStateFlow<String?>(null)
     val adUnavailableMessage: StateFlow<String?> = _adUnavailableMessage.asStateFlow()
+
+    private val _milestoneAnnouncement = MutableStateFlow<MilestoneAnnouncement?>(null)
+    val milestoneAnnouncement: StateFlow<MilestoneAnnouncement?> = _milestoneAnnouncement.asStateFlow()
+
+    // A single big purchase (e.g. buying MAX) can cross several rungs at
+    // once — held here and drained one at a time via
+    // dismissMilestoneAnnouncement rather than bundled into one pop-up.
+    private val pendingMilestoneAnnouncements = ArrayDeque<MilestoneAnnouncement>()
 
     // Not persisted — resets to X1 each launch, same as most idle games'
     // buy-quantity selector.
@@ -409,12 +419,37 @@ class GameViewModel @Inject constructor(
         _platinumAdMessage.value = null
     }
 
+    /**
+     * Buys this lair's current [BuyQuantity] and, if the purchase actually
+     * went through, checks whether it crossed any [MilestoneAnnouncement]
+     * rungs (this lair's own, or the global "Everything" one) by comparing
+     * owned count before vs. after — see [milestonesCrossed]. Any newly
+     * crossed rungs queue up behind [milestoneAnnouncement] for
+     * `GameScreen` to pop up one at a time.
+     */
     fun claimLair(lairId: String) {
         val lair = CreatureLairCatalog.get(lairId)
         val current = gameEngine.state.value
         val owned = current.ownedLair(lairId)
+        val previousCount = owned.count
         val quantity = _buyQuantity.value.resolve(lair, owned.count, current.goldPieces).coerceAtLeast(1)
-        gameEngine.purchaseLairs(lairId, quantity)
+        val purchased = gameEngine.purchaseLairs(lairId, quantity)
+        if (purchased > 0) {
+            enqueueMilestoneAnnouncements(gameEngine.state.value.milestonesCrossed(lairId, previousCount))
+        }
+    }
+
+    private fun enqueueMilestoneAnnouncements(announcements: List<MilestoneAnnouncement>) {
+        if (announcements.isEmpty()) return
+        pendingMilestoneAnnouncements.addAll(announcements)
+        if (_milestoneAnnouncement.value == null) {
+            _milestoneAnnouncement.value = pendingMilestoneAnnouncements.removeFirstOrNull()
+        }
+    }
+
+    /** Dismisses the currently shown milestone pop-up and reveals the next queued one, if any. */
+    fun dismissMilestoneAnnouncement() {
+        _milestoneAnnouncement.value = pendingMilestoneAnnouncements.removeFirstOrNull()
     }
 
     fun hireSteward(lairId: String) {

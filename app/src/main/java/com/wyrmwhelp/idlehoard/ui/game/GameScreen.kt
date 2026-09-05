@@ -27,6 +27,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val isOfflineEarningsDoubled by viewModel.isOfflineEarningsDoubled.collectAsStateWithLifecycle()
     val adUnavailableMessage by viewModel.adUnavailableMessage.collectAsStateWithLifecycle()
     val buyQuantity by viewModel.buyQuantity.collectAsStateWithLifecycle()
+    val milestoneAnnouncement by viewModel.milestoneAnnouncement.collectAsStateWithLifecycle()
 
     // The "Everything" milestone bonus — same compounding schedule as each
     // lair's own bonus, but keyed on the lowest owned count across all of
@@ -102,6 +103,13 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                 (context as? Activity)?.let { viewModel.watchAdToDoubleOfflineEarnings(it) }
             },
             onDismiss = viewModel::dismissWelcomeBack,
+        )
+    }
+
+    milestoneAnnouncement?.let { announcement ->
+        MilestoneReachedDialog(
+            announcement = announcement,
+            onDismiss = viewModel::dismissMilestoneAnnouncement,
         )
     }
 }

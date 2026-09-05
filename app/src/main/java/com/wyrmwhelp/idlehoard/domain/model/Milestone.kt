@@ -40,3 +40,17 @@ fun milestoneMultiplierFor(unitsOwned: Int): Double =
  */
 fun nextMilestoneThreshold(unitsOwned: Int): Int? =
     MILESTONE_STEPS.map { it.threshold }.firstOrNull { unitsOwned < it }
+
+/**
+ * One milestone rung actually reached by a purchase, ready to show the
+ * player as a pop-up (see `GameStateExtensions.milestonesCrossed` and
+ * `GameViewModel.milestoneAnnouncement`). [lairName] is either a specific
+ * lair's display name (an individual rung) or the literal "Everything" (a
+ * global rung) — the same two labels `UnlocksContent` already groups by.
+ */
+data class MilestoneAnnouncement(
+    val lairName: String,
+    val threshold: Int,
+    val multiplier: Double,
+    val isGlobal: Boolean,
+)
