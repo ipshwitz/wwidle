@@ -78,6 +78,11 @@ class GameViewModel @Inject constructor(
     private val _authMessage = MutableStateFlow<String?>(null)
     val authMessage: StateFlow<String?> = _authMessage.asStateFlow()
 
+    // Non-null while a signUp is waiting on the emailed verification code —
+    // drives Settings into the code-entry step instead of the sign-up form.
+    private val _pendingVerificationEmail = MutableStateFlow<String?>(null)
+    val pendingVerificationEmail: StateFlow<String?> = _pendingVerificationEmail.asStateFlow()
+
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
@@ -158,8 +163,16 @@ class GameViewModel @Inject constructor(
     }
 
     /**
-     * Upgrades the current guest session to a permanent account, keeping the
-     * same save (no merge needed — see [AuthRepository.signUp]).
+     * Starts upgrading the current guest session to a permanent account,
+     * keeping the same save (no merge needed — see [AuthRepository.signUp]).
+     * If the Supabase project requires email confirmation (the expected/
+     * recommended setup — see CLAUDE.md's Auth section, this is what makes
+     * the code-verification step below an actual anti-bot gate rather than
+     * a formality), this only *starts* the upgrade: [pendingVerificationEmail]
+     * is set and the caller must follow up with [verifySignUpCode]. If
+     * confirmation is disabled project-side, the upgrade is already
+     * complete by the time this returns — detected via [currentUserEmail]
+     * already being non-null — and no code step is needed at all.
      */
     fun signUp(email: String, password: String) {
         if (_isAuthActionInProgress.value) return
@@ -170,13 +183,15 @@ class GameViewModel @Inject constructor(
                 .onSuccess { userId ->
                     currentUserId = userId
                     val confirmedEmail = authRepository.currentUserEmail()
-                    _userEmail.value = confirmedEmail
-                    _authMessage.value = if (confirmedEmail == null) {
-                        "Account created — check your email to confirm it."
+                    if (confirmedEmail != null) {
+                        _userEmail.value = confirmedEmail
+                        _authMessage.value = "Account created!"
+                        syncToCloud()
                     } else {
-                        "Account created!"
+                        _pendingVerificationEmail.value = email
+                        _authMessage.value =
+                            "We emailed a verification code to $email — enter it below to finish creating your account."
                     }
-                    syncToCloud()
                 }
                 .onFailure { e ->
                     Log.w(TAG, "Sign up failed", e)
@@ -184,6 +199,53 @@ class GameViewModel @Inject constructor(
                 }
             _isAuthActionInProgress.value = false
         }
+    }
+
+    /** Completes a [signUp] upgrade with the code Supabase emailed to [pendingVerificationEmail]. */
+    fun verifySignUpCode(code: String) {
+        val email = _pendingVerificationEmail.value ?: return
+        if (_isAuthActionInProgress.value) return
+        viewModelScope.launch {
+            _isAuthActionInProgress.value = true
+            _authMessage.value = null
+            runCatching { authRepository.verifySignUpCode(email, code) }
+                .onSuccess { userId ->
+                    currentUserId = userId
+                    _userEmail.value = authRepository.currentUserEmail()
+                    _pendingVerificationEmail.value = null
+                    _authMessage.value = "Account verified!"
+                    syncToCloud()
+                }
+                .onFailure { e ->
+                    Log.w(TAG, "Sign up code verification failed", e)
+                    _authMessage.value =
+                        e.message?.takeIf { it.isNotBlank() } ?: "That code didn't work — check it and try again."
+                }
+            _isAuthActionInProgress.value = false
+        }
+    }
+
+    /** Re-sends the verification code for a [signUp] upgrade still pending [verifySignUpCode]. */
+    fun resendSignUpCode() {
+        val email = _pendingVerificationEmail.value ?: return
+        if (_isAuthActionInProgress.value) return
+        viewModelScope.launch {
+            _isAuthActionInProgress.value = true
+            _authMessage.value = null
+            runCatching { authRepository.resendSignUpCode(email) }
+                .onSuccess { _authMessage.value = "Sent a new code to $email." }
+                .onFailure { e ->
+                    Log.w(TAG, "Resend sign up code failed", e)
+                    _authMessage.value = e.message?.takeIf { it.isNotBlank() } ?: "Couldn't resend the code."
+                }
+            _isAuthActionInProgress.value = false
+        }
+    }
+
+    /** Backs out of a pending [signUp] verification (e.g. the player wants to redo the form). */
+    fun cancelSignUpVerification() {
+        _pendingVerificationEmail.value = null
+        _authMessage.value = null
     }
 
     /**

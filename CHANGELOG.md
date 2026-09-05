@@ -3,6 +3,44 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.16.0] - 2026-09-05 1:30 PM EDT
+
+- Sign-up now requires entering an emailed verification code before it
+  takes effect — a deliberate anti-bot/anti-spam gate on account creation,
+  not just an email-ownership nicety. After submitting the sign-up form,
+  Settings shows a code-entry step ("We emailed a verification code to
+  ... — enter it below to finish creating your account") with Verify,
+  Cancel, and a "Resend code" link, instead of the account being live
+  immediately.
+- `AuthRepository` gained `verifySignUpCode(email, code)` (calls Supabase's
+  `verifyEmailOtp` with the `EMAIL_CHANGE` OTP type — that's the correct
+  type here, not `SIGNUP`, since from Supabase's point of view the account
+  already exists as our anonymous user and we're just setting its
+  previously-empty email) and `resendSignUpCode(email)`. `GameViewModel`
+  gained matching `verifySignUpCode`/`resendSignUpCode`/
+  `cancelSignUpVerification` methods and a `pendingVerificationEmail`
+  state that drives Settings into the code-entry step.
+- Still gracefully handles a Supabase project with "Confirm email changes"
+  turned off: `signUp` checks whether the account is already fully
+  upgraded right after the initial call and skips the code step entirely
+  if so, exactly like before this change. The code step only appears when
+  Supabase actually held the upgrade pending a confirmation, which is the
+  setup you need for this to function as an anti-bot gate at all — noted
+  as a dashboard requirement in CLAUDE.md's Auth section, alongside the
+  existing rate-limit note from 0.15.0.
+- The code field doesn't hardcode a digit count (accepts any non-blank
+  input) since Supabase's OTP length is a project setting, not something
+  the app controls.
+- Verified the surrounding flow still works on the emulator (guest state,
+  Sign In form, error banner) after this refactor. Couldn't verify the
+  actual code-entry step end to end in this session — Supabase's own
+  email rate limit (hit during 0.15.0's testing) was still in effect, and
+  receiving/typing back a real emailed code isn't possible in this
+  environment anyway. The `verifyEmailOtp`/`EMAIL_CHANGE` type choice
+  matches Supabase's own documented anonymous-user-upgrade pattern, but
+  flagging that the exact server round trip is unverified rather than
+  claiming otherwise.
+
 ## [0.15.0] - 2026-09-05 1:19 PM EDT
 
 - Built the Settings screen's real content: an Account card (sign up, sign

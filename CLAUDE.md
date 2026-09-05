@@ -78,8 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.15.0** (Settings screen: sign up/in/out, automatic
-     + manual cloud sync, IAP gated to signed-in players — see
+   - Current version: **0.16.0** (sign-up now requires an emailed
+     verification code, an anti-bot gate on account creation — see
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -291,32 +291,60 @@ These apply to every change made in this repo, however small:
     the save syncs to; splitting that across two ViewModels would just mean
     passing the new user id back and forth. Same pure-display-plus-callbacks
     pattern as `StewardsContent`/`ShopContent` — takes `userEmail` (null
-    means guest), `isAuthActionInProgress`, `authMessage`, `isSyncing`,
-    `lastSyncedAt` plus `onSignUp`/`onSignIn`/`onSignOut`/`onSyncNow`/
-    `onDismissAuthMessage` callbacks, all wired straight to matching
-    `GameViewModel` methods in `MainActivity`. A guest sees a short intro
-    plus "Create Account"/"Sign In" buttons that reveal an inline
-    email/password form (Material `OutlinedTextField`, palette-tinted, not
-    a fully custom wooden field — the one place in the app using stock
-    Material input styling rather than a hand-drawn Canvas control); a
-    signed-in player sees their email and a "Sign Out" button instead. The
-    form collapses back to the two buttons immediately on submit
-    (optimistic) rather than waiting for the result — success and failure
-    both just show as an `authMessage` banner afterward, and a failed
-    attempt means tapping the button again to retry with fresh fields,
-    a deliberate simplicity trade-off over persisting the typed values
-    through a retry.
+    means guest), `pendingVerificationEmail`, `isAuthActionInProgress`,
+    `authMessage`, `isSyncing`, `lastSyncedAt` plus `onSignUp`/
+    `onVerifySignUpCode`/`onResendSignUpCode`/`onCancelSignUpVerification`/
+    `onSignIn`/`onSignOut`/`onSyncNow`/`onDismissAuthMessage` callbacks, all
+    wired straight to matching `GameViewModel` methods in `MainActivity`. A
+    guest sees a short intro plus "Create Account"/"Sign In" buttons that
+    reveal an inline email/password form (Material `OutlinedTextField`,
+    palette-tinted, not a fully custom wooden field — the one place in the
+    app using stock Material input styling rather than a hand-drawn Canvas
+    control); submitting "Create Account" transitions the card into a
+    third state — a verification-code entry step (`VerificationCodeForm`,
+    driven by `pendingVerificationEmail` being non-null — see the sign-up
+    bullet below for why this step exists) — instead of going straight to
+    signed-in; a fully signed-in player sees their email and a "Sign Out"
+    button. The email/password form collapses back to its two buttons
+    immediately on submit (optimistic) rather than waiting for the result
+    — success and failure both just show as an `authMessage` banner
+    afterward, and a failed attempt means tapping the button again to
+    retry with fresh fields, a deliberate simplicity trade-off over
+    persisting the typed values through a retry. The verification-code
+    form does *not* auto-collapse the same way — it stays open (with
+    Verify/Cancel buttons and a "Resend code" text link) until either the
+    code succeeds (`pendingVerificationEmail` goes back to null) or the
+    player cancels, so a wrong code doesn't force retyping the whole
+    email/password again.
   - **Account/sync on `GameViewModel`** — `userEmail: StateFlow<String?>`
-    (drives IAP gating — see Monetization), `authMessage`/
+    (drives IAP gating — see Monetization), `pendingVerificationEmail`
+    (drives Settings into the code-entry step), `authMessage`/
     `isAuthActionInProgress` for the sign-up/in/out forms,
     `lastSyncedAt`/`isSyncing` for the sync card. `signUp(email, password)`
     calls `AuthRepository.signUp`, which upgrades the *current* guest
     session in place via Supabase's `updateUser` (not `signUpWith`, which
     would create an unrelated new user) — same user id, same cloud save, no
-    merge needed; if the project requires email confirmation,
-    `currentUserEmail()` still reads null until confirmed, so
-    `authMessage` says "check your email" instead of treating the account
-    as live. `signIn(email, password)` calls `AuthRepository.signIn`
+    merge needed. **Sign-up is deliberately two-step, not one** — an
+    anti-bot/anti-spam gate on account creation, not just an
+    email-ownership nicety (added in 0.16.0 per an explicit user request):
+    `signUp` only *starts* the upgrade; if `currentUserEmail()` still reads
+    null right after (the expected case — see the Auth section's dashboard
+    requirement below), `pendingVerificationEmail` is set and the player
+    must call `verifySignUpCode(code)` — which calls
+    `AuthRepository.verifySignUpCode` (Supabase's `verifyEmailOtp` with the
+    `EMAIL_CHANGE` OTP type, not `SIGNUP` — from Supabase's point of view
+    the account already exists as our anonymous user and we're just
+    setting its previously-empty email, the same flow as a normal email
+    change) — before the account is actually live. `resendSignUpCode()`
+    (`AuthRepository.resendSignUpCode`, `auth.resendEmail(EMAIL_CHANGE,
+    email)`) and `cancelSignUpVerification()` (clears
+    `pendingVerificationEmail`, backs out to the plain guest buttons) round
+    out that step. If the Supabase project has email confirmation turned
+    *off* instead, `currentUserEmail()` is already non-null right after the
+    initial `signUp` call, and the whole code step is skipped — the account
+    is just live immediately, same as before 0.16.0 (though this defeats
+    the anti-bot purpose the feature exists for — see the Auth section).
+    `signIn(email, password)` calls `AuthRepository.signIn`
     (`auth.signInWith(Email)`) to switch to a *different*, already-existing
     account — a different user id — so `GameViewModel` downloads that
     account's cloud save and reconciles it against the current live state
@@ -607,12 +635,26 @@ Supabase project and run the scripts in `/SQL` against it.
 same as the existing "Enable Anonymous Sign-Ins" toggle):
 - Authentication > Sign In / Providers > Email must be enabled for
   `signUp`/`signIn` to work at all.
-- Authentication > Emails — whether "Confirm email" is required. If it is,
-  `signUp` succeeds but `currentUserEmail()` stays null (so the player
-  still reads as a guest, IAP still hidden) until they click the
-  confirmation link — `SettingsContent`'s `authMessage` tells them to check
-  their email in that case. Confirmation links use the project's default
-  Site URL (no deep-linking back into the app is configured).
+- **Authentication > Emails > "Confirm email changes" must be ON for the
+  0.16.0 sign-up verification-code gate to mean anything at all.** With it
+  on, `signUp` sends a code and `currentUserEmail()` stays null until
+  `verifySignUpCode` confirms it — the actual anti-bot gate. With it off,
+  Supabase applies the new email immediately with no code ever sent, and
+  `signUp` detects that (`currentUserEmail()` already non-null right after)
+  and skips the code step entirely — the account creation flow still
+  *works*, it just no longer blocks bots, defeating the point of the
+  feature. Check this setting if sign-up ever stops asking for a code.
+- **Authentication > Emails > "Change Email Address" template must
+  actually include `{{ .Token }}`** for the code shown to the player to
+  exist at all — this is the template that fires here (see the
+  `EMAIL_CHANGE` OTP type note above), and Supabase's default uses
+  `{{ .ConfirmationURL }}` (a magic link) instead, which would send a real
+  email with no visible code, leaving `VerificationCodeForm` waiting on
+  something that never arrives. Edit the template in the dashboard to
+  include the numeric token. The **code's length** is also a project
+  setting there (Supabase defaults to 6 digits; configurable) — the app
+  doesn't hardcode or validate a specific length, so any length works
+  without an app change.
 - Supabase enforces a low default **email rate limit** on its free tier
   (a handful of confirmation/recovery emails per hour) — hit this during
   this feature's own testing (see CHANGELOG 0.15.0) after a few `signUp`

@@ -53,11 +53,15 @@ import java.time.Instant
 @Composable
 fun SettingsContent(
     userEmail: String?,
+    pendingVerificationEmail: String?,
     isAuthActionInProgress: Boolean,
     authMessage: String?,
     isSyncing: Boolean,
     lastSyncedAt: Instant?,
     onSignUp: (email: String, password: String) -> Unit,
+    onVerifySignUpCode: (code: String) -> Unit,
+    onResendSignUpCode: () -> Unit,
+    onCancelSignUpVerification: () -> Unit,
     onSignIn: (email: String, password: String) -> Unit,
     onSignOut: () -> Unit,
     onSyncNow: () -> Unit,
@@ -72,8 +76,12 @@ fun SettingsContent(
         item {
             AccountCard(
                 userEmail = userEmail,
+                pendingVerificationEmail = pendingVerificationEmail,
                 isAuthActionInProgress = isAuthActionInProgress,
                 onSignUp = onSignUp,
+                onVerifySignUpCode = onVerifySignUpCode,
+                onResendSignUpCode = onResendSignUpCode,
+                onCancelSignUpVerification = onCancelSignUpVerification,
                 onSignIn = onSignIn,
                 onSignOut = onSignOut,
                 palette = palette,
@@ -121,8 +129,12 @@ private enum class AuthFormMode { SignUp, SignIn }
 @Composable
 private fun AccountCard(
     userEmail: String?,
+    pendingVerificationEmail: String?,
     isAuthActionInProgress: Boolean,
     onSignUp: (String, String) -> Unit,
+    onVerifySignUpCode: (String) -> Unit,
+    onResendSignUpCode: () -> Unit,
+    onCancelSignUpVerification: () -> Unit,
     onSignIn: (String, String) -> Unit,
     onSignOut: () -> Unit,
     palette: FantasyPalette,
@@ -148,6 +160,18 @@ private fun AccountCard(
                 onClick = onSignOut,
                 enabled = !isAuthActionInProgress,
                 colors = palette,
+            )
+            return@ParchmentCard
+        }
+
+        if (pendingVerificationEmail != null) {
+            VerificationCodeForm(
+                email = pendingVerificationEmail,
+                isSubmitting = isAuthActionInProgress,
+                onVerify = onVerifySignUpCode,
+                onResend = onResendSignUpCode,
+                onCancel = onCancelSignUpVerification,
+                palette = palette,
             )
             return@ParchmentCard
         }
@@ -187,6 +211,64 @@ private fun AccountCard(
                 palette = palette,
             )
         }
+    }
+}
+
+/**
+ * The code-entry step [signUp] transitions into once Supabase has emailed a
+ * verification code — a deliberate anti-bot/anti-spam gate on account
+ * creation, not just an email-ownership nicety (see `AuthRepository`'s class
+ * doc). Doesn't hardcode a digit count since the code length is a Supabase
+ * project setting (Authentication > Emails), not something this app
+ * controls — any non-blank input is submittable.
+ */
+@Composable
+private fun VerificationCodeForm(
+    email: String,
+    isSubmitting: Boolean,
+    onVerify: (String) -> Unit,
+    onResend: () -> Unit,
+    onCancel: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    var code by remember { mutableStateOf("") }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "We emailed a verification code to $email — enter it below to finish creating your account.",
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.ink.copy(alpha = 0.8f),
+        )
+        OutlinedTextField(
+            value = code,
+            onValueChange = { code = it },
+            label = { Text("Verification code") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = authFieldColors(palette),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            WoodenButton(
+                text = "Verify",
+                onClick = { onVerify(code) },
+                enabled = code.isNotBlank() && !isSubmitting,
+                colors = palette,
+            )
+            WoodenButton(
+                text = "Cancel",
+                onClick = onCancel,
+                enabled = !isSubmitting,
+                colors = palette,
+            )
+        }
+        Text(
+            text = "Resend code",
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.woodDark,
+            modifier = Modifier.clickable(enabled = !isSubmitting, onClick = onResend),
+        )
     }
 }
 

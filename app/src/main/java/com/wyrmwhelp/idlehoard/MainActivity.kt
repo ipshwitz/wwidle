@@ -54,6 +54,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
     val gameState by gameViewModel.gameState.collectAsStateWithLifecycle()
     val userEmail by gameViewModel.userEmail.collectAsStateWithLifecycle()
+    val pendingVerificationEmail by gameViewModel.pendingVerificationEmail.collectAsStateWithLifecycle()
     val isAuthActionInProgress by gameViewModel.isAuthActionInProgress.collectAsStateWithLifecycle()
     val authMessage by gameViewModel.authMessage.collectAsStateWithLifecycle()
     val isSyncing by gameViewModel.isSyncing.collectAsStateWithLifecycle()
@@ -101,11 +102,15 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                     {
                         SettingsContent(
                             userEmail = userEmail,
+                            pendingVerificationEmail = pendingVerificationEmail,
                             isAuthActionInProgress = isAuthActionInProgress,
                             authMessage = authMessage,
                             isSyncing = isSyncing,
                             lastSyncedAt = lastSyncedAt,
                             onSignUp = gameViewModel::signUp,
+                            onVerifySignUpCode = gameViewModel::verifySignUpCode,
+                            onResendSignUpCode = gameViewModel::resendSignUpCode,
+                            onCancelSignUpVerification = gameViewModel::cancelSignUpVerification,
                             onSignIn = gameViewModel::signIn,
                             onSignOut = gameViewModel::signOut,
                             onSyncNow = gameViewModel::syncNow,
