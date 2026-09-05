@@ -20,6 +20,7 @@ import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
+import com.wyrmwhelp.idlehoard.ui.settings.SettingsContent
 import com.wyrmwhelp.idlehoard.ui.shop.ShopContent
 import com.wyrmwhelp.idlehoard.ui.stewards.StewardsContent
 import com.wyrmwhelp.idlehoard.ui.theme.WyrmWhelpIdleHoardTheme
@@ -52,6 +53,11 @@ class MainActivity : ComponentActivity() {
 private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
     val gameState by gameViewModel.gameState.collectAsStateWithLifecycle()
+    val userEmail by gameViewModel.userEmail.collectAsStateWithLifecycle()
+    val isAuthActionInProgress by gameViewModel.isAuthActionInProgress.collectAsStateWithLifecycle()
+    val authMessage by gameViewModel.authMessage.collectAsStateWithLifecycle()
+    val isSyncing by gameViewModel.isSyncing.collectAsStateWithLifecycle()
+    val lastSyncedAt by gameViewModel.lastSyncedAt.collectAsStateWithLifecycle()
 
     BackHandler(enabled = openSection != null) { openSection = null }
 
@@ -84,9 +90,26 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             platinumPieces = gameState.platinumPieces,
                             speedBoostLevel = gameState.speedBoostLevel,
                             profitBoostLevel = gameState.profitBoostLevel,
+                            isSignedIn = userEmail != null,
                             onBuySpeedBoost = gameViewModel::purchaseSpeedBoost,
                             onBuyProfitBoost = gameViewModel::purchaseProfitBoost,
                             onBuyTimeSkip = gameViewModel::purchaseTimeSkip,
+                        )
+                    }
+                }
+                "Settings" -> {
+                    {
+                        SettingsContent(
+                            userEmail = userEmail,
+                            isAuthActionInProgress = isAuthActionInProgress,
+                            authMessage = authMessage,
+                            isSyncing = isSyncing,
+                            lastSyncedAt = lastSyncedAt,
+                            onSignUp = gameViewModel::signUp,
+                            onSignIn = gameViewModel::signIn,
+                            onSignOut = gameViewModel::signOut,
+                            onSyncNow = gameViewModel::syncNow,
+                            onDismissAuthMessage = gameViewModel::dismissAuthMessage,
                         )
                     }
                 }

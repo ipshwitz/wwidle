@@ -3,6 +3,7 @@ package com.wyrmwhelp.idlehoard.data.remote
 import com.wyrmwhelp.idlehoard.domain.repository.AuthRepository
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
 import javax.inject.Inject
 
 class SupabaseAuthRepository @Inject constructor(
@@ -19,4 +20,36 @@ class SupabaseAuthRepository @Inject constructor(
             "Anonymous sign-in completed but no user id was returned"
         }
     }
+
+    override suspend fun signUp(email: String, password: String): String {
+        // updateUser (not signUpWith) is what upgrades the *current* session's
+        // identity in place — signUpWith would create an unrelated new user.
+        supabaseClient.auth.updateUser {
+            this.email = email
+            this.password = password
+        }
+        return requireNotNull(supabaseClient.auth.currentUserOrNull()?.id) {
+            "Account upgrade completed but no user id was returned"
+        }
+    }
+
+    override suspend fun signIn(email: String, password: String): String {
+        supabaseClient.auth.signInWith(Email) {
+            this.email = email
+            this.password = password
+        }
+        return requireNotNull(supabaseClient.auth.currentUserOrNull()?.id) {
+            "Sign-in completed but no user id was returned"
+        }
+    }
+
+    override suspend fun signOut() {
+        supabaseClient.auth.signOut()
+    }
+
+    override fun currentUserEmail(): String? =
+        // Supabase returns "" (not null) for a guest's email, not just an
+        // absent field — normalize blank to null so callers have one clean
+        // signal for "this is a guest".
+        supabaseClient.auth.currentUserOrNull()?.email?.takeIf { it.isNotBlank() }
 }

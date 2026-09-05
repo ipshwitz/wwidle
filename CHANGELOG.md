@@ -3,6 +3,50 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.15.0] - 2026-09-05 1:19 PM EDT
+
+- Built the Settings screen's real content: an Account card (sign up, sign
+  in, sign out) and a Cloud Sync card (automatic every 5 minutes, plus a
+  manual "Sync Now" button).
+- `AuthRepository` gained `signUp`/`signIn`/`signOut`/`currentUserEmail`
+  alongside the existing `ensureSignedIn`. `signUp` upgrades the current
+  guest (anonymous) session to a permanent email/password account in place
+  via Supabase's `updateUser` — same user id, same cloud save, no merge
+  needed. `signIn` switches to a different, already-existing account (a
+  different user id), so `GameViewModel` reconciles local vs. that
+  account's cloud save with the existing `mergeGameStates` logic (the same
+  merge used on launch). `signOut` drops the session and immediately
+  re-establishes a fresh guest one, syncing the outgoing account's cloud
+  row one last time first so nothing played under it is lost — local play
+  is never interrupted either way.
+- `GameViewModel` now owns this account/sync state directly (no separate
+  `AuthViewModel` — the two are tightly coupled) — `userEmail` (null means
+  guest), `authMessage` (surfaces both errors like "Invalid login
+  credentials" and neutral notices like "check your email to confirm"),
+  `lastSyncedAt`/`isSyncing` for the sync card. Cloud sync now also runs on
+  a repeating 5-minute timer, not just once per launch.
+- Fixed a real bug found while testing this: Supabase returns `""` (not
+  null) for a guest's email, which was tricking the "is this a guest"
+  check into treating every guest as signed in. `AuthRepository.currentUserEmail()`
+  now normalizes blank to null.
+- IAP visibility gated on sign-in per design: the Shop's "Earn Platinum"
+  section (watch an ad / buy outright) now only shows for signed-in
+  players — guests see an explanatory note instead ("keeps real-money
+  purchases tied to an account you can recover, not a guest identity
+  that's lost on reinstall"). The Boosts section (spending Platinum
+  already owned) is unaffected — that's not a real-money purchase.
+- Verified on the emulator: fresh guest correctly shows the guest copy and
+  hides Earn Platinum in the Shop; the sign-up/sign-in forms validate
+  input, submit, and correctly show the collapsed-optimistic-submit +
+  banner-message pattern; a bad Sign In attempt correctly surfaces
+  "Invalid login credentials" from Supabase; Sync Now correctly updates
+  "Last synced". A full Create Account attempt hit Supabase's own email
+  rate limit (expected — this project's test account had already sent a
+  few confirmation emails during this same testing session) and a full
+  sign-in-after-email-confirmation round trip couldn't be verified end to
+  end since that requires a real inbox this environment doesn't have —
+  noted here rather than claimed as verified.
+
 ## [0.14.0] - 2026-09-05 12:17 PM EDT
 
 - Platinum Pieces now have a real spend path: permanent, account-wide

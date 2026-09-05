@@ -78,8 +78,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.14.0** (permanent Speed/Profit boosts and Time Skip
-     — Platinum Pieces' real spend path — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.15.0** (Settings screen: sign up/in/out, automatic
+     + manual cloud sync, IAP gated to signed-in players — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -281,9 +282,63 @@ These apply to every change made in this repo, however small:
     on it. Clips to the card's own rounded-rect bounds like everything else
     in that `Box` — coins bursting past the edge just get clipped there,
     which reads fine at this card size and duration (~650ms).
-  - `AuthViewModel` — Supabase auth
-  - `SettingsViewModel` — user preferences
-  - `ConsentViewModel` — privacy/ad consent
+  - **`SettingsContent`** (`ui/settings/SettingsContent.kt`) — the Settings
+    section's real content: an Account card (sign up/in/out) and a Cloud
+    Sync card (automatic-every-5-minutes note, last-synced time, manual
+    "Sync Now"). No separate `AuthViewModel`/`SettingsViewModel` exists —
+    this account/sync state all lives directly on `GameViewModel` (see its
+    class doc), since signing in or out directly changes which cloud row
+    the save syncs to; splitting that across two ViewModels would just mean
+    passing the new user id back and forth. Same pure-display-plus-callbacks
+    pattern as `StewardsContent`/`ShopContent` — takes `userEmail` (null
+    means guest), `isAuthActionInProgress`, `authMessage`, `isSyncing`,
+    `lastSyncedAt` plus `onSignUp`/`onSignIn`/`onSignOut`/`onSyncNow`/
+    `onDismissAuthMessage` callbacks, all wired straight to matching
+    `GameViewModel` methods in `MainActivity`. A guest sees a short intro
+    plus "Create Account"/"Sign In" buttons that reveal an inline
+    email/password form (Material `OutlinedTextField`, palette-tinted, not
+    a fully custom wooden field — the one place in the app using stock
+    Material input styling rather than a hand-drawn Canvas control); a
+    signed-in player sees their email and a "Sign Out" button instead. The
+    form collapses back to the two buttons immediately on submit
+    (optimistic) rather than waiting for the result — success and failure
+    both just show as an `authMessage` banner afterward, and a failed
+    attempt means tapping the button again to retry with fresh fields,
+    a deliberate simplicity trade-off over persisting the typed values
+    through a retry.
+  - **Account/sync on `GameViewModel`** — `userEmail: StateFlow<String?>`
+    (drives IAP gating — see Monetization), `authMessage`/
+    `isAuthActionInProgress` for the sign-up/in/out forms,
+    `lastSyncedAt`/`isSyncing` for the sync card. `signUp(email, password)`
+    calls `AuthRepository.signUp`, which upgrades the *current* guest
+    session in place via Supabase's `updateUser` (not `signUpWith`, which
+    would create an unrelated new user) — same user id, same cloud save, no
+    merge needed; if the project requires email confirmation,
+    `currentUserEmail()` still reads null until confirmed, so
+    `authMessage` says "check your email" instead of treating the account
+    as live. `signIn(email, password)` calls `AuthRepository.signIn`
+    (`auth.signInWith(Email)`) to switch to a *different*, already-existing
+    account — a different user id — so `GameViewModel` downloads that
+    account's cloud save and reconciles it against the current live state
+    via `mergeGameStates` (the same merge used on launch), then re-uploads
+    the merged result. `signOut()` syncs the outgoing account's cloud row
+    one last time, calls `AuthRepository.signOut`, then immediately calls
+    `ensureSignedIn()` again to re-establish a fresh guest session — local
+    play is never interrupted, only the cloud identity changes (a signed-
+    out account's cloud row is untouched afterward; the next guest gets a
+    brand-new empty one, consistent with the existing "reinstall = new
+    anonymous identity" design). Cloud sync now also runs on a repeating
+    5-minute timer (`runCloudSyncLoop`, alongside the existing 30s local
+    `runAutosaveLoop` — the two run as separate concurrent coroutines under
+    `viewModelScope`, not chained, since both are infinite loops), in
+    addition to the existing once-per-launch sync and the Settings screen's
+    manual "Sync Now" button — all three funnel through one private
+    `syncToCloud()`.
+  - **Found while building this:** Supabase returns `""` (not null) for a
+    guest's email — `AuthRepository.currentUserEmail()` normalizes blank to
+    null so "is this a guest" has one clean signal. Don't assume a Supabase
+    string field is null just because it's logically absent; check for
+    blank too.
   - **No Navigation Compose** — tried it first (type-safe routes,
     `NavController`/`NavHost`), then removed it: every `FloatingMenu` section
     is a card that slides up over the still-mounted game rather than a
@@ -534,10 +589,12 @@ These apply to every change made in this repo, however small:
 ### Auth
 
 Supabase anonymous auth first — players start instantly with cloud sync/leaderboard
-eligibility from the first session. They can later link email/Google to carry
-progress across devices and reinstalls without losing anonymous-session progress
-(linking not implemented yet — currently every install/reinstall is a brand new
-anonymous identity with no way to recover a previous one).
+eligibility from the first session. They can now link email/password to carry
+progress across devices and reinstalls without losing anonymous-session
+progress — see `GameViewModel.signUp`/`signIn`/`signOut` and
+`ui/settings/SettingsContent.kt` above. Google/OAuth linking specifically is
+still not implemented, only email/password (no extra SDK/manifest setup
+needed for that, unlike OAuth's redirect handling).
 
 **Project config:** `SUPABASE_URL` / `SUPABASE_ANON_KEY` live in `local.properties`
 (gitignored, not committed) and are exposed to the app via `BuildConfig` fields
@@ -545,6 +602,23 @@ anonymous identity with no way to recover a previous one).
 needs these two lines added to its own `local.properties` before cloud sync will
 work — ask whoever has the Supabase project for the values, or create a new
 Supabase project and run the scripts in `/SQL` against it.
+
+**Dashboard-only settings this feature depends on** (not covered by `/SQL`,
+same as the existing "Enable Anonymous Sign-Ins" toggle):
+- Authentication > Sign In / Providers > Email must be enabled for
+  `signUp`/`signIn` to work at all.
+- Authentication > Emails — whether "Confirm email" is required. If it is,
+  `signUp` succeeds but `currentUserEmail()` stays null (so the player
+  still reads as a guest, IAP still hidden) until they click the
+  confirmation link — `SettingsContent`'s `authMessage` tells them to check
+  their email in that case. Confirmation links use the project's default
+  Site URL (no deep-linking back into the app is configured).
+- Supabase enforces a low default **email rate limit** on its free tier
+  (a handful of confirmation/recovery emails per hour) — hit this during
+  this feature's own testing (see CHANGELOG 0.15.0) after a few `signUp`
+  attempts in a row. Shows up as `AuthRestException: email rate limit
+  exceeded`, surfaced correctly as an `authMessage` — not an app bug, but
+  worth knowing before assuming repeated sign-up testing is broken.
 
 ### Monetization
 
@@ -558,7 +632,13 @@ UI home yet. The Shop section (`ui/shop/ShopContent.kt`, reachable from
 (permanent Speed/Profit boosts and repeatable Time Skips — see the Boosts
 bullet under Tech stack above), and "watch an ad" / "buy outright" earn
 entry points, both still disabled ("Soon") since neither ads nor billing are
-integrated yet. See Open Questions for what's still missing.
+integrated yet. **Both earn entry points are now hidden entirely for guests**
+(`ShopContent`'s `isSignedIn` param, wired from `GameViewModel.userEmail != null`
+in `MainActivity`) — a guest sees an explanatory note instead of the
+disabled buttons. Real-money purchases should be tied to a recoverable
+account, not an anonymous identity that's lost on reinstall; the Boosts
+section above it is unaffected since spending Platinum already owned isn't
+a real-money transaction. See Open Questions for what's still missing.
 
 ## Core game design
 
@@ -634,10 +714,18 @@ we'll pin these down as we build each system.
   about a separate, player-chosen upgrade purchase on top of those
 - Leaderboard scope (global hoard value? fastest Level Up? per-lair records?)
 - Target device scope (phone-only vs. tablet/landscape support)
-- Cloud sync only happens once per app launch (right after anonymous sign-in);
-  no manual button, Level Up trigger, or backgrounding push yet — a long
-  session with no restart won't push its progress to the cloud until it's
-  closed and reopened. Add more triggers once Settings/Level Up exist.
-- Anonymous identity isn't recoverable — no email/Google linking yet, so a
-  reinstall or a cleared app means a brand new (empty) cloud identity, not a
-  restored one.
+- Cloud sync now happens on launch, every 5 minutes, on sign-up/sign-in, and
+  via a manual "Sync Now" button (see the Account/sync bullet under Tech
+  stack) — no Level Up or app-backgrounding trigger yet (Level Up isn't
+  built; a backgrounding push would need a lifecycle observer that doesn't
+  exist yet either).
+- Anonymous identity is now recoverable via email/password linking
+  (`GameViewModel.signUp`/`signIn` — see the Auth section) — Google/OAuth
+  linking specifically is still not implemented. A guest who never creates
+  an account still loses their identity on reinstall, unchanged from
+  before.
+- `lastSyncedAt`/`isSyncing` (Settings' sync card) reset on every app
+  relaunch — not persisted, same category of simplification as
+  `BuyQuantity` resetting to `X1` each launch. The *actual* synced data is
+  obviously still saved for real; only the UI's "when did this last happen"
+  display forgets between sessions.

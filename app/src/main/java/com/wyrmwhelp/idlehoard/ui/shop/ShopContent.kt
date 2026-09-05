@@ -38,18 +38,20 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 /**
  * The "Shop" section's real content: the player's current Platinum Pieces
  * balance, the permanent Boosts Platinum actually buys (Speed, Profit, Time
- * Skip — see `domain/model/Boosts.kt`), then the two ways to earn more
- * Platinum — watching a rewarded ad or buying it outright (IAP) — both shown
- * as disabled `WoodenButton`s with a "Coming soon" note, since neither ads
- * nor billing are wired up yet. Pure display plus three purchase callbacks —
- * takes state passed in by `MainActivity`'s `WyrmWhelpApp` (which already
- * holds the `GameViewModel` reference) rather than taking a ViewModel itself.
+ * Skip — see `domain/model/Boosts.kt`), then — only for signed-in players,
+ * see [isSignedIn] — the two ways to earn more Platinum: watching a rewarded
+ * ad or buying it outright (IAP), both shown as disabled `WoodenButton`s
+ * with a "Coming soon" note since neither ads nor billing are wired up yet.
+ * Pure display plus three purchase callbacks — takes state passed in by
+ * `MainActivity`'s `WyrmWhelpApp` (which already holds the `GameViewModel`
+ * reference) rather than taking a ViewModel itself.
  */
 @Composable
 fun ShopContent(
     platinumPieces: Double,
     speedBoostLevel: Int,
     profitBoostLevel: Int,
+    isSignedIn: Boolean,
     onBuySpeedBoost: () -> Unit,
     onBuyProfitBoost: () -> Unit,
     onBuyTimeSkip: () -> Unit,
@@ -96,19 +98,33 @@ fun ShopContent(
             )
         }
         item { SectionLabel(text = "Earn Platinum", palette = palette) }
-        item {
-            EarnMethodRow(
-                title = "Watch an Ad",
-                description = "Earn a few free Platinum Pieces by watching a short video.",
-                palette = palette,
-            )
-        }
-        item {
-            EarnMethodRow(
-                title = "Buy Platinum Pieces",
-                description = "Purchase Platinum Pieces with real money.",
-                palette = palette,
-            )
+        if (isSignedIn) {
+            item {
+                EarnMethodRow(
+                    title = "Watch an Ad",
+                    description = "Earn a few free Platinum Pieces by watching a short video.",
+                    palette = palette,
+                )
+            }
+            item {
+                EarnMethodRow(
+                    title = "Buy Platinum Pieces",
+                    description = "Purchase Platinum Pieces with real money.",
+                    palette = palette,
+                )
+            }
+        } else {
+            item {
+                ParchmentCard(palette = palette) {
+                    Text(
+                        text = "Sign in under Settings to earn or buy Platinum Pieces. This keeps " +
+                            "real-money purchases tied to an account you can recover, not a guest " +
+                            "identity that's lost on reinstall.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = palette.ink.copy(alpha = 0.8f),
+                    )
+                }
+            }
         }
     }
 }
