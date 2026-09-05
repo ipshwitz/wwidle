@@ -66,8 +66,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.7.4** (custom crossed-swords `CloseButton` replacing
-     `Icons.Default.Close` — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.7.5** (`CloseButton` resized to match the header
+     sign's height and straddle the card edge the same way — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -185,8 +186,19 @@ These apply to every change made in this repo, however small:
   - **`CloseButton`** (`ui/common/CloseButton.kt`) — the app's standard close
     control: crossed swords in a wooden ring (`x.png`), not a Material icon
     glyph. Use this for every "close this overlay/dialog" affordance going
-    forward instead of `Icons.Default.Close` — currently used by
-    `SectionOverlayCard`'s top-right dismiss button.
+    forward instead of `Icons.Default.Close`. Takes a `size: Dp` (default
+    32.dp) and renders as a plain clickable `Image`, not `IconButton` —
+    `IconButton` clips content to its own fixed 40dp touch-target box, which
+    silently cropped the button when `SectionOverlayCard` sized it up to
+    `SIGN_HEADER_HEIGHT` (135dp) to match the header sign. In
+    `SectionOverlayCard` it's sized and positioned exactly like the header:
+    same height, anchored to the very top of the surrounding box so it
+    straddles the card edge the same way (half over the scrim, half over the
+    card). Because the sign is centered but this square button now eats a
+    big chunk of the top-right corner, the sign is shifted left off dead-center
+    (`offset(x = -(SIGN_HEADER_HEIGHT / 2 + 8.dp))`) so the two don't overlap
+    and clip the label — keep that offset in sync if either element's size
+    changes.
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt.
 - **Data:**

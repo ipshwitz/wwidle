@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.7.5] - 2026-09-04 11:01 PM EDT
+
+- Resized the `CloseButton` in `SectionOverlayCard` to match the header sign's
+  height, and positioned it to straddle the card's top edge the same way as
+  the sign (half over the scrim, half over the card) instead of sitting as a
+  small icon fully inside the card.
+- `CloseButton` now renders as a plain clickable `Image` instead of an
+  `IconButton` — `IconButton` clips content to its own fixed 40dp
+  touch-target box, which was silently cropping the button at the larger
+  size. Added a `size` parameter (defaults to 32dp) so other call sites can
+  keep the old small size.
+- The header sign is now shifted left off dead-center so the enlarged close
+  button doesn't overlap and clip the section title — caught from a
+  screenshot showing "Help & Social" cut off behind the swords icon.
+- Verified visually and functionally on the emulator: both elements now
+  match heights and straddle the edge identically, the label is fully
+  readable, and the close button still dismisses the card correctly.
+
 ## [0.7.4] - 2026-09-04 10:54 PM EDT
 
 - Replaced the Material "X" glyph (`Icons.Default.Close`) used to dismiss

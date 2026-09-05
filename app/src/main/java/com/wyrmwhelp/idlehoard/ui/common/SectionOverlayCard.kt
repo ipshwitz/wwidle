@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -155,18 +156,26 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
                         painter = painterResource(headerImageRes),
                         contentDescription = lastTitle,
                         contentScale = ContentScale.Fit,
+                        // Shifted left off dead-center so the now-header-sized CloseButton
+                        // (also anchored to the top edge, over at TopEnd) has room at the
+                        // top-right without the two overlapping and clipping the label.
                         modifier = Modifier
                             .align(Alignment.TopCenter)
+                            .offset(x = -(SIGN_HEADER_HEIGHT / 2 + 8.dp))
                             .width(SIGN_HEADER_WIDTH)
                             .aspectRatio(SIGN_ASPECT_RATIO),
                     )
                 }
 
+                // Sized and positioned like the sign header: same height, aligned to
+                // the very top of this (taller) Box so it straddles the card edge the
+                // same way — top half over the scrim, bottom half over the surface.
                 CloseButton(
                     onClick = onDismiss,
+                    size = SIGN_HEADER_HEIGHT,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(8.dp),
+                        .padding(end = 8.dp),
                 )
             }
         }
