@@ -3,6 +3,18 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.6.3] - 2026-09-04 09:43 PM EDT
+
+- Fixed the white box behind the chest icons: it wasn't coming from the PNGs
+  (both are properly transparent now) — Material3's `FloatingActionButton`
+  always draws its own solid container and shadow underneath its content,
+  regardless of what's inside it. Swapped it for a plain transparent-
+  background `IconButton`, so only the chest art itself is visible, floating
+  directly on the background art.
+- Verified functionally via `uiautomator` (toggle still flips correctly, menu
+  still opens) — the emulator's screencap bug was back this session and
+  didn't clear even after a restart, so no fresh screenshot this round.
+
 ## [0.6.2] - 2026-09-04 09:37 PM EDT
 
 - Re-synced `drawable-nodpi/open_chest.png` with the now-transparent

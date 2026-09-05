@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,12 +45,15 @@ val floatingMenuItems: List<String> = listOf(
 )
 
 /**
- * A hamburger-style FAB fixed at the bottom of the screen that expands
+ * A hamburger-style toggle fixed at the bottom of the screen that expands
  * upward into a vertical stack of tappable sections — evoking the wooden
- * trail signpost in the background art. The FAB itself toggles between
- * `closed_chest`/`open_chest` art depending on [expanded]. Each item is its
- * own container for now (plain labeled surfaces); swap in per-item art later
- * without changing this shell.
+ * trail signpost in the background art. The toggle is a plain
+ * (transparent-background) `IconButton`, not a Material `FloatingActionButton`
+ * — a FAB always draws its own solid container/shadow, which would show as a
+ * box behind the chest art instead of letting the art float directly on the
+ * background. It swaps between `closed_chest`/`open_chest` art depending on
+ * [expanded]. Each item is its own container for now (plain labeled
+ * surfaces); swap in per-item art later without changing this shell.
  */
 @Composable
 fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier) {
@@ -103,13 +106,16 @@ fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier
                 }
             }
 
-            FloatingActionButton(onClick = { expanded = !expanded }) {
+            IconButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.size(72.dp),
+            ) {
                 Image(
                     painter = painterResource(
                         if (expanded) R.drawable.open_chest else R.drawable.closed_chest,
                     ),
                     contentDescription = if (expanded) "Close menu" else "Open menu",
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(64.dp),
                 )
             }
         }

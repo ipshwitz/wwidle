@@ -47,7 +47,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.6.2** (transparent open-chest art — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.6.3** (removed FAB container box — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -114,8 +114,11 @@ These apply to every change made in this repo, however small:
     not-yet-built section) are the only routes so far. `MainActivity`'s
     `WyrmWhelpApp` composable owns the single `NavController`/`NavHost`.
   - **`FloatingMenu`** (`ui/menu/FloatingMenu.kt`) — the app-wide hamburger
-    FAB, fixed bottom-center, overlaid *above* the `NavHost` in `MainActivity`
-    (not per-screen) so it persists across navigation. The FAB itself shows
+    toggle, fixed bottom-center, overlaid *above* the `NavHost` in
+    `MainActivity` (not per-screen) so it persists across navigation. The
+    toggle is a transparent-background `IconButton`, not a Material
+    `FloatingActionButton` — a FAB always draws its own solid container/
+    shadow, which showed as a box behind the chest art. It shows
     `closed_chest`/`open_chest` art (swapped based on `expanded`) instead of a
     generic menu glyph. Expands upward into a vertical stack of tappable
     "plank" containers, one per `floatingMenuItems` entry (currently: Help &
