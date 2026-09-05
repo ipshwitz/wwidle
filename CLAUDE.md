@@ -78,8 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.18.0** (Shop's "Watch an Ad" is real now — 2
-     Platinum Pieces, once every 24 hours — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.18.1** (Shop's "Watch an Ad" opened to guests
+     too, not just signed-in players — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -752,10 +752,11 @@ test-device safeguard that must stay in debug builds):
 - **Welcome Back "Watch Ad to Double"** (live, 0.17.0) — doubles the
   offline-earnings amount shown in the "While You Were Away…" dialog. Ad
   unit id `ca-app-pub-1913393601233746/1494731799`.
-- **Shop "Watch an Ad"** (live, 0.18.0) — earns 2 Platinum Pieces, once
-  every 24 hours (cooldown tracked on the save itself, not ad-network- or
-  device-side — see the "Shop's Watch an Ad" bullet under Tech stack). Ad
-  unit id `ca-app-pub-1913393601233746/9425192707`.
+- **Shop "Watch an Ad"** (live, 0.18.0; open to guests since 0.18.1) —
+  earns 2 Platinum Pieces, once every 24 hours (cooldown tracked on the
+  save itself, not ad-network- or device-side — see the "Shop's Watch an
+  Ad" bullet under Tech stack). Ad unit id
+  `ca-app-pub-1913393601233746/9425192707`.
 
 The premium currency is `GameState.platinumPieces` (labeled "pp" in the
 UI) — no separate "Jewels" or other premium currency was added; platinum
@@ -765,17 +766,17 @@ own doc comment, it just didn't have a UI home yet. The Shop section
 — a balance display, the real spend path (permanent Speed/Profit boosts
 and repeatable Time Skips — see the Boosts bullet under Tech stack above),
 the real ad-earn path described above, and "buy outright" (IAP), still a
-disabled "Soon" placeholder since billing isn't integrated yet. **Both
-earn entry points are hidden entirely for guests** (`ShopContent`'s
-`isSignedIn` param, wired from `GameViewModel.userEmail != null` in
-`MainActivity`) — a guest sees an explanatory note instead, including for
-the now-functional "Watch an Ad" (a guest could otherwise farm Platinum
-under a disposable identity with nothing to lose, undermining the whole
-point of gating real-money-adjacent rewards to a recoverable account).
-Real-money purchases should be tied to a recoverable account, not an
-anonymous identity that's lost on reinstall; the Boosts section above it
-is unaffected since spending Platinum already owned isn't a real-money
-transaction. See Open Questions for what's still missing.
+disabled "Soon" placeholder since billing isn't integrated yet.
+**Only "Buy Platinum Pieces" (real money) is hidden for guests** — as of
+0.18.1, "Watch an Ad" is open to everyone, guests included: it earns no
+real money, so a guest losing that Platinum on reinstall isn't the kind of
+loss the sign-in gate exists to prevent. "Buy Platinum Pieces" stays
+behind `ShopContent`'s `isSignedIn` param (wired from
+`GameViewModel.userEmail != null` in `MainActivity`) — a guest sees an
+explanatory note there instead, since *that* purchase is real money and
+should stay tied to a recoverable account. The Boosts section is
+unaffected either way since spending Platinum already owned isn't a
+real-money transaction. See Open Questions for what's still missing.
 
 ## Core game design
 

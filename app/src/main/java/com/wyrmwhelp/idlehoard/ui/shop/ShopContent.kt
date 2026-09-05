@@ -42,11 +42,14 @@ import java.time.Duration
 /**
  * The "Shop" section's real content: the player's current Platinum Pieces
  * balance, the permanent Boosts Platinum actually buys (Speed, Profit, Time
- * Skip — see `domain/model/Boosts.kt`), then — only for signed-in players,
- * see [isSignedIn] — the two ways to earn more Platinum: a real rewarded-ad
- * "Watch an Ad" (see [platinumAdCooldownRemaining]/[onWatchAd]) and buying
- * it outright (IAP, still a disabled `WoodenButton` with a "Coming soon"
- * note since billing isn't wired up yet). Pure display plus callbacks —
+ * Skip — see `domain/model/Boosts.kt`), then the two ways to earn more
+ * Platinum. "Watch an Ad" (see [platinumAdCooldownRemaining]/[onWatchAd])
+ * is open to guests too — it has no monetary value, so a guest losing it on
+ * reinstall isn't a real loss the way losing an IAP receipt would be.
+ * "Buy Platinum Pieces" (IAP, still a disabled `WoodenButton` with a
+ * "Coming soon" note since billing isn't wired up yet) stays gated to
+ * signed-in players — see [isSignedIn] — since that *is* real money, which
+ * should stay tied to a recoverable account. Pure display plus callbacks —
  * takes state passed in by `MainActivity`'s `WyrmWhelpApp` (which already
  * holds the `GameViewModel` reference) rather than taking a ViewModel
  * itself.
@@ -107,23 +110,23 @@ fun ShopContent(
             )
         }
         item { SectionLabel(text = "Earn Platinum", palette = palette) }
-        if (isSignedIn) {
+        item {
+            WatchAdRow(
+                cooldownRemaining = platinumAdCooldownRemaining,
+                onWatchAd = onWatchAd,
+                palette = palette,
+            )
+        }
+        platinumAdMessage?.let { message ->
             item {
-                WatchAdRow(
-                    cooldownRemaining = platinumAdCooldownRemaining,
-                    onWatchAd = onWatchAd,
+                PlatinumAdMessageCard(
+                    message = message,
+                    onDismiss = onDismissPlatinumAdMessage,
                     palette = palette,
                 )
             }
-            platinumAdMessage?.let { message ->
-                item {
-                    PlatinumAdMessageCard(
-                        message = message,
-                        onDismiss = onDismissPlatinumAdMessage,
-                        palette = palette,
-                    )
-                }
-            }
+        }
+        if (isSignedIn) {
             item {
                 EarnMethodRow(
                     title = "Buy Platinum Pieces",
@@ -135,9 +138,9 @@ fun ShopContent(
             item {
                 ParchmentCard(palette = palette) {
                     Text(
-                        text = "Sign in under Settings to earn or buy Platinum Pieces. This keeps " +
-                            "real-money purchases tied to an account you can recover, not a guest " +
-                            "identity that's lost on reinstall.",
+                        text = "Sign in under Settings to buy Platinum Pieces with real money. This keeps " +
+                            "that purchase tied to an account you can recover, not a guest identity " +
+                            "that's lost on reinstall.",
                         style = MaterialTheme.typography.bodySmall,
                         color = palette.ink.copy(alpha = 0.8f),
                     )

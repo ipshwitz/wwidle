@@ -3,6 +3,26 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.18.1] - 2026-09-05 2:45 PM EDT
+
+- The Shop's "Watch an Ad" is now open to guests too, not just signed-in
+  players — it earns no real money, so a guest losing that Platinum on
+  reinstall isn't the kind of loss the sign-in gate exists to prevent
+  (unlike the still-gated "Buy Platinum Pieces" IAP, which is real money
+  and should stay tied to a recoverable account). No code changes were
+  needed below the UI layer — `GameViewModel.watchAdForPlatinum` never
+  checked sign-in status to begin with, so this was purely a `ShopContent`
+  visibility change: "Watch an Ad" moved outside the `isSignedIn` gate,
+  "Buy Platinum Pieces" stayed inside it, and the guest explanatory note
+  now only mentions the real-money purchase.
+- Verified end to end on the emulator as a guest: tapped "Watch", the test
+  ad played, and after it finished the balance updated to "2 pp", the
+  button correctly switched to "In 23h 59m", and an "Earned 2 pp!" banner
+  appeared — the first time this session a rewarded-ad *reward grant* (not
+  just the negative/early-exit case) was captured live, since testing as a
+  guest sidesteps the confirmed-account/real-inbox limitation that blocked
+  this in 0.17.0/0.18.0.
+
 ## [0.18.0] - 2026-09-05 2:25 PM EDT
 
 - The Shop's "Watch an Ad" is now real: earns 2 Platinum Pieces, watchable
