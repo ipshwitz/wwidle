@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.13.0] - 2026-09-05 11:56 AM EDT
+
+- Added a Shop menu section. Considered adding a new "Jewels" premium
+  currency for this, but `GameState.platinumPieces` already existed for
+  exactly this purpose (IAP-sourced, ad-earnable) with no UI home yet — the
+  Shop is that home now, not a second currency.
+- The Shop screen shows the current Platinum Pieces balance, then two ways
+  to earn more: watching a rewarded ad, or buying outright. Both are shown
+  as disabled "Soon" buttons since neither an ad network nor billing is
+  integrated yet — no shop items (what Platinum will eventually buy) exist
+  either, since none have been designed.
+- Styled with the same parchment-card look as Stewards/Unlocks. `Shop` was
+  added to `FloatingMenu`'s item list (no sign art yet, so it falls back to
+  the same plain-`Surface` look Settings uses).
+- Verified on the emulator: the Shop sign opens the section correctly, shows
+  "0 pp" with the coin icon and both disabled earn-methods, and the close
+  button dismisses it back to the game.
+
 ## [0.12.2] - 2026-09-05 11:37 AM EDT
 
 - Restyled the offline-earnings "While You Were Away…" pop-up to match the

@@ -20,6 +20,7 @@ import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
+import com.wyrmwhelp.idlehoard.ui.shop.ShopContent
 import com.wyrmwhelp.idlehoard.ui.stewards.StewardsContent
 import com.wyrmwhelp.idlehoard.ui.theme.WyrmWhelpIdleHoardTheme
 import com.wyrmwhelp.idlehoard.ui.unlocks.UnlocksContent
@@ -77,6 +78,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                         )
                     }
                 }
+                "Shop" -> { { ShopContent(platinumPieces = gameState.platinumPieces) } }
                 else -> { { ComingSoonPlaceholder() } }
             },
         )

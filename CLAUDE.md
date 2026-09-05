@@ -78,8 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.12.2** (offline-earnings dialog restyled to match
-     the cozy-fantasy chrome — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.13.0** (Shop menu section added — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -433,6 +433,17 @@ These apply to every change made in this repo, however small:
     `WyrmWhelpApp` wires it straight to `gameViewModel::hireSteward`, the
     domain method that already existed (and was already tested) from when
     the button lived on `LairCard`.
+  - **`ShopContent`** (`ui/shop/ShopContent.kt`) — the Shop section's real
+    content, added as the "spend/earn Platinum Pieces" screen `GameState.
+    platinumPieces` never had (see Monetization below): a balance card, then
+    two "earn more" rows (watch a rewarded ad, or buy outright via IAP), both
+    a disabled `WoodenButton` labeled "Soon" since neither ads nor billing
+    are wired up yet. Deliberately doesn't list any actual shop items (what
+    Platinum will eventually buy) — none have been designed, so this is the
+    entry point and balance display, not a stocked store yet. `FloatingMenu`
+    gained a `"Shop"` entry (no sign art yet, same plain-`Surface` fallback
+    as Settings) to reach it. Takes `platinumPieces: Double` directly rather
+    than the whole `GameState` — the only value this screen needs.
 - **Data:**
   - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
     (single-row table for currencies/meta) + `OwnedLairEntity` (one row per
@@ -505,7 +516,14 @@ Supabase project and run the scripts in `/SQL` against it.
 ### Monetization
 
 Free-to-play: rewarded ads (boosts, offline-earnings multipliers) + optional IAP
-(gems, time-skips, cosmetics). No forced interstitials.
+(gems, time-skips, cosmetics). No forced interstitials. The premium currency is
+`GameState.platinumPieces` (labeled "pp" in the UI) — no separate "Jewels" or
+other premium currency was added; platinum was already designed for exactly
+this (IAP-sourced, ad-earnable) per its own doc comment, it just didn't have a
+UI home yet. The Shop section (`ui/shop/ShopContent.kt`, reachable from
+`FloatingMenu`) is that home now — a balance display plus "watch an ad" /
+"buy outright" entry points, both disabled ("Soon") since neither ads nor
+billing are integrated yet. See Open Questions for what's still missing.
 
 ## Core game design
 
@@ -548,9 +566,13 @@ we'll pin these down as we build each system.
 ## Open questions / not yet decided
 
 - Whelp/Wyrm collectible system mechanics (how it interacts with lairs)
-- Full currency list (gold + premium currency name, any specialty currencies) —
-  Gold Pieces and Platinum Pieces are wired into `GameState`, but Platinum has
-  no spend sink yet (IAP/shop not built)
+- Full currency list — Gold Pieces and Platinum Pieces are wired into
+  `GameState`; the premium-currency naming question is settled (it's
+  Platinum, not a separate "Jewels" — see Monetization above), but Platinum
+  still has no real earn or spend path: the Shop screen exists now but its
+  "watch an ad" / "buy outright" buttons are just disabled placeholders (no
+  ad network or billing integration yet), and no actual shop items (what
+  Platinum buys) have been designed
 - Large-number formatting convention — first-pass answer landed in
   `ui/format/GoldFormat.kt`: K/M/B/T/Qa/.../Dc named short-scale suffixes,
   then A/B/.../Z/AA/AB/... (bijective base-26, same scheme as spreadsheet
