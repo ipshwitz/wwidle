@@ -14,6 +14,7 @@ fun GameState.toEntities(): Pair<GameStateEntity, List<OwnedLairEntity>> {
         totalMolts = totalMolts,
         speedBoostLevel = speedBoostLevel,
         profitBoostLevel = profitBoostLevel,
+        lastPlatinumAdWatchedAtEpochMillis = lastPlatinumAdWatchedAt?.toEpochMilli(),
     )
     val lairEntities = lairs.values.map { it.toEntity() }
     return stateEntity to lairEntities
@@ -37,6 +38,7 @@ fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = G
     totalMolts = totalMolts,
     speedBoostLevel = speedBoostLevel,
     profitBoostLevel = profitBoostLevel,
+    lastPlatinumAdWatchedAt = lastPlatinumAdWatchedAtEpochMillis?.let { Instant.ofEpochMilli(it) },
 )
 
 private fun OwnedLairEntity.toDomain(): OwnedLair = OwnedLair(

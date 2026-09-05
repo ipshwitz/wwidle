@@ -78,9 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.17.0** (first real rewarded ad: Watch Ad to
-     Double on the Welcome Back offline-earnings dialog — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.18.0** (Shop's "Watch an Ad" is real now — 2
+     Platinum Pieces, once every 24 hours — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -379,49 +378,71 @@ These apply to every change made in this repo, however small:
     null so "is this a guest" has one clean signal. Don't assume a Supabase
     string field is null just because it's logically absent; check for
     blank too.
-  - **`AdManager`** (`ads/AdManager.kt`) — the app's first real ad
-    integration, via the Google Mobile Ads SDK (`play-services-ads`).
-    `@Singleton`, same app-scoped pattern as `GameEngine`: constructed once
-    by Hilt, initializes `MobileAds` and starts loading a rewarded ad
-    immediately in its `init` block rather than waiting for a screen to ask
-    for one — so an ad is normally already loaded by the time a player
-    reaches a rewarded placement instead of loading on demand.
-    `isAdReady()`/`showAd(activity, onRewardEarned, onUnavailable)` are the
-    only two entry points; `showAd` always kicks off loading the *next* ad
-    afterward (on reward, on a mid-ad failure, and on a plain dismissal
-    alike), and clears its held `RewardedAd` before showing so a second tap
-    mid-show can't reuse a consumed ad. **Wired to exactly one placement so
-    far** — the Welcome Back dialog's "Watch Ad to Double" (see
-    `GameViewModel.watchAdToDoubleOfflineEarnings` and
-    `GameEngine.grantGold`) — using the app's real "2x offline rewards" ad
-    unit id. A second placement (the Shop's still-disabled "Watch an Ad"
-    for Platinum — see Monetization) would need its own ad unit id and its
-    own `RewardedAd?` slot; this class isn't written to juggle multiple
-    concurrent placements yet since only one exists.
-  - **Real ad unit, forced into test mode for debug builds.** There is no
-    separate test ad unit for the offline-double placement — the id in
-    `AdManager` is the actual production one. To avoid ever loading/serving
-    a real ad from a dev device (Google's invalid-traffic policy explicitly
-    warns against this), `AdManager`'s `init` block registers
-    `AdRequest.DEVICE_ID_EMULATOR` as a Google test device whenever
-    `BuildConfig.DEBUG` is true — Google then serves its test creative
-    (clearly labeled "Test Ad" on screen) through that same real ad unit
-    id, with no revenue or policy impact. **This must never be removed from
-    debug builds.** A physical dev device (not an emulator) would need its
-    own hashed test-device id added too — Logcat prints the exact id/line
-    to add the first time that unregistered device requests an ad. Release
-    builds (`BuildConfig.DEBUG == false`) skip this entirely and serve real
-    ads normally.
+  - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
+    Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
+    app-scoped pattern as `GameEngine`: constructed once by Hilt,
+    initializes `MobileAds` and starts loading a rewarded ad for every
+    `RewardedPlacement` immediately in its `init` block rather than waiting
+    for a screen to ask for one — so an ad is normally already loaded by
+    the time a player reaches a rewarded placement instead of loading on
+    demand. `RewardedPlacement` is a small enum, one entry per real AdMob
+    ad unit id (`OFFLINE_EARNINGS_DOUBLE`, `SHOP_PLATINUM` as of 0.18.0) —
+    adding a new rewarded spot means adding an entry there; `AdManager`
+    itself tracks a loaded-ad slot per placement (`Map<RewardedPlacement,
+    RewardedAd>`) generically rather than one hardcoded field per
+    placement, so it doesn't need touching again for a third. Two entry
+    points, both placement-scoped: `isAdReady(placement)`/
+    `showAd(placement, activity, onRewardEarned, onUnavailable)`. `showAd`
+    always kicks off loading that placement's *next* ad afterward (on
+    reward, on a mid-ad failure, and on a plain dismissal alike), and
+    clears its held `RewardedAd` before showing so a second tap mid-show
+    can't reuse a consumed one.
+  - **Real ad units, forced into test mode for debug builds.** There is no
+    separate test ad unit for either placement — both ids in
+    `RewardedPlacement` are the actual production ones. To avoid ever
+    loading/serving a real ad from a dev device (Google's invalid-traffic
+    policy explicitly warns against this), `AdManager`'s `init` block
+    registers `AdRequest.DEVICE_ID_EMULATOR` as a Google test device
+    whenever `BuildConfig.DEBUG` is true — Google then serves its test
+    creative (clearly labeled "Test Ad" on screen) through these same real
+    ad unit ids, with no revenue or policy impact, and this applies to
+    every placement automatically (it's a device-level registration, not
+    per-ad-unit). **This must never be removed from debug builds.** A
+    physical dev device (not an emulator) would need its own hashed
+    test-device id added too — Logcat prints the exact id/line to add the
+    first time that unregistered device requests an ad. Release builds
+    (`BuildConfig.DEBUG == false`) skip this entirely and serve real ads
+    normally.
   - **`GameEngine.grantGold(amount)`** — a flat, one-off gold credit
-    outside the normal income/milestone pipeline, added for the ad-double
-    reward (`_state.update { it.copy(goldPieces = it.goldPieces + amount) }`,
-    nothing fancier). `watchAdToDoubleOfflineEarnings` calls it with the
-    same `earnings.goldEarned` value already shown in the dialog, then
-    updates the dialog's own displayed `OfflineEarnings` copy
-    (`earnings.copy(goldEarned = earnings.goldEarned * 2)`) so the on-screen
-    number reflects the double without a second `applyOfflineEarnings` call
-    (which would re-run the whole production-advance pipeline — wrong tool
-    for "just add this specific amount again").
+    outside the normal income/milestone pipeline, added for the Welcome
+    Back ad-double reward (`_state.update { it.copy(goldPieces =
+    it.goldPieces + amount) }`, nothing fancier).
+    `watchAdToDoubleOfflineEarnings` calls it with the same
+    `earnings.goldEarned` value already shown in the dialog, then updates
+    the dialog's own displayed `OfflineEarnings` copy (`earnings.copy(goldEarned
+    = earnings.goldEarned * 2)`) so the on-screen number reflects the
+    double without a second `applyOfflineEarnings` call (which would
+    re-run the whole production-advance pipeline — wrong tool for "just
+    add this specific amount again").
+  - **Shop's "Watch an Ad" (0.18.0)** — earns `PLATINUM_AD_REWARD_PP` (2 pp)
+    once every `PLATINUM_AD_COOLDOWN` (24h), both in new
+    `domain/model/AdRewards.kt` alongside `GameState.canWatchPlatinumAd`/
+    `platinumAdCooldownRemaining` (pure, fully unit-tested cooldown math).
+    The cooldown is tracked on the save itself
+    (`GameState.lastPlatinumAdWatchedAt`), not ad-network- or device-side —
+    it persists across sessions and syncs with the rest of the save, same
+    trust model as everything else in this client-authoritative economy.
+    `GameEngine.grantPlatinumAdReward(now)` grants the Platinum and stamps
+    the watch time atomically, re-checking the cooldown itself rather than
+    trusting `GameViewModel.watchAdForPlatinum` already did (belt-and-braces
+    against a race between two rapid taps). `ShopContent`'s `WatchAdRow`
+    computes its own "Available in Xh Ym" label reactively from
+    `gameState.platinumAdCooldownRemaining()` passed in by `MainActivity` —
+    no separate countdown timer or polling, it just updates naturally as
+    `gameState` ticks. Shared `ui/format/DurationFormat.kt` formats that
+    countdown for both `WatchAdRow`'s button label and
+    `GameViewModel.platinumAdMessage`'s cooldown text, extracted once it
+    was clear both needed the identical "3h 12m" logic.
   - **No Navigation Compose** — tried it first (type-safe routes,
     `NavController`/`NavHost`), then removed it: every `FloatingMenu` section
     is a card that slides up over the still-mounted game rather than a
@@ -724,17 +745,17 @@ same as the existing "Enable Anonymous Sign-Ins" toggle):
 Free-to-play: rewarded ads (boosts, offline-earnings multipliers) + optional IAP
 (gems, time-skips, cosmetics). No forced interstitials.
 
-**Rewarded ads — one placement live, AdMob app id
+**Rewarded ads — both placements live, AdMob app id
 `ca-app-pub-1913393601233746~8060140149`** (in the manifest — see the
 `AdManager` bullet under Tech stack for the full picture, including the
 test-device safeguard that must stay in debug builds):
 - **Welcome Back "Watch Ad to Double"** (live, 0.17.0) — doubles the
   offline-earnings amount shown in the "While You Were Away…" dialog. Ad
   unit id `ca-app-pub-1913393601233746/1494731799`.
-- **Shop "Watch an Ad"** (still a disabled "Soon" placeholder) — would earn
-  Platinum Pieces directly rather than double anything. Needs its own,
-  separate ad unit id from AdMob (not yet provided/created) before it can
-  be wired up the same way the offline-double placement was.
+- **Shop "Watch an Ad"** (live, 0.18.0) — earns 2 Platinum Pieces, once
+  every 24 hours (cooldown tracked on the save itself, not ad-network- or
+  device-side — see the "Shop's Watch an Ad" bullet under Tech stack). Ad
+  unit id `ca-app-pub-1913393601233746/9425192707`.
 
 The premium currency is `GameState.platinumPieces` (labeled "pp" in the
 UI) — no separate "Jewels" or other premium currency was added; platinum
@@ -743,16 +764,18 @@ own doc comment, it just didn't have a UI home yet. The Shop section
 (`ui/shop/ShopContent.kt`, reachable from `FloatingMenu`) is that home now
 — a balance display, the real spend path (permanent Speed/Profit boosts
 and repeatable Time Skips — see the Boosts bullet under Tech stack above),
-and the "watch an ad" / "buy outright" earn entry points described above,
-both still disabled ("Soon") since neither this second ad placement nor
-billing are integrated yet. **Both earn entry points are hidden entirely
-for guests** (`ShopContent`'s `isSignedIn` param, wired from
-`GameViewModel.userEmail != null` in `MainActivity`) — a guest sees an
-explanatory note instead of the disabled buttons. Real-money purchases
-should be tied to a recoverable account, not an anonymous identity that's
-lost on reinstall; the Boosts section above it is unaffected since
-spending Platinum already owned isn't a real-money transaction. See Open
-Questions for what's still missing.
+the real ad-earn path described above, and "buy outright" (IAP), still a
+disabled "Soon" placeholder since billing isn't integrated yet. **Both
+earn entry points are hidden entirely for guests** (`ShopContent`'s
+`isSignedIn` param, wired from `GameViewModel.userEmail != null` in
+`MainActivity`) — a guest sees an explanatory note instead, including for
+the now-functional "Watch an Ad" (a guest could otherwise farm Platinum
+under a disposable identity with nothing to lose, undermining the whole
+point of gating real-money-adjacent rewards to a recoverable account).
+Real-money purchases should be tied to a recoverable account, not an
+anonymous identity that's lost on reinstall; the Boosts section above it
+is unaffected since spending Platinum already owned isn't a real-money
+transaction. See Open Questions for what's still missing.
 
 ## Core game design
 
@@ -797,19 +820,14 @@ we'll pin these down as we build each system.
 - Whelp/Wyrm collectible system mechanics (how it interacts with lairs)
 - Full currency list — Gold Pieces and Platinum Pieces are wired into
   `GameState`; the premium-currency naming question is settled (it's
-  Platinum, not a separate "Jewels" — see Monetization above), and Platinum
-  now has a real spend path (Speed/Profit boosts, Time Skip — see the
-  Boosts bullet under Tech stack). Still missing: a real *earn* path — the
-  Shop screen's "watch an ad" / "buy outright" buttons are still disabled
-  placeholders since neither a second (Platinum-earning) ad unit id nor
-  billing integration exist yet, so Platinum can currently only be granted
-  by direct save editing. (Gold Pieces did gain a real ad-driven boost in
-  0.17.0 — the Welcome Back "Watch Ad to Double" — but that's a different
-  mechanism, a one-time multiplier on offline earnings, not an ongoing
-  Platinum-earn path.)
-- `ConsentManager` (GDPR/UMP ad-consent flow) isn't built — the one
-  rewarded placement live so far ships without any consent gating in front
-  of it. Needed before ads run for real EU/UK traffic; revisit before
+  Platinum, not a separate "Jewels" — see Monetization above), Platinum has
+  a real spend path (Speed/Profit boosts, Time Skip — see the Boosts bullet
+  under Tech stack), and now a real *earn* path too — the Shop's "Watch an
+  Ad" (2 pp, 24h cooldown, 0.18.0). Still missing: "buy outright" (IAP) is
+  still a disabled placeholder since billing integration doesn't exist yet.
+- `ConsentManager` (GDPR/UMP ad-consent flow) isn't built — the rewarded
+  placements live so far ship without any consent gating in front of them.
+  Needed before ads run for real EU/UK traffic; revisit before
   removing the debug-only test-device forcing in `AdManager`.
 - Large-number formatting convention — first-pass answer landed in
   `ui/format/GoldFormat.kt`: K/M/B/T/Qa/.../Dc named short-scale suffixes,

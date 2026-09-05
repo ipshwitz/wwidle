@@ -2,6 +2,8 @@ package com.wyrmwhelp.idlehoard.domain.engine
 
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.GameState
+import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_COOLDOWN
+import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_COST_PP
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_SECONDS
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
@@ -250,5 +252,61 @@ class GameEngineTest {
 
         assertFalse(bought)
         assertEquals(TIME_SKIP_COST_PP - 0.01, engine.state.value.platinumPieces, 0.0001)
+    }
+
+    @Test
+    fun `grantGold adds a flat amount to gold pieces`() {
+        engine.loadState(GameState(goldPieces = 100.0))
+
+        engine.grantGold(50.0)
+
+        assertEquals(150.0, engine.state.value.goldPieces, 0.0001)
+    }
+
+    @Test
+    fun `grantGold ignores a non-positive amount`() {
+        engine.loadState(GameState(goldPieces = 100.0))
+
+        engine.grantGold(0.0)
+        engine.grantGold(-10.0)
+
+        assertEquals(100.0, engine.state.value.goldPieces, 0.0001)
+    }
+
+    @Test
+    fun `grantPlatinumAdReward grants Platinum and stamps the watch time when never watched`() {
+        engine.loadState(GameState(platinumPieces = 0.0, lastPlatinumAdWatchedAt = null))
+        val now = Instant.now()
+
+        val granted = engine.grantPlatinumAdReward(now)
+
+        assertTrue(granted)
+        assertEquals(PLATINUM_AD_REWARD_PP, engine.state.value.platinumPieces, 0.0001)
+        assertEquals(now, engine.state.value.lastPlatinumAdWatchedAt)
+    }
+
+    @Test
+    fun `grantPlatinumAdReward fails and grants nothing while still on cooldown`() {
+        val watchedAt = Instant.now()
+        engine.loadState(GameState(platinumPieces = 0.0, lastPlatinumAdWatchedAt = watchedAt))
+
+        val granted = engine.grantPlatinumAdReward(watchedAt.plusSeconds(60))
+
+        assertFalse(granted)
+        assertEquals(0.0, engine.state.value.platinumPieces, 0.0001)
+        assertEquals(watchedAt, engine.state.value.lastPlatinumAdWatchedAt)
+    }
+
+    @Test
+    fun `grantPlatinumAdReward succeeds again once the cooldown fully elapses`() {
+        val watchedAt = Instant.now()
+        engine.loadState(GameState(platinumPieces = 0.0, lastPlatinumAdWatchedAt = watchedAt))
+        val nextWatch = watchedAt.plus(PLATINUM_AD_COOLDOWN)
+
+        val granted = engine.grantPlatinumAdReward(nextWatch)
+
+        assertTrue(granted)
+        assertEquals(PLATINUM_AD_REWARD_PP, engine.state.value.platinumPieces, 0.0001)
+        assertEquals(nextWatch, engine.state.value.lastPlatinumAdWatchedAt)
     }
 }

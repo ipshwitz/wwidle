@@ -31,6 +31,7 @@ class GameStateDtoMappersTest {
             totalMolts = 2,
             speedBoostLevel = 3,
             profitBoostLevel = 5,
+            lastPlatinumAdWatchedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
         )
 
         val restored = original.toDto().toDomain()
@@ -56,6 +57,7 @@ class GameStateDtoMappersTest {
 
         assertEquals(0, decoded.speedBoostLevel)
         assertEquals(0, decoded.profitBoostLevel)
+        assertEquals(null, decoded.lastPlatinumAdWatchedAtEpochMillis)
     }
 
     @Test

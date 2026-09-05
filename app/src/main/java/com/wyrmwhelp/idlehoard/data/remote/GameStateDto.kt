@@ -15,6 +15,7 @@ data class GameStateDto(
     @SerialName("total_molts") val totalMolts: Int,
     @SerialName("speed_boost_level") val speedBoostLevel: Int = 0,
     @SerialName("profit_boost_level") val profitBoostLevel: Int = 0,
+    @SerialName("last_platinum_ad_watched_at_epoch_millis") val lastPlatinumAdWatchedAtEpochMillis: Long? = null,
 )
 
 /** JSON mirror of [com.wyrmwhelp.idlehoard.domain.model.OwnedLair]. */

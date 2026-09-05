@@ -1,5 +1,6 @@
 package com.wyrmwhelp.idlehoard
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -14,7 +15,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
 import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
@@ -59,6 +62,8 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     val authMessage by gameViewModel.authMessage.collectAsStateWithLifecycle()
     val isSyncing by gameViewModel.isSyncing.collectAsStateWithLifecycle()
     val lastSyncedAt by gameViewModel.lastSyncedAt.collectAsStateWithLifecycle()
+    val platinumAdMessage by gameViewModel.platinumAdMessage.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     BackHandler(enabled = openSection != null) { openSection = null }
 
@@ -92,9 +97,15 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             speedBoostLevel = gameState.speedBoostLevel,
                             profitBoostLevel = gameState.profitBoostLevel,
                             isSignedIn = userEmail != null,
+                            platinumAdCooldownRemaining = gameState.platinumAdCooldownRemaining(),
+                            platinumAdMessage = platinumAdMessage,
                             onBuySpeedBoost = gameViewModel::purchaseSpeedBoost,
                             onBuyProfitBoost = gameViewModel::purchaseProfitBoost,
                             onBuyTimeSkip = gameViewModel::purchaseTimeSkip,
+                            onWatchAd = {
+                                (context as? Activity)?.let { gameViewModel.watchAdForPlatinum(it) }
+                            },
+                            onDismissPlatinumAdMessage = gameViewModel::dismissPlatinumAdMessage,
                         )
                     }
                 }

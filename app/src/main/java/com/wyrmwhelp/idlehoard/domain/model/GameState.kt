@@ -28,6 +28,9 @@ import java.time.Instant
  * @property profitBoostLevel Permanent, account-wide income boosts bought
  *   with Platinum Pieces, same shape as [speedBoostLevel] but for profit
  *   instead of speed.
+ * @property lastPlatinumAdWatchedAt When the Shop's "Watch an Ad" rewarded
+ *   placement was last watched to completion, or null if never — see
+ *   `domain/model/AdRewards.kt` for the 24-hour cooldown this gates.
  */
 data class GameState(
     val goldPieces: Double = 0.0,
@@ -44,6 +47,7 @@ data class GameState(
     val totalMolts: Int = 0,
     val speedBoostLevel: Int = 0,
     val profitBoostLevel: Int = 0,
+    val lastPlatinumAdWatchedAt: Instant? = null,
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

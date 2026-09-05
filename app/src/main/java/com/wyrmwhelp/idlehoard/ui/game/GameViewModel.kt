@@ -5,12 +5,17 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wyrmwhelp.idlehoard.ads.AdManager
+import com.wyrmwhelp.idlehoard.ads.RewardedPlacement
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.engine.OfflineEarnings
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
+import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
+import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
+import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
+import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 import com.wyrmwhelp.idlehoard.domain.repository.AuthRepository
 import com.wyrmwhelp.idlehoard.domain.repository.CloudSaveRepository
 import com.wyrmwhelp.idlehoard.domain.repository.GameRepository
@@ -34,8 +39,9 @@ import kotlinx.coroutines.launch
  * Also owns the account/sync side of the Settings screen (there's no
  * separate `AuthViewModel` — the two are tightly coupled, since signing in
  * or out directly changes which cloud row this save syncs to) —
- * [userEmail]/[signUp]/[signIn]/[signOut]/[syncNow] below — and the one
- * rewarded-ad placement built so far, [watchAdToDoubleOfflineEarnings].
+ * [userEmail]/[signUp]/[signIn]/[signOut]/[syncNow] below — and both
+ * rewarded-ad placements, [watchAdToDoubleOfflineEarnings] and
+ * [watchAdForPlatinum].
  */
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -342,6 +348,7 @@ class GameViewModel @Inject constructor(
         if (_isOfflineEarningsDoubled.value) return
         _adUnavailableMessage.value = null
         adManager.showAd(
+            placement = RewardedPlacement.OFFLINE_EARNINGS_DOUBLE,
             activity = activity,
             onRewardEarned = {
                 gameEngine.grantGold(earnings.goldEarned)
@@ -356,6 +363,49 @@ class GameViewModel @Inject constructor(
 
     fun dismissAdUnavailableMessage() {
         _adUnavailableMessage.value = null
+    }
+
+    // Result text from the last Shop ad-watch attempt — an error/cooldown
+    // notice or an "Earned 2 pp!" confirmation; Shop doesn't need to
+    // distinguish the two for v1, same as authMessage above.
+    private val _platinumAdMessage = MutableStateFlow<String?>(null)
+    val platinumAdMessage: StateFlow<String?> = _platinumAdMessage.asStateFlow()
+
+    /**
+     * The Shop's "Watch an Ad" button — earns [PLATINUM_AD_REWARD_PP]
+     * Platinum Pieces once every [com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_COOLDOWN],
+     * gated by [GameState.lastPlatinumAdWatchedAt] rather than anything
+     * ad-network-side, so the cooldown survives across sessions. Checks the
+     * cooldown up front (so a tap while it's active never even asks
+     * `AdManager` for an ad) and again in [GameEngine.grantPlatinumAdReward]
+     * itself (so a race between two rapid taps can't double-grant).
+     */
+    fun watchAdForPlatinum(activity: Activity) {
+        val state = gameEngine.state.value
+        val cooldownRemaining = state.platinumAdCooldownRemaining()
+        if (!cooldownRemaining.isZero) {
+            _platinumAdMessage.value = "Come back in ${DurationFormat.format(cooldownRemaining)} to watch again."
+            return
+        }
+        _platinumAdMessage.value = null
+        adManager.showAd(
+            placement = RewardedPlacement.SHOP_PLATINUM,
+            activity = activity,
+            onRewardEarned = {
+                _platinumAdMessage.value = if (gameEngine.grantPlatinumAdReward()) {
+                    "Earned ${GoldFormat.format(PLATINUM_AD_REWARD_PP)} pp!"
+                } else {
+                    "Come back later to watch again."
+                }
+            },
+            onUnavailable = {
+                _platinumAdMessage.value = "Ad isn't ready yet — try again in a moment."
+            },
+        )
+    }
+
+    fun dismissPlatinumAdMessage() {
+        _platinumAdMessage.value = null
     }
 
     fun claimLair(lairId: String) {

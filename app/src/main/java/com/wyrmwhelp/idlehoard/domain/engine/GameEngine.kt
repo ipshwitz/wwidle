@@ -3,6 +3,8 @@ package com.wyrmwhelp.idlehoard.domain.engine
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
+import com.wyrmwhelp.idlehoard.domain.model.canWatchPlatinumAd
 import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
@@ -270,6 +272,31 @@ class GameEngine @Inject constructor() {
     fun grantGold(amount: Double) {
         if (amount <= 0.0) return
         _state.update { it.copy(goldPieces = it.goldPieces + amount) }
+    }
+
+    /**
+     * Grants the Shop's "Watch an Ad" Platinum reward if its 24-hour
+     * cooldown has elapsed (see `domain/model/AdRewards.kt`), stamping
+     * [GameState.lastPlatinumAdWatchedAt] so the cooldown persists across
+     * sessions. Returns true if granted, false if still on cooldown —
+     * callers should only reach this after `AdManager.showAd` already
+     * confirmed the reward was earned, so false here would mean the two
+     * clocks disagreed, not a normal outcome.
+     */
+    fun grantPlatinumAdReward(now: Instant = Instant.now()): Boolean {
+        var granted = false
+        _state.update { current ->
+            if (!current.canWatchPlatinumAd(now)) {
+                current
+            } else {
+                granted = true
+                current.copy(
+                    platinumPieces = current.platinumPieces + PLATINUM_AD_REWARD_PP,
+                    lastPlatinumAdWatchedAt = now,
+                )
+            }
+        }
+        return granted
     }
 
     /** Pure production step: advances every owned lair and tallies Gold Pieces earned. */

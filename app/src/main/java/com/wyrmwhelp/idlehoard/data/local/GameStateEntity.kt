@@ -18,6 +18,7 @@ data class GameStateEntity(
     val totalMolts: Int,
     val speedBoostLevel: Int = 0,
     val profitBoostLevel: Int = 0,
+    val lastPlatinumAdWatchedAtEpochMillis: Long? = null,
 ) {
     companion object {
         const val SINGLETON_ID = 0

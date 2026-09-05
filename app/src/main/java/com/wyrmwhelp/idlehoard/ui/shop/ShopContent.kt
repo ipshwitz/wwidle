@@ -3,6 +3,7 @@ package com.wyrmwhelp.idlehoard.ui.shop
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
+import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_COST_PP
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_SECONDS
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
@@ -33,18 +35,21 @@ import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
+import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
+import java.time.Duration
 
 /**
  * The "Shop" section's real content: the player's current Platinum Pieces
  * balance, the permanent Boosts Platinum actually buys (Speed, Profit, Time
  * Skip — see `domain/model/Boosts.kt`), then — only for signed-in players,
- * see [isSignedIn] — the two ways to earn more Platinum: watching a rewarded
- * ad or buying it outright (IAP), both shown as disabled `WoodenButton`s
- * with a "Coming soon" note since neither ads nor billing are wired up yet.
- * Pure display plus three purchase callbacks — takes state passed in by
- * `MainActivity`'s `WyrmWhelpApp` (which already holds the `GameViewModel`
- * reference) rather than taking a ViewModel itself.
+ * see [isSignedIn] — the two ways to earn more Platinum: a real rewarded-ad
+ * "Watch an Ad" (see [platinumAdCooldownRemaining]/[onWatchAd]) and buying
+ * it outright (IAP, still a disabled `WoodenButton` with a "Coming soon"
+ * note since billing isn't wired up yet). Pure display plus callbacks —
+ * takes state passed in by `MainActivity`'s `WyrmWhelpApp` (which already
+ * holds the `GameViewModel` reference) rather than taking a ViewModel
+ * itself.
  */
 @Composable
 fun ShopContent(
@@ -52,9 +57,13 @@ fun ShopContent(
     speedBoostLevel: Int,
     profitBoostLevel: Int,
     isSignedIn: Boolean,
+    platinumAdCooldownRemaining: Duration,
+    platinumAdMessage: String?,
     onBuySpeedBoost: () -> Unit,
     onBuyProfitBoost: () -> Unit,
     onBuyTimeSkip: () -> Unit,
+    onWatchAd: () -> Unit,
+    onDismissPlatinumAdMessage: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -100,11 +109,20 @@ fun ShopContent(
         item { SectionLabel(text = "Earn Platinum", palette = palette) }
         if (isSignedIn) {
             item {
-                EarnMethodRow(
-                    title = "Watch an Ad",
-                    description = "Earn a few free Platinum Pieces by watching a short video.",
+                WatchAdRow(
+                    cooldownRemaining = platinumAdCooldownRemaining,
+                    onWatchAd = onWatchAd,
                     palette = palette,
                 )
+            }
+            platinumAdMessage?.let { message ->
+                item {
+                    PlatinumAdMessageCard(
+                        message = message,
+                        onDismiss = onDismissPlatinumAdMessage,
+                        palette = palette,
+                    )
+                }
             }
             item {
                 EarnMethodRow(
@@ -226,6 +244,81 @@ private fun BoostRow(
                 onClick = onBuy,
                 enabled = canAfford,
                 colors = palette,
+            )
+        }
+    }
+}
+
+/**
+ * The real "Watch an Ad" row — earns [PLATINUM_AD_REWARD_PP] Platinum
+ * Pieces, gated by a 24-hour cooldown (see `domain/model/AdRewards.kt`).
+ * Disables itself and shows "Available in Xh Ym" whenever
+ * [cooldownRemaining] is non-zero, computed reactively from the live
+ * `GameState` by the caller rather than tracked as separate UI state — so
+ * the label updates on its own as `gameState` ticks, no polling needed here.
+ */
+@Composable
+private fun WatchAdRow(
+    cooldownRemaining: Duration,
+    onWatchAd: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    val available = cooldownRemaining.isZero
+    ParchmentCard(palette = palette, modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Watch an Ad",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+                )
+                Text(
+                    text = "Earn ${GoldFormat.format(PLATINUM_AD_REWARD_PP)} Platinum Pieces by watching a short " +
+                        "video. Once every 24 hours.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.ink.copy(alpha = 0.7f),
+                )
+            }
+            WoodenButton(
+                text = if (available) "Watch" else "In ${DurationFormat.format(cooldownRemaining)}",
+                onClick = onWatchAd,
+                enabled = available,
+                colors = palette,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlatinumAdMessageCard(
+    message: String,
+    onDismiss: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.goldDeep.copy(alpha = 0.8f)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = message,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = palette.ink,
+            )
+            Text(
+                text = "✕",
+                color = palette.ink.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .clickable(onClick = onDismiss),
             )
         }
     }

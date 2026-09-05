@@ -37,6 +37,7 @@ class GameStateMappersTest {
             totalMolts = 2,
             speedBoostLevel = 3,
             profitBoostLevel = 5,
+            lastPlatinumAdWatchedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
         )
 
         val (stateEntity, lairEntities) = original.toEntities()

@@ -3,6 +3,47 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.18.0] - 2026-09-05 2:25 PM EDT
+
+- The Shop's "Watch an Ad" is now real: earns 2 Platinum Pieces, watchable
+  once every 24 hours. The cooldown is tracked on the save itself
+  (`GameState.lastPlatinumAdWatchedAt`) rather than anything ad-network- or
+  device-side, so it persists across sessions and syncs with the rest of
+  the save. The button shows "Available in Xh Ym" (updating live off the
+  ticking game state, no separate countdown timer) while on cooldown, and
+  a message banner reports the outcome ("Earned 2 pp!", a cooldown notice,
+  or "ad isn't ready yet").
+- `AdManager` now supports more than one rewarded placement — refactored
+  around a `RewardedPlacement` enum (`OFFLINE_EARNINGS_DOUBLE`,
+  `SHOP_PLATINUM`, one real ad unit id each) with a loaded-ad slot per
+  placement, instead of the single hardcoded slot 0.17.0 shipped with. The
+  debug-build test-device safeguard (forces Google's test creative through
+  both real ad units) applies to every placement automatically.
+- New `domain/model/AdRewards.kt`: `PLATINUM_AD_REWARD_PP`,
+  `PLATINUM_AD_COOLDOWN` (24h), and `GameState.canWatchPlatinumAd`/
+  `platinumAdCooldownRemaining` — the cooldown math, fully unit-tested.
+  `GameEngine.grantPlatinumAdReward` grants the Platinum and stamps the
+  watch time atomically, re-checking the cooldown itself rather than
+  trusting the caller already did.
+- New shared `ui/format/DurationFormat.kt` ("3h 12m" / "12m") so the
+  Shop's live button label and the ViewModel's cooldown message can't
+  drift apart — extracted after almost duplicating the same formatting
+  logic in both places.
+- Bumped Room to database version 3 for the new persisted column
+  (`lastPlatinumAdWatchedAtEpochMillis`); Supabase's `GameStateDto` gained
+  the matching nullable field with a default, so older cloud saves still
+  decode.
+- Verified on the emulator: the Shop's guest view still correctly hides
+  the whole Earn Platinum section (regression check after the `ShopContent`
+  signature change). Couldn't verify the signed-in "Watch an Ad" tap-through
+  live — same limitation as 0.15.0/0.16.0's sign-up testing: reaching a
+  confirmed (non-guest) account in this environment needs a real inbox to
+  receive the sign-up verification code, which isn't available here. The
+  domain logic (cooldown math, reward grant, persistence round-trip) is
+  fully unit-tested instead, and the ad-showing code path is the same
+  `AdManager.showAd` contract already verified end-to-end for the Welcome
+  Back placement in 0.17.0.
+
 ## [0.17.0] - 2026-09-05 2:06 PM EDT
 
 - Wired in the first real Google AdMob rewarded ad: the Welcome Back
