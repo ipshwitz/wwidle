@@ -3,6 +3,17 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.7.7] - 2026-09-04 11:17 PM EDT
+
+- Widened the gap between stacked `FloatingMenu` items by 25% (4dp → 5dp).
+- On an open `SectionOverlayCard`, moved the header sign from centered to
+  top-start (left), keeping the close button at top-end (right) — both still
+  straddle the card's top edge the same way, just on opposite corners instead
+  of sharing the middle.
+- Verified visually on the emulator: menu items have a touch more breathing
+  room, and the section-card header sits at the left with the close button
+  at the right, no overlap.
+
 ## [0.7.6] - 2026-09-04 11:12 PM EDT
 
 - Fixed the real root cause of the header/close-button size mismatch from the

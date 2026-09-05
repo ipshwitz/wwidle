@@ -64,8 +64,11 @@ private val SIGN_HEADER_HEIGHT = SIGN_HEADER_WIDTH / SIGN_ASPECT_RATIO
  * card's top edge like a hanging plaque: the card surface is inset from the
  * top by half the sign's height, and the sign sits at the very top of the
  * (taller) surrounding box, so its top half reads as "outside" the card over
- * the scrim and its bottom half overlaps the card surface. Sections without
- * art yet (e.g. Settings) fall back to a plain bold title with no overlap.
+ * the scrim and its bottom half overlaps the card surface. The sign is
+ * anchored top-start (not centered) so it doesn't compete with the
+ * `CloseButton` anchored top-end — same straddle, opposite corners. Sections
+ * without art yet (e.g. Settings) fall back to a plain bold title with no
+ * overlap.
  * The card itself uses [AppBackground] with the wooden-wall art (a tavern
  * interior) instead of `GameScreen`'s landscape, behind the same 50%-white
  * overlay treatment.
@@ -161,7 +164,8 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
                         contentDescription = lastTitle,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .align(Alignment.TopCenter)
+                            .align(Alignment.TopStart)
+                            .padding(start = 8.dp)
                             .width(SIGN_HEADER_WIDTH)
                             .aspectRatio(SIGN_ASPECT_RATIO),
                     )

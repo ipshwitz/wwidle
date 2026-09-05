@@ -108,7 +108,7 @@ fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
                     modifier = Modifier.padding(bottom = 12.dp),
                 ) {
                     floatingMenuItems.forEach { item ->

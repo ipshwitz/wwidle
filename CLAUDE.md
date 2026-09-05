@@ -75,8 +75,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.7.6** (recropped menu sign art fixing a stale
-     `SIGN_ASPECT_RATIO` — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.7.7** (wider menu item spacing, section-card header
+     moved to top-start opposite the close button — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -151,7 +152,7 @@ These apply to every change made in this repo, however small:
     art. It shows `closed_chest`/`open_chest` art (swapped based on
     `expanded`) instead of a generic menu glyph. Expands upward into a
     vertical stack of tappable `floatingMenuItems` (a `MenuItem(label,
-    imageRes?)` list, `Arrangement.spacedBy(4.dp)` between them) — evoking the
+    imageRes?)` list, `Arrangement.spacedBy(5.dp)` between them) — evoking the
     wooden trail signpost in the background art. An item with `imageRes` set
     renders as that wooden-sign image directly, no extra container (the sign
     art already has its label baked in); Settings (no art yet) falls back to
@@ -176,8 +177,11 @@ These apply to every change made in this repo, however small:
     — see `CloseButton` bullet below for why that matters), and the sign sits
     at the very top of the surrounding `Box` (not inside the
     `Surface`), so its top half reads as outside the card over the scrim and
-    its bottom half overlaps the card surface. Settings (no art yet) falls
-    back to a plain bold title with no overlap/inset. **Content padding inside
+    its bottom half overlaps the card surface. Anchored top-start (not
+    centered) so it sits opposite the `CloseButton` (top-end) rather than
+    competing with it for the same space — header left, close right. Settings
+    (no art yet) falls back to a plain bold title with no overlap/inset.
+    **Content padding inside
     the surface must clear the sign's actual overlap
     (`SIGN_HEADER_HEIGHT / 2`) plus its own breathing room, not a flat
     guessed value** — using less renders content partly hidden underneath the
@@ -203,14 +207,15 @@ These apply to every change made in this repo, however small:
     up to match the header sign. In `SectionOverlayCard` it's sized and
     positioned exactly like the header: same height (`SIGN_HEADER_HEIGHT`),
     anchored to the very top of the surrounding box so it straddles the card
-    edge the same way (half over the scrim, half over the card). No manual
-    offset needed to keep it clear of the centered header — that was only
-    ever needed because the sign art still had a padded (1672x941) export at
-    the time, which made `SIGN_HEADER_HEIGHT` (and this button) render much
-    bigger than the sign actually needed. Once the sign art was recropped to
-    its true bounds (see Assets section), both elements shrank to their real
-    size and sit side by side with no overlap — don't reintroduce an offset
-    without first checking whether a stale aspect ratio is the real problem.
+    edge the same way (half over the scrim, half over the card), but at
+    top-end (opposite corner from the header, which is top-start) so the two
+    sit side by side — header left, close right — rather than needing an
+    offset to keep clear of each other. An offset was briefly needed when the
+    header was still centered and the sign art had a padded (1672x941) export
+    inflating `SIGN_HEADER_HEIGHT` (and this button) well past the sign's
+    actual size; once the art was recropped to its true bounds (see Assets
+    section) and the header moved to top-start, neither hack was needed
+    anymore.
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt.
 - **Data:**
