@@ -3,6 +3,33 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.6.0] - 2026-09-04 09:21 PM EDT
+
+- Added the app's first navigation menu: a floating hamburger FAB fixed at
+  the bottom of the screen that expands upward into a vertical stack of
+  tappable sections — Help & Social, Unlocks, Upgrades, Stewards, Level Up,
+  and Settings — each its own labeled container for now (real per-item art
+  to come later). Evokes the wooden trail signpost in the background art.
+  Tapping a section navigates to a shared "Coming Soon" placeholder screen,
+  since none of those sections have a real screen yet.
+- Wired up real navigation for the first time: added Navigation Compose with
+  type-safe routes (`GameRoute`, `ComingSoonRoute`), one `NavController`/
+  `NavHost` owned by `MainActivity`, with the floating menu overlaid above
+  it so it persists across every screen.
+- Renamed the prestige mechanic from "Molt" to "Level Up" — "Molt" only made
+  sense for dragon-flavored lairs, not the goblins/orcs/etc. earlier in the
+  catalog. Still not implemented; the persisted field is still named
+  `totalMolts` internally until Level Up actually gets built.
+- Factored `GameScreen`'s background-art treatment out into a shared
+  `AppBackground` composable so the new placeholder screens look visually
+  consistent instead of defaulting to a plain white background.
+- Hit the same compileSdk-36/AGP-8.13.2 dependency ceiling as before, this
+  time via `navigation-compose` (2.10.0 pulls in `lifecycle-*:2.11.0`,
+  requiring compileSdk 37) — used 2.9.4 instead, which pairs with our
+  existing lifecycle 2.9.3 pin.
+- Verified visually on the emulator: collapsed and expanded menu states, and
+  navigating from the expanded menu to a placeholder screen and back.
+
 ## [0.5.5] - 2026-09-04 06:58 PM EDT
 
 - Fixed the real bug behind two related reports ("the fill doesn't restart

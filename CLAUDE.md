@@ -43,7 +43,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.5.5** (fixed cycle-reset overshoot — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.6.0** (floating menu + navigation — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -60,7 +60,11 @@ These apply to every change made in this repo, however small:
 - **compileSdk 36 / AGP 8.13.2 dependency ceiling:** don't bump
   `androidx.core`/`androidx.core-ktx` past 1.17.x or `androidx.lifecycle-*`
   past 2.9.x without also bumping AGP — newer versions require compileSdk 37,
-  which needs AGP 9.1.0+.
+  which needs AGP 9.1.0+. This bit us again with `androidx.navigation:navigation-compose`
+  — 2.10.0 pulls in `lifecycle-*:2.11.0` transitively and hits the same
+  ceiling; 2.9.4 (paired with lifecycle 2.9.3, matching our pin) works fine.
+  Same rule applies to any future AndroidX dependency: check what `lifecycle-*`
+  version it pulls in before bumping.
 - **Emulator screencap/screenrecord returned a blank frame on this host for
   several sessions**, then started working again unexplained (same Pixel_8
   AVD, `-no-window`, `swiftshader_indirect`) — likely a transient host/driver
@@ -98,6 +102,27 @@ These apply to every change made in this repo, however small:
   - `AuthViewModel` — Supabase auth
   - `SettingsViewModel` — user preferences
   - `ConsentViewModel` — privacy/ad consent
+  - **Navigation** — implemented (`ui/navigation/Routes.kt`): type-safe
+    Navigation Compose routes (`@Serializable` route objects/data classes,
+    using the kotlinx.serialization plugin already in the project — no manual
+    string-route encoding). `GameRoute` (start destination) and
+    `ComingSoonRoute(title)` (one reusable placeholder for every
+    not-yet-built section) are the only routes so far. `MainActivity`'s
+    `WyrmWhelpApp` composable owns the single `NavController`/`NavHost`.
+  - **`FloatingMenu`** (`ui/menu/FloatingMenu.kt`) — the app-wide hamburger
+    FAB, fixed bottom-center, overlaid *above* the `NavHost` in `MainActivity`
+    (not per-screen) so it persists across navigation. Expands upward into a
+    vertical stack of tappable "plank" containers, one per
+    `floatingMenuItems` entry (currently: Help & Social, Unlocks, Upgrades,
+    Stewards, Level Up, Settings) — evoking the wooden trail signpost in the
+    background art. Each plank is a plain labeled `Surface` for now; swap in
+    real per-item art later without changing the shell. Tapping a plank
+    collapses the menu and navigates to `ComingSoonRoute(title = label)` for
+    every item (none of these sections have a real screen yet).
+  - **`AppBackground`** (`ui/common/AppBackground.kt`) — the shared
+    background-art-plus-50%-white-overlay treatment, factored out of
+    `GameScreen` so `ComingSoonScreen` (and any future top-level screen) looks
+    consistent without duplicating the Image/overlay Boxes.
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt.
 - **Data:**
@@ -133,10 +158,12 @@ These apply to every change made in this repo, however small:
   Table/RLS policies defined in `SQL/001_create_cloud_saves_table.sql`.
 - **Sync triggers — implemented:** once per app launch, right after anonymous
   sign-in resolves (`GameViewModel` init). **Not yet implemented:** manual "Save
-  to Cloud" button in Settings, on-Molt sync, any periodic/backgrounding push —
-  none of those exist yet (no Settings screen, no Molt). See open questions.
+  to Cloud" button in Settings, on-Level-Up sync, any periodic/backgrounding
+  push — none of those exist yet (no Settings screen, no Level Up). See open
+  questions.
 - **Merge logic:** `domain/model/GameStateExtensions.kt#mergeGameStates` —
-  compares local vs. cloud `GameState`, higher `totalMolts` wins outright,
+  compares local vs. cloud `GameState`, higher `totalMolts` (Level Up count)
+  wins outright,
   `estimatedNetWorth()` (liquid currency + what owned lairs cost to claim from
   scratch) breaks ties within the same prestige count. The winner is loaded
   into `GameEngine`, then re-saved to both Room and Supabase after offline
@@ -194,8 +221,14 @@ Free-to-play: rewarded ads (boosts, offline-earnings multipliers) + optional IAP
   equivalent past Oil Company) extend the same cost/income patterns with a
   tempered cycle-time curve. A new save starts owning one Kobold Warren
   already (matching AdCap's free starting Lemonade Stand) with 0 gold.
-- **Prestige — Molt:** resets the current hoard/lairs in exchange for **Scale
-  Shards**, a permanent-bonus currency that boosts all future runs.
+- **Prestige — Level Up** (renamed from "Molt"): resets the current
+  hoard/lairs in exchange for **Scale Shards**, a permanent-bonus currency
+  that boosts all future runs. Renamed because "Molt" only fit dragon-flavored
+  lairs, not the goblins/orcs/etc. earlier in the catalog — "Level Up" is
+  generic TTRPG language that fits every tier. Mechanic still not implemented
+  (see open questions); the persisted field is still named
+  `GameState.totalMolts` internally — rename it to match once Level Up is
+  actually built, so the old name doesn't linger as a mismatch.
 - **Art style:** vector/flat illustration, built with Compose (custom vector
   drawables + Compose Canvas for animation). No external sprite/asset-pack
   dependency.
@@ -220,12 +253,12 @@ we'll pin these down as we build each system.
 - Upgrade system (AdCap-style income multipliers per lair at ownership
   milestones) — not implemented; each lair's income currently scales linearly
   with units owned only
-- Leaderboard scope (global hoard value? fastest Molt? per-lair records?)
+- Leaderboard scope (global hoard value? fastest Level Up? per-lair records?)
 - Target device scope (phone-only vs. tablet/landscape support)
 - Cloud sync only happens once per app launch (right after anonymous sign-in);
-  no manual button, Molt trigger, or backgrounding push yet — a long session
-  with no restart won't push its progress to the cloud until it's closed and
-  reopened. Add more triggers once Settings/Molt exist.
+  no manual button, Level Up trigger, or backgrounding push yet — a long
+  session with no restart won't push its progress to the cloud until it's
+  closed and reopened. Add more triggers once Settings/Level Up exist.
 - Anonymous identity isn't recoverable — no email/Google linking yet, so a
   reinstall or a cleared app means a brand new (empty) cloud identity, not a
   restored one.

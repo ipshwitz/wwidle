@@ -1,9 +1,6 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -18,12 +15,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.wyrmwhelp.idlehoard.R
+import com.wyrmwhelp.idlehoard.ui.common.AppBackground
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,19 +27,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.gameState.collectAsStateWithLifecycle()
     val welcomeBack by viewModel.welcomeBackEarnings.collectAsStateWithLifecycle()
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(R.drawable.main_bg),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White.copy(alpha = 0.5f)),
-        )
-
+    AppBackground(modifier = modifier) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
@@ -66,7 +49,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentPadding = PaddingValues(10.dp),
+                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(viewModel.lairs, key = { it.id }) { lair ->
