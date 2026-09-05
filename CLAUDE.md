@@ -22,9 +22,15 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   and read via `AssetManager`). Files land in `/assets` before being copied
   into `app/src/main/res/drawable-nodpi/` (as-is, no density upscaling — for
   single full-bleed art rather than density-bucketed icon sets) to actually
-  use from Compose. `main-bg.png` → `drawable-nodpi/main_bg.png` is the first
-  one in use: `GameScreen`'s background (behind a 50%-opacity white overlay so
-  the art doesn't fight with the lair list for attention).
+  use from Compose. In use so far: `main-bg.png` → `drawable-nodpi/main_bg.png`,
+  `GameScreen`'s background (behind a 50%-opacity white overlay so the art
+  doesn't fight with the lair list for attention); `closed-chest.png` /
+  `open-chest.png` → `drawable-nodpi/closed_chest.png` / `open_chest.png`,
+  `FloatingMenu`'s FAB art for its collapsed/expanded states. Note:
+  `closed-chest.png` has a real transparent background; `open-chest.png` is
+  fully opaque with a near-white background (no alpha channel) — if a future
+  export of it needs to blend into the FAB rather than show that near-white
+  square, it'll need re-exporting with real transparency.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -43,7 +49,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.6.0** (floating menu + navigation — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.6.1** (chest-icon menu toggle — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -111,14 +117,16 @@ These apply to every change made in this repo, however small:
     `WyrmWhelpApp` composable owns the single `NavController`/`NavHost`.
   - **`FloatingMenu`** (`ui/menu/FloatingMenu.kt`) — the app-wide hamburger
     FAB, fixed bottom-center, overlaid *above* the `NavHost` in `MainActivity`
-    (not per-screen) so it persists across navigation. Expands upward into a
-    vertical stack of tappable "plank" containers, one per
-    `floatingMenuItems` entry (currently: Help & Social, Unlocks, Upgrades,
-    Stewards, Level Up, Settings) — evoking the wooden trail signpost in the
-    background art. Each plank is a plain labeled `Surface` for now; swap in
-    real per-item art later without changing the shell. Tapping a plank
-    collapses the menu and navigates to `ComingSoonRoute(title = label)` for
-    every item (none of these sections have a real screen yet).
+    (not per-screen) so it persists across navigation. The FAB itself shows
+    `closed_chest`/`open_chest` art (swapped based on `expanded`) instead of a
+    generic menu glyph. Expands upward into a vertical stack of tappable
+    "plank" containers, one per `floatingMenuItems` entry (currently: Help &
+    Social, Unlocks, Upgrades, Stewards, Level Up, Settings) — evoking the
+    wooden trail signpost in the background art. Each plank is a plain
+    labeled `Surface` for now; swap in real per-item art later without
+    changing the shell. Tapping a plank collapses the menu and navigates to
+    `ComingSoonRoute(title = label)` for every item (none of these sections
+    have a real screen yet).
   - **`AppBackground`** (`ui/common/AppBackground.kt`) — the shared
     background-art-plus-50%-white-overlay treatment, factored out of
     `GameScreen` so `ComingSoonScreen` (and any future top-level screen) looks

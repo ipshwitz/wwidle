@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
@@ -13,12 +14,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,8 +29,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wyrmwhelp.idlehoard.R
 
 /** The floating menu's sections, in display order (top of the stack first). */
 val floatingMenuItems: List<String> = listOf(
@@ -47,9 +47,10 @@ val floatingMenuItems: List<String> = listOf(
 /**
  * A hamburger-style FAB fixed at the bottom of the screen that expands
  * upward into a vertical stack of tappable sections — evoking the wooden
- * trail signpost in the background art. Each item is its own container for
- * now (plain labeled surfaces); swap in per-item art later without changing
- * this shell.
+ * trail signpost in the background art. The FAB itself toggles between
+ * `closed_chest`/`open_chest` art depending on [expanded]. Each item is its
+ * own container for now (plain labeled surfaces); swap in per-item art later
+ * without changing this shell.
  */
 @Composable
 fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier) {
@@ -103,9 +104,12 @@ fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier
             }
 
             FloatingActionButton(onClick = { expanded = !expanded }) {
-                Icon(
-                    imageVector = if (expanded) Icons.Default.Close else Icons.Default.Menu,
+                Image(
+                    painter = painterResource(
+                        if (expanded) R.drawable.open_chest else R.drawable.closed_chest,
+                    ),
                     contentDescription = if (expanded) "Close menu" else "Open menu",
+                    modifier = Modifier.size(40.dp),
                 )
             }
         }

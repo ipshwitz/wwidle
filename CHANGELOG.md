@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.6.1] - 2026-09-04 09:31 PM EDT
+
+- Replaced the floating menu's generic hamburger/X icon with real art:
+  `assets/closed-chest.png` and `open-chest.png`, copied into
+  `drawable-nodpi/` as `closed_chest.png`/`open_chest.png`. The FAB now shows
+  a closed treasure chest normally and an open one while the menu is
+  expanded. Removed the now-unused `material-icons-core` dependency that
+  only existed for the old `Icons.Default.Menu`/`Close` glyphs.
+- Noted for later: `closed-chest.png` has a real transparent background,
+  but `open-chest.png` is fully opaque with a near-white background (no
+  alpha channel) — worth a transparent re-export if that ever needs to
+  blend into the FAB rather than show as a near-white square.
+- Verified functionally via `uiautomator` (content-desc correctly flips
+  "Open menu" → "Close menu" on tap, menu items render) — the emulator's
+  screencap bug (documented in the build environment notes) was back this
+  session, even after a full emulator restart, so no fresh screenshot this
+  round.
+
 ## [0.6.0] - 2026-09-04 09:21 PM EDT
 
 - Added the app's first navigation menu: a floating hamburger FAB fixed at
