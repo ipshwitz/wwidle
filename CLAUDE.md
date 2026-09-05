@@ -78,9 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.12.1** (Unlocks shows one row per milestone rung
-     instead of a compressed per-lair summary — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.12.2** (offline-earnings dialog restyled to match
+     the cozy-fantasy chrome — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -167,12 +166,14 @@ These apply to every change made in this repo, however small:
       engraved shield-`Path` silhouette, standing in for the not-yet-built
       avatar system ("a handful of pre-created avatar images they can choose
       from").
-    - A `Column`: the total-gold `GlowingGoldText` (two stacked `Text`s — a
-      dark offset copy for an engraved look, a bright gold copy with a wide
-      colored shadow standing in for a glow, since `TextStyle.shadow` only
-      takes one shadow) next to `coin.png` (a small ornate gold coin, swapped
-      in for the initial `closed_chest` placeholder once real coin art
-      existed) for a touch of flavor, then a `ParchmentStrip` (cream gradient box) holding
+    - A `Column`: the total-gold `GlowingGoldText` (`ui/common/GlowingGoldText.kt`
+      — two stacked `Text`s — a dark offset copy for an engraved look, a
+      bright gold copy with a wide colored shadow standing in for a glow,
+      since `TextStyle.shadow` only takes one shadow — promoted out of
+      `GameHeader` once `WelcomeBackDialog` needed the same look) next to
+      `coin.png` (a small ornate gold coin, swapped in for the initial
+      `closed_chest` placeholder once real coin art existed) for a touch of
+      flavor, then a `ParchmentStrip` (cream gradient box) holding
       gold-per-second and Platinum Pieces (labeled "pp" — "Premium Coins" in
       the user's own description, but kept the existing 5E-flavored
       `platinumPieces` name rather than introduce a second label for the
@@ -198,6 +199,15 @@ These apply to every change made in this repo, however small:
     incomePerCycle(count) / baseProductionSeconds` across owned lairs) — a
     theoretical rate independent of Steward status, matching how idle games
     typically show this stat.
+  - **`WelcomeBackDialog`** (`ui/game/WelcomeBackDialog.kt`) — the offline-
+    earnings pop-up, restyled from a plain Material `AlertDialog` to match
+    the cozy-fantasy chrome: a plain `Dialog` (not `AlertDialog` — none of
+    its title/text/button slots would let this look like anything other than
+    a Material dialog) with `usePlatformDefaultWidth = false`, containing a
+    parchment-gradient `Column` with a carved wood border, the existing
+    `open_chest` art (no new asset needed), `GlowingGoldText` for the amount
+    earned, and a `WoodenButton` ("Claim") instead of a Material
+    `TextButton`.
   - **`BuyQuantity`** (`ui/game/BuyQuantity.kt`) — the `X1`/`X10`/`X100`/
     `NEXT`/`MAX` enum cycled by tapping `GameHeader`'s small selector box
     (`.next()` wraps around). Fully wired up: `BuyQuantity.resolve(lair,

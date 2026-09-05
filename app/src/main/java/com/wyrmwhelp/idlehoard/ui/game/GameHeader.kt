@@ -5,13 +5,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,16 +23,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
+import com.wyrmwhelp.idlehoard.ui.common.GlowingGoldText
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
@@ -216,40 +211,6 @@ private fun shieldPath(center: Offset, r: Float): Path = Path().apply {
     )
     lineTo(center.x - r * 0.85f, center.y - r * 0.55f)
     close()
-}
-
-/**
- * The main gold total, layered as two `Text`s in a `Box`: a dark, slightly
- * offset copy underneath (the "engraved" emboss) and the bright gold copy on
- * top with a wide soft-colored shadow standing in for a glow (Compose's
- * `TextStyle.shadow` only takes one shadow, so a glow *and* an emboss needs
- * two draws). `FontFamily.Serif` approximates "fantasy-style" lettering
- * without a bundled display font — swap in a real one here if/when the game
- * gets a custom font asset.
- */
-@Composable
-private fun GlowingGoldText(text: String, colors: FantasyPalette, modifier: Modifier = Modifier) {
-    val baseStyle = MaterialTheme.typography.headlineSmall.copy(
-        fontFamily = FontFamily.Serif,
-        fontWeight = FontWeight.ExtraBold,
-    )
-    Box(modifier = modifier) {
-        Text(
-            text = text,
-            style = baseStyle.copy(
-                color = colors.ink.copy(alpha = 0.6f),
-                shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(1.5f, 2f), blurRadius = 1f),
-            ),
-            modifier = Modifier.offset(1.dp, 1.dp),
-        )
-        Text(
-            text = text,
-            style = baseStyle.copy(
-                color = colors.goldBright,
-                shadow = Shadow(colors.goldDeep.copy(alpha = 0.9f), Offset.Zero, blurRadius = 18f),
-            ),
-        )
-    }
 }
 
 /** A thin strip of parchment the rate readouts sit on, distinct from the wood behind it. */

@@ -3,6 +3,19 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.12.2] - 2026-09-05 11:37 AM EDT
+
+- Restyled the offline-earnings "While You Were Away…" pop-up to match the
+  cozy-fantasy chrome instead of a plain Material `AlertDialog`: a parchment
+  scroll with a carved wood border, the existing `open_chest` art, glowing
+  gold text for the amount earned, and a wooden "Claim" button.
+- Promoted `GlowingGoldText` out of `GameHeader` into `ui/common/` so this
+  dialog could reuse the same glowing/embossed gold-text treatment as the
+  header's total.
+- Verified on the emulator: the dialog renders correctly (chest art, glowing
+  gold amount, italic "earned over the last N minutes" line, wooden Claim
+  button) and still correctly dismisses and credits the gold on tap.
+
 ## [0.12.1] - 2026-09-05 11:28 AM EDT
 
 - Redesigned the Unlocks screen to stop compressing milestones: it now shows
