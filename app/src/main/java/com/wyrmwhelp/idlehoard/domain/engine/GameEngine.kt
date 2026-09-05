@@ -5,7 +5,8 @@ import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.canWatchPlatinumAd
-import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
@@ -302,13 +303,14 @@ class GameEngine @Inject constructor() {
     /** Pure production step: advances every owned lair and tallies Gold Pieces earned. */
     private fun advance(state: GameState, deltaSeconds: Double): GameState {
         if (deltaSeconds <= 0.0 || state.lairs.isEmpty()) return state
-        val globalMultiplier = state.globalMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
         val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
         val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
             val (next, earned) = advanceLair(
-                lairId, owned, deltaSeconds, globalMultiplier, speedMultiplier, profitMultiplier,
+                lairId, owned, deltaSeconds, globalSpeedMultiplier, globalIncomeMultiplier, speedMultiplier, profitMultiplier,
             )
             goldEarned += earned
             next
@@ -332,28 +334,30 @@ class GameEngine @Inject constructor() {
      * coin-burst effect, but only if this cycle's own production time was at
      * least [MIN_CONFETTI_PRODUCTION_SECONDS] — a very heavily Speed-Boosted
      * lair can complete faster than that effect can read as anything but a
-     * flicker, so it's skipped rather than spammed. [globalMultiplier],
-     * [speedMultiplier], and [profitMultiplier] are each computed once per
-     * [advance] call (same value for every lair that tick), not per lair.
+     * flicker, so it's skipped rather than spammed. [globalSpeedMultiplier],
+     * [globalIncomeMultiplier], [speedMultiplier], and [profitMultiplier]
+     * are each computed once per [advance] call (same value for every lair
+     * that tick), not per lair.
      */
     private fun advanceLair(
         lairId: String,
         owned: OwnedLair,
         deltaSeconds: Double,
-        globalMultiplier: Double,
+        globalSpeedMultiplier: Double,
+        globalIncomeMultiplier: Double,
         speedMultiplier: Double,
         profitMultiplier: Double,
     ): Pair<OwnedLair, Double> {
         if (owned.count <= 0) return owned to 0.0
 
         val lair = CreatureLairCatalog.get(lairId)
-        val productionSeconds = lair.effectiveProductionSeconds(speedMultiplier)
+        val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
 
         if (!owned.hasSteward) {
             if (!owned.isLoading) return owned to 0.0
             val progress = owned.cycleProgressSeconds + deltaSeconds
             return if (progress >= productionSeconds) {
-                val earned = lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier)
+                val earned = lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier)
                 val confettiWorthy = productionSeconds >= MIN_CONFETTI_PRODUCTION_SECONDS
                 owned.copy(
                     cycleProgressSeconds = 0.0,
@@ -369,7 +373,7 @@ class GameEngine @Inject constructor() {
         var earned = 0.0
         while (remaining >= productionSeconds) {
             remaining -= productionSeconds
-            earned += lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier)
+            earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier)
         }
         return owned.copy(cycleProgressSeconds = remaining) to earned
     }
@@ -389,7 +393,8 @@ class GameEngine @Inject constructor() {
      */
     private fun grantInstantProduction(state: GameState, seconds: Double): GameState {
         if (seconds <= 0.0 || state.lairs.isEmpty()) return state
-        val globalMultiplier = state.globalMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
         val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
         val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
 
@@ -397,19 +402,19 @@ class GameEngine @Inject constructor() {
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
             if (owned.count <= 0) return@mapValues owned
             val lair = CreatureLairCatalog.get(lairId)
-            val productionSeconds = lair.effectiveProductionSeconds(speedMultiplier)
+            val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
             if (owned.hasSteward) {
                 var remaining = owned.cycleProgressSeconds + seconds
                 var earned = 0.0
                 while (remaining >= productionSeconds) {
                     remaining -= productionSeconds
-                    earned += lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier)
+                    earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier)
                 }
                 goldEarned += earned
                 owned.copy(cycleProgressSeconds = remaining)
             } else {
                 val cycles = kotlin.math.floor(seconds / productionSeconds)
-                goldEarned += cycles * lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier)
+                goldEarned += cycles * lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier)
                 owned
             }
         }

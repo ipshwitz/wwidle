@@ -17,15 +17,21 @@ fun GameState.estimatedNetWorth(): Double {
 }
 
 /**
- * The "Everything" milestone bonus: the same compounding schedule as
- * [CreatureLair.individualMilestoneMultiplier], but keyed on the *lowest*
- * owned count across every lair in [catalog] — every lair has to reach a
- * rung before the global bonus for it kicks in, not just whichever lair is
- * furthest ahead.
+ * The "Everything" milestone's Speed bonus: the same compounding schedule
+ * as [CreatureLair.individualSpeedMilestoneMultiplier], but keyed on the
+ * *lowest* owned count across every lair in [catalog] — every lair has to
+ * reach a rung before the global bonus for it kicks in, not just whichever
+ * lair is furthest ahead.
  */
-fun GameState.globalMilestoneMultiplier(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Double {
+fun GameState.globalSpeedMilestoneMultiplier(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Double {
     if (catalog.isEmpty()) return 1.0
-    return milestoneMultiplierFor(catalog.minOf { ownedLair(it.id).count })
+    return milestoneMultiplierFor(catalog.minOf { ownedLair(it.id).count }, MilestoneType.SPEED)
+}
+
+/** The "Everything" milestone's Income bonus — see [globalSpeedMilestoneMultiplier], same idea for [MilestoneType.INCOME] rungs. */
+fun GameState.globalIncomeMilestoneMultiplier(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Double {
+    if (catalog.isEmpty()) return 1.0
+    return milestoneMultiplierFor(catalog.minOf { ownedLair(it.id).count }, MilestoneType.INCOME)
 }
 
 /**
@@ -49,13 +55,29 @@ fun GameState.milestonesCrossed(
     val currentCount = ownedLair(lairId).count
     val individual = MILESTONE_STEPS
         .filter { it.threshold > previousCount && it.threshold <= currentCount }
-        .map { MilestoneAnnouncement(lairName = lair.name, threshold = it.threshold, multiplier = it.multiplier, isGlobal = false) }
+        .map {
+            MilestoneAnnouncement(
+                lairName = lair.name,
+                threshold = it.threshold,
+                multiplier = it.multiplier,
+                isGlobal = false,
+                type = it.type,
+            )
+        }
 
     val previousGlobalMin = catalog.minOfOrNull { if (it.id == lairId) previousCount else ownedLair(it.id).count } ?: 0
     val currentGlobalMin = catalog.minOfOrNull { ownedLair(it.id).count } ?: 0
     val global = MILESTONE_STEPS
         .filter { it.threshold > previousGlobalMin && it.threshold <= currentGlobalMin }
-        .map { MilestoneAnnouncement(lairName = "Everything", threshold = it.threshold, multiplier = it.multiplier, isGlobal = true) }
+        .map {
+            MilestoneAnnouncement(
+                lairName = "Everything",
+                threshold = it.threshold,
+                multiplier = it.multiplier,
+                isGlobal = true,
+                type = it.type,
+            )
+        }
 
     return individual + global
 }

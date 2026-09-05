@@ -28,6 +28,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.domain.model.MilestoneAnnouncement
+import com.wyrmwhelp.idlehoard.domain.model.MilestoneType
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.GlowingGoldText
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
@@ -42,10 +43,11 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * [announcement] names the rung actually crossed (see
  * `GameStateExtensions.milestonesCrossed`) — [MilestoneAnnouncement.lairName]
  * is either a specific lair's name or the literal "Everything" for the
- * global ladder, matching `UnlocksContent`'s own grouping labels, and the
- * multiplier is worded "x Speed" to match that screen's existing copy too
- * (both describe the same `MILESTONE_STEPS` bonus, so the wording needs to
- * stay in sync between the two rather than drift).
+ * global ladder, matching `UnlocksContent`'s own grouping labels. The
+ * multiplier is labeled "Speed" or "Income" from [MilestoneAnnouncement.type]
+ * rather than assumed — rungs below 500 shrink cycle time, 500 and up boost
+ * gold per cycle instead (see `Milestone.kt`) — matching `UnlocksContent`'s
+ * own per-rung labeling, so keep the two in sync if the wording changes.
  */
 @Composable
 fun MilestoneReachedDialog(
@@ -86,7 +88,8 @@ fun MilestoneReachedDialog(
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(8.dp))
-            GlowingGoldText(text = "${GoldFormat.format(announcement.multiplier)}x Speed", colors = palette)
+            val bonusLabel = if (announcement.type == MilestoneType.SPEED) "Speed" else "Income"
+            GlowingGoldText(text = "${GoldFormat.format(announcement.multiplier)}x $bonusLabel", colors = palette)
             Spacer(Modifier.height(4.dp))
             Text(
                 text = if (announcement.isGlobal) "for every lair" else "for this lair",

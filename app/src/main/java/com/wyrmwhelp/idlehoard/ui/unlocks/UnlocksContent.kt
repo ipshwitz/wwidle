@@ -25,6 +25,7 @@ import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.MILESTONE_STEPS
 import com.wyrmwhelp.idlehoard.domain.model.MilestoneStep
+import com.wyrmwhelp.idlehoard.domain.model.MilestoneType
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
@@ -33,16 +34,19 @@ private const val CARDS_PER_ROW = 4
 /**
  * The "Unlocks" section's real content: grouped by lair (plus an
  * "Everything" group for the global ladder — see
- * `GameState.globalMilestoneMultiplier`), each showing a 4-cards-per-row
- * grid of the milestone rungs actually reached for that lair — not a
- * compressed "current bonus" summary. Owning 50 Kobold Warrens shows *two*
- * cards under "Kobold Warren" (the 25 rung and the 50 rung), each a compact
- * "x25" / "2x Speed" pair rather than a sentence. Nothing here is a preview
- * of milestones still ahead; a rung simply doesn't appear until it's
- * actually been crossed. A lair with nothing unlocked yet doesn't get a
- * group at all. Pure display — reads [state]/[lairs] passed in by the
- * caller (`MainActivity`'s `WyrmWhelpApp`, which already has the
- * `GameViewModel`), no ViewModel reference of its own.
+ * `GameState.globalSpeedMilestoneMultiplier`/`globalIncomeMilestoneMultiplier`),
+ * each showing a 4-cards-per-row grid of the milestone rungs actually
+ * reached for that lair — not a compressed "current bonus" summary. Owning
+ * 50 Kobold Warrens shows *two* cards under "Kobold Warren" (the 25 rung and
+ * the 50 rung), each a compact "x25" / "2x Speed" pair rather than a
+ * sentence — the label is "Speed" or "Income" per [MilestoneStep.type],
+ * since rungs at or above 500 are Income, not Speed (see `Milestone.kt`).
+ * Nothing here is a preview of milestones still ahead; a rung simply
+ * doesn't appear until it's actually been crossed. A lair with nothing
+ * unlocked yet doesn't get a group at all. Pure display — reads
+ * [state]/[lairs] passed in by the caller (`MainActivity`'s `WyrmWhelpApp`,
+ * which already has the `GameViewModel`), no ViewModel reference of its
+ * own.
  */
 @Composable
 fun UnlocksContent(
@@ -139,8 +143,9 @@ private fun UnlockCard(rung: MilestoneStep, palette: FantasyPalette, modifier: M
             style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
         )
         Spacer(Modifier.height(2.dp))
+        val bonusLabel = if (rung.type == MilestoneType.SPEED) "Speed" else "Income"
         Text(
-            text = "${GoldFormat.format(rung.multiplier)}x Speed",
+            text = "${GoldFormat.format(rung.multiplier)}x $bonusLabel",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = palette.goldDeep,

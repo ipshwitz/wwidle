@@ -15,7 +15,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.AppBackground
@@ -29,11 +30,13 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val buyQuantity by viewModel.buyQuantity.collectAsStateWithLifecycle()
     val milestoneAnnouncement by viewModel.milestoneAnnouncement.collectAsStateWithLifecycle()
 
-    // The "Everything" milestone bonus — same compounding schedule as each
+    // The "Everything" milestone bonuses — same compounding schedule as each
     // lair's own bonus, but keyed on the lowest owned count across all of
     // them. Computed once per recomposition and threaded through, since
-    // it's the same number for every lair this tick.
-    val globalMultiplier = state.globalMilestoneMultiplier(viewModel.lairs)
+    // they're the same numbers for every lair this tick. Split into Speed
+    // and Income since milestone rungs are one or the other, never both.
+    val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(viewModel.lairs)
+    val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(viewModel.lairs)
     val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
     val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
 
@@ -45,8 +48,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val goldPerSecond = viewModel.lairs.sumOf { lair ->
         val owned = state.ownedLair(lair.id)
         if (owned.count > 0 && owned.hasSteward) {
-            lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier) /
-                lair.effectiveProductionSeconds(speedMultiplier)
+            lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier) /
+                lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
         } else {
             0.0
         }
@@ -82,7 +85,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         owned = owned,
                         goldPieces = state.goldPieces,
                         buyQuantity = buyQuantity,
-                        globalMultiplier = globalMultiplier,
+                        globalIncomeMultiplier = globalIncomeMultiplier,
+                        globalSpeedMultiplier = globalSpeedMultiplier,
                         onClaim = { viewModel.claimLair(lair.id) },
                         onStartLoad = { viewModel.startLairLoad(lair.id) },
                         speedBoostMultiplier = speedMultiplier,

@@ -45,7 +45,7 @@ class GameStateExtensionsTest {
     }
 
     @Test
-    fun `globalMilestoneMultiplier is held back by whichever lair owns the least`() {
+    fun `globalSpeedMilestoneMultiplier is held back by whichever lair owns the least`() {
         val lairs = listOf(testLair("a"), testLair("b"))
         val state = GameState(
             lairs = mapOf(
@@ -56,11 +56,11 @@ class GameStateExtensionsTest {
 
         // "b" hasn't reached the first (25) rung yet, so no bonus applies
         // no matter how far ahead "a" is.
-        assertEquals(1.0, state.globalMilestoneMultiplier(lairs), 0.0001)
+        assertEquals(1.0, state.globalSpeedMilestoneMultiplier(lairs), 0.0001)
     }
 
     @Test
-    fun `globalMilestoneMultiplier advances once every lair has caught up`() {
+    fun `globalSpeedMilestoneMultiplier advances once every lair has caught up`() {
         val lairs = listOf(testLair("a"), testLair("b"))
         val state = GameState(
             lairs = mapOf(
@@ -69,7 +69,29 @@ class GameStateExtensionsTest {
             ),
         )
 
-        assertEquals(2.0, state.globalMilestoneMultiplier(lairs), 0.0001)
+        assertEquals(2.0, state.globalSpeedMilestoneMultiplier(lairs), 0.0001)
+    }
+
+    @Test
+    fun `globalIncomeMilestoneMultiplier only advances on Income-type rungs, held back the same way`() {
+        val lairs = listOf(testLair("a"), testLair("b"))
+        val heldBack = GameState(
+            lairs = mapOf(
+                "a" to OwnedLair(lairId = "a", count = 1_000),
+                "b" to OwnedLair(lairId = "b", count = 100),
+            ),
+        )
+        // "b" is at 100 (a Speed rung), well short of the first Income rung
+        // (500), so the global Income multiplier is still 1x.
+        assertEquals(1.0, heldBack.globalIncomeMilestoneMultiplier(lairs), 0.0001)
+
+        val caughtUp = GameState(
+            lairs = mapOf(
+                "a" to OwnedLair(lairId = "a", count = 1_000),
+                "b" to OwnedLair(lairId = "b", count = 500),
+            ),
+        )
+        assertEquals(4.0, caughtUp.globalIncomeMilestoneMultiplier(lairs), 0.0001)
     }
 
     @Test

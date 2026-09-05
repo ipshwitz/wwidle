@@ -92,8 +92,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.21.0** (a themed pop-up now announces every
-     milestone rung reached, naming the reward — see
+   - Current version: **0.21.1** (milestone rungs now split into Speed vs
+     Income bonuses, correctly labeled everywhere they're shown — see
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -638,39 +638,55 @@ These apply to every change made in this repo, however small:
   - **Milestones** (`domain/model/Milestone.kt`) — `MILESTONE_STEPS` is the
     shared ownership-count ladder (25/50/100/200/300/400 each ×2, then 500
     ×4, 1,000 ×5, 5,000 ×6, 10,000 ×7), applied two ways, both compounding
-    every rung reached into one running multiplier
-    (`milestoneMultiplierFor`):
-    - **Individual** — `CreatureLair.individualMilestoneMultiplier(unitsOwned)`,
-      keyed on that one lair's own owned count (100 Kobold Warrens is its
-      own 8x, independent of every other lair).
-    - **"Everything"** — `GameState.globalMilestoneMultiplier(catalog)`
-      (`domain/model/GameStateExtensions.kt`), keyed on the *lowest* owned
-      count across every lair in `catalog` — every lair has to reach a rung
-      before the bonus for it applies to all of them, not just whichever
-      lair is furthest ahead.
-    Both multipliers feed into `CreatureLair.incomePerCycle(unitsOwned,
-    globalMultiplier = 1.0)` (`baseIncomeGp * unitsOwned *
-    individualMilestoneMultiplier(unitsOwned) * globalMultiplier`) — every
-    caller that credits or previews income (`GameEngine.advance`/
-    `advanceLair`/`grantInstantProduction`, `LairCard`'s "gp/cycle" text, `GameScreen`'s
-    gold-per-second sum) computes the global multiplier once via
-    `state.globalMilestoneMultiplier(...)` and threads it through; callers
-    that don't pass one (existing tests, mainly) get the no-bonus default of
-    1.0. `nextMilestoneThreshold(unitsOwned)` (smallest rung still ahead, or
-    null past 10,000) is what `BuyQuantity.NEXT` targets.
-  - **Milestone-reached pop-up (v0.21.0)** — `GameStateExtensions.milestonesCrossed(lairId,
-    previousCount, catalog)` is the pure, unit-tested detection function: given
-    the *post*-purchase `GameState` plus the owned count *before* the
-    purchase, it returns every `MilestoneStep` rung actually crossed as a
-    `MilestoneAnnouncement(lairName, threshold, multiplier, isGlobal)` — this
-    lair's own individual rungs first (a bulk buy can jump straight past
-    several, e.g. 10→100 reports 25, 50, *and* 100), then any "Everything"
-    global rung this purchase newly unlocked by raising the catalog-wide
-    minimum (`lairName = "Everything"`, matching `UnlocksContent`'s own
-    grouping label). `GameViewModel.claimLair` snapshots the owned count
-    before calling `purchaseLairs`, then diffs against the post-purchase
-    state to build the list and hands it to `enqueueMilestoneAnnouncements` —
-    multiple rungs from one purchase queue up (`pendingMilestoneAnnouncements: ArrayDeque`)
+    every rung reached *of the same [MilestoneType]* into one running
+    multiplier (`milestoneMultiplierFor(unitsOwned, type)`). **Confirmed
+    design (v0.21.1): the first six rungs (25 through 400) are
+    [MilestoneType.SPEED] — they shrink cycle time; 500 and up are
+    [MilestoneType.INCOME] — they boost gold per cycle instead.** The two
+    types compound independently (a Speed rung never affects income, an
+    Income rung never affects speed) rather than one combined multiplier
+    like the original (pre-0.21.1) design:
+    - **Individual** — `CreatureLair.individualSpeedMilestoneMultiplier(unitsOwned)`
+      / `individualIncomeMilestoneMultiplier(unitsOwned)`, keyed on that one
+      lair's own owned count (400 Kobold Warrens is its own 64x *Speed*,
+      independent of every other lair; reaching 500 adds a *separate* 4x
+      Income on top, not compounded into the same number).
+    - **"Everything"** — `GameState.globalSpeedMilestoneMultiplier(catalog)`
+      / `globalIncomeMilestoneMultiplier(catalog)` (`domain/model/GameStateExtensions.kt`),
+      keyed on the *lowest* owned count across every lair in `catalog` —
+      every lair has to reach a rung before the bonus for it applies to all
+      of them, not just whichever lair is furthest ahead.
+    The Income multipliers feed into `CreatureLair.incomePerCycle(unitsOwned,
+    globalIncomeMultiplier = 1.0)` (`baseIncomeGp * unitsOwned *
+    individualIncomeMilestoneMultiplier(unitsOwned) * globalIncomeMultiplier`);
+    the Speed multipliers feed into `CreatureLair.effectiveProductionSeconds(unitsOwned,
+    speedBoostMultiplier, globalSpeedMilestoneMultiplier)` (dividing
+    `baseProductionSeconds`, same as the Platinum-bought Speed Boost) — note
+    `effectiveProductionSeconds` needs `unitsOwned` now, unlike before
+    v0.21.1. Every caller that credits or previews income/speed
+    (`GameEngine.advance`/`advanceLair`/`grantInstantProduction`, `LairCard`'s
+    "gp/cycle" text and progress-bar fill, `GameScreen`'s gold-per-second
+    sum) computes both global multipliers once per tick/recomposition and
+    threads them through separately; callers that don't pass them (existing
+    tests, mainly) get the no-bonus default of 1.0 for each.
+    `nextMilestoneThreshold(unitsOwned)` (smallest rung still ahead of
+    either type, or null past 10,000) is what `BuyQuantity.NEXT` targets —
+    unaffected by the type split, since it's just "how far to the next rung
+    of any kind."
+  - **Milestone-reached pop-up (v0.21.0, Speed/Income split in v0.21.1)** —
+    `GameStateExtensions.milestonesCrossed(lairId, previousCount, catalog)`
+    is the pure, unit-tested detection function: given the *post*-purchase
+    `GameState` plus the owned count *before* the purchase, it returns every
+    `MilestoneStep` rung actually crossed as a `MilestoneAnnouncement(lairName,
+    threshold, multiplier, isGlobal, type)` — this lair's own individual
+    rungs first (a bulk buy can jump straight past several, e.g. 10→100
+    reports 25, 50, *and* 100), then any "Everything" global rung this
+    purchase newly unlocked by raising the catalog-wide minimum (`lairName =
+    "Everything"`, matching `UnlocksContent`'s own grouping label).
+    `GameViewModel.claimLair` snapshots the owned count before calling
+    `purchaseLairs`, then diffs against the post-purchase state to build the
+    list and hands it to `enqueueMilestoneAnnouncements` — multiple rungs
+    from one purchase queue up (`pendingMilestoneAnnouncements: ArrayDeque`)
     and surface one at a time via `milestoneAnnouncement: StateFlow<MilestoneAnnouncement?>`,
     each drained by `dismissMilestoneAnnouncement()`. `MilestoneReachedDialog.kt`
     (`ui/game/`) is the pop-up itself — deliberately built as a near-copy of
@@ -679,11 +695,13 @@ These apply to every change made in this repo, however small:
     `GlowingGoldText` as the focal number, a `WoodenButton` to dismiss) rather
     than inventing a second dialog look — shows "Kobold Warren — x100" / "2x
     Speed" / "for this lair" (or "Everything" / "for every lair" for a global
-    rung). Copy is worded "x Speed" to match `UnlocksContent`'s existing
-    label for the same bonus — keep the two in sync if either wording
-    changes, since they describe the same `MILESTONE_STEPS` multiplier.
-    `GameScreen` collects `milestoneAnnouncement` and renders the dialog
-    exactly like `welcomeBackEarnings`. Only triggers off `claimLair`
+    rung), or "4x Income" for a rung ≥500. **The label is read from
+    `MilestoneAnnouncement.type`, never assumed** — the original v0.21.0 copy
+    hardcoded "x Speed" for every rung, which was wrong for 500+ once the
+    Speed/Income split landed in v0.21.1; matches `UnlocksContent`'s own
+    per-rung labeling (see below), so keep the two in sync if either wording
+    changes. `GameScreen` collects `milestoneAnnouncement` and renders the
+    dialog exactly like `welcomeBackEarnings`. Only triggers off `claimLair`
     (purchases) — milestones are ownership-count-based, not tick-based, so
     nothing needs to watch the tick loop for this.
   - **`UnlocksContent`** (`ui/unlocks/UnlocksContent.kt`) — the Unlocks
@@ -694,7 +712,9 @@ These apply to every change made in this repo, however small:
     Warrens shows two cards under one "Kobold Warren" header ("x25"/"2x
     Speed" and "x50"/"2x Speed"), and the "Everything" ladder gets its own
     group the same way. Each card is reduced to its two load-bearing
-    numbers (`"x${rung.threshold}"` / `"${rung.multiplier}x Speed"`)
+    numbers (`"x${rung.threshold}"` / `"${rung.multiplier}x ${if (rung.type
+    == MilestoneType.SPEED) "Speed" else "Income"}"`, v0.21.1 — previously
+    hardcoded "Speed" for every rung, wrong once rungs ≥500 became Income)
     instead of a sentence. `UnlockCardRow` chunks each group's rungs into
     rows of `CARDS_PER_ROW` (4) via `List.chunked`, padding a short final
     row with invisible `Modifier.weight(1f)` spacers rather than letting

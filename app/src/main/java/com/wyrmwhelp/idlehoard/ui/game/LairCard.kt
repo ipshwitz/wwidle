@@ -78,7 +78,8 @@ fun LairCard(
     owned: OwnedLair,
     goldPieces: Double,
     buyQuantity: BuyQuantity,
-    globalMultiplier: Double,
+    globalIncomeMultiplier: Double,
+    globalSpeedMultiplier: Double,
     coinBurstTrigger: Int,
     onClaim: () -> Unit,
     onStartLoad: () -> Unit,
@@ -93,7 +94,7 @@ fun LairCard(
     val claimQuantity = buyQuantity.resolve(lair, owned.count, goldPieces).coerceAtLeast(1)
     val claimCost = lair.costForUnits(owned.count, claimQuantity)
     val canClaim = goldPieces >= claimCost
-    val productionSeconds = lair.effectiveProductionSeconds(speedBoostMultiplier)
+    val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedBoostMultiplier, globalSpeedMultiplier)
     // Naturally reads 0% while idle (cycleProgressSeconds stays pinned at 0
     // until a tap starts the cycle — see GameEngine.advanceLair) with no
     // special-casing needed: there's no separate "ready, waiting" plateau
@@ -183,7 +184,7 @@ fun LairCard(
                 )
                 if (owned.count > 0) {
                     Text(
-                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalMultiplier, profitBoostMultiplier))} gp/cycle",
+                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier))} gp/cycle",
                         style = MaterialTheme.typography.bodySmall,
                         color = palette.goldDeep,
                         fontWeight = FontWeight.Bold,

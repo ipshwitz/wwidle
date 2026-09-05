@@ -3,6 +3,28 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.21.1] - 2026-09-05 7:30 PM EDT
+
+- Milestone rungs now split into two real bonus types instead of all
+  boosting income: the first six rungs (25, 50, 100, 200, 300, 400 owned)
+  now shrink that lair's cycle time (a Speed bonus), while 500 and beyond
+  boost gold earned per cycle instead (an Income bonus). The two compound
+  independently — a lair's Speed bonus no longer inflates its income the
+  way the old single combined multiplier did.
+- The milestone pop-up and the Unlocks screen both now correctly label
+  each rung "Speed" or "Income" based on which it actually is, instead of
+  always saying "Speed" regardless of the real effect.
+- This is a real balance change, not just a label fix: any lair that had
+  only crossed Speed-type rungs (25 through 400) will show lower gp/cycle
+  than before, since that bonus no longer double-counts toward income.
+  Verified on the emulator — Kobold Warren's income correctly dropped from
+  848 gp/cycle to 106 gp/cycle after this change (same 106 owned, no
+  Income rung crossed yet), and a fresh "x200" milestone pop-up correctly
+  showed "2x Speed."
+- New/updated unit tests cover the Speed/Income split precisely at the
+  400/500 rung boundary, for both the per-lair and "Everything" global
+  multipliers.
+
 ## [0.21.0] - 2026-09-05 7:04 PM EDT
 
 - Reaching an ownership milestone (25, 50, 100 owned of a lair, or the

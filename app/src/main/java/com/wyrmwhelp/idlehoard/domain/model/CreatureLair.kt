@@ -86,33 +86,53 @@ data class CreatureLair(
     }
 
     /**
-     * This lair's own compounding milestone bonus at [unitsOwned] owned —
-     * e.g. owning 100 Kobold Warrens (crossing the 25/50/100 rungs) is 8x,
-     * independent of every other lair. See [nextMilestoneThreshold] for how
-     * far away the next rung is.
+     * This lair's own compounding Speed milestone bonus at [unitsOwned]
+     * owned — e.g. owning 400 Kobold Warrens (crossing the 25/50/100/200/300/400
+     * rungs, all [MilestoneType.SPEED]) is 64x, independent of every other
+     * lair. See [nextMilestoneThreshold] for how far away the next rung
+     * (of either type) is.
      */
-    fun individualMilestoneMultiplier(unitsOwned: Int): Double = milestoneMultiplierFor(unitsOwned)
+    fun individualSpeedMilestoneMultiplier(unitsOwned: Int): Double = milestoneMultiplierFor(unitsOwned, MilestoneType.SPEED)
+
+    /**
+     * This lair's own compounding Income milestone bonus at [unitsOwned]
+     * owned — the [MilestoneType.INCOME] rungs (500 and up), same
+     * compounding idea as [individualSpeedMilestoneMultiplier] but for the
+     * rungs that boost gold per cycle instead of cycle speed.
+     */
+    fun individualIncomeMilestoneMultiplier(unitsOwned: Int): Double = milestoneMultiplierFor(unitsOwned, MilestoneType.INCOME)
 
     /**
      * Total Gold Pieces produced per completed cycle by [unitsOwned] units,
-     * including this lair's own milestone bonus, the "Everything" bonus via
-     * [globalMultiplier] (from `GameState.globalMilestoneMultiplier`), and
-     * the permanent account-wide profit boost via [profitBoostMultiplier]
-     * (from `profitBoostMultiplier(GameState.profitBoostLevel)` in
-     * `Boosts.kt`) — callers that don't pass one of these (existing tests,
-     * mainly) get the no-bonus default of 1.0 for it.
+     * including this lair's own Income milestone bonus, the "Everything"
+     * Income bonus via [globalIncomeMultiplier] (from
+     * `GameState.globalIncomeMilestoneMultiplier`), and the permanent
+     * account-wide profit boost via [profitBoostMultiplier] (from
+     * `profitBoostMultiplier(GameState.profitBoostLevel)` in `Boosts.kt`) —
+     * callers that don't pass one of these (existing tests, mainly) get the
+     * no-bonus default of 1.0 for it. Speed-type milestone rungs have no
+     * effect here — see [effectiveProductionSeconds] for those.
      */
-    fun incomePerCycle(unitsOwned: Int, globalMultiplier: Double = 1.0, profitBoostMultiplier: Double = 1.0): Double =
-        baseIncomeGp * unitsOwned * individualMilestoneMultiplier(unitsOwned) * globalMultiplier * profitBoostMultiplier
+    fun incomePerCycle(unitsOwned: Int, globalIncomeMultiplier: Double = 1.0, profitBoostMultiplier: Double = 1.0): Double =
+        baseIncomeGp * unitsOwned * individualIncomeMilestoneMultiplier(unitsOwned) * globalIncomeMultiplier * profitBoostMultiplier
 
     /**
-     * This lair's actual cycle time after the permanent account-wide speed
-     * boost (`speedBoostMultiplier(GameState.speedBoostLevel)` in
-     * `Boosts.kt`) — a boost makes cycles complete *faster*, so it divides
-     * [baseProductionSeconds] rather than multiplying it. Defaults to
-     * [baseProductionSeconds] unchanged for callers that don't pass one
-     * (existing tests, mainly).
+     * This lair's actual cycle time at [unitsOwned] owned, after the
+     * permanent account-wide speed boost (`speedBoostMultiplier(GameState.speedBoostLevel)`
+     * in `Boosts.kt`), this lair's own Speed milestone bonus (see
+     * [individualSpeedMilestoneMultiplier]), and the "Everything" Speed
+     * bonus via [globalSpeedMilestoneMultiplier] (from
+     * `GameState.globalSpeedMilestoneMultiplier`) — every one of these makes
+     * cycles complete *faster*, so they divide [baseProductionSeconds]
+     * rather than multiplying it. [unitsOwned] defaults to 0 (no milestone
+     * speed bonus) for callers that don't care about it (existing tests,
+     * mainly); Income-type milestone rungs have no effect here — see
+     * [incomePerCycle] for those.
      */
-    fun effectiveProductionSeconds(speedBoostMultiplier: Double = 1.0): Double =
-        baseProductionSeconds / speedBoostMultiplier
+    fun effectiveProductionSeconds(
+        unitsOwned: Int = 0,
+        speedBoostMultiplier: Double = 1.0,
+        globalSpeedMilestoneMultiplier: Double = 1.0,
+    ): Double =
+        baseProductionSeconds / (speedBoostMultiplier * individualSpeedMilestoneMultiplier(unitsOwned) * globalSpeedMilestoneMultiplier)
 }

@@ -85,38 +85,60 @@ class CreatureLairTest {
     }
 
     @Test
-    fun `individualMilestoneMultiplier is 1x below the first threshold`() {
+    fun `individualSpeedMilestoneMultiplier is 1x below the first threshold`() {
         for (owned in listOf(0, 1, 10, 24)) {
-            assertEquals(1.0, lair.individualMilestoneMultiplier(owned), 0.0001)
+            assertEquals(1.0, lair.individualSpeedMilestoneMultiplier(owned), 0.0001)
         }
     }
 
     @Test
-    fun `individualMilestoneMultiplier doubles at each of the first six rungs, compounding`() {
-        assertEquals(2.0, lair.individualMilestoneMultiplier(25), 0.0001)
-        assertEquals(4.0, lair.individualMilestoneMultiplier(50), 0.0001)
-        assertEquals(8.0, lair.individualMilestoneMultiplier(100), 0.0001)
-        assertEquals(16.0, lair.individualMilestoneMultiplier(200), 0.0001)
-        assertEquals(32.0, lair.individualMilestoneMultiplier(300), 0.0001)
-        assertEquals(64.0, lair.individualMilestoneMultiplier(400), 0.0001)
+    fun `individualSpeedMilestoneMultiplier doubles at each of the first six rungs, compounding`() {
+        assertEquals(2.0, lair.individualSpeedMilestoneMultiplier(25), 0.0001)
+        assertEquals(4.0, lair.individualSpeedMilestoneMultiplier(50), 0.0001)
+        assertEquals(8.0, lair.individualSpeedMilestoneMultiplier(100), 0.0001)
+        assertEquals(16.0, lair.individualSpeedMilestoneMultiplier(200), 0.0001)
+        assertEquals(32.0, lair.individualSpeedMilestoneMultiplier(300), 0.0001)
+        assertEquals(64.0, lair.individualSpeedMilestoneMultiplier(400), 0.0001)
     }
 
     @Test
-    fun `individualMilestoneMultiplier applies the later flat-rate rungs on top`() {
-        assertEquals(64.0 * 4.0, lair.individualMilestoneMultiplier(500), 0.0001)
-        assertEquals(64.0 * 4.0 * 5.0, lair.individualMilestoneMultiplier(1_000), 0.0001)
-        assertEquals(64.0 * 4.0 * 5.0 * 6.0, lair.individualMilestoneMultiplier(5_000), 0.0001)
-        assertEquals(64.0 * 4.0 * 5.0 * 6.0 * 7.0, lair.individualMilestoneMultiplier(10_000), 0.0001)
+    fun `individualSpeedMilestoneMultiplier stops compounding once the Speed rungs are exhausted`() {
+        // 500 and up are Income rungs (see Milestone.kt), so the Speed
+        // multiplier caps at the 400 rung's 64x and doesn't grow further.
+        assertEquals(64.0, lair.individualSpeedMilestoneMultiplier(500), 0.0001)
+        assertEquals(64.0, lair.individualSpeedMilestoneMultiplier(10_000), 0.0001)
     }
 
     @Test
-    fun `incomePerCycle applies both the individual and global multiplier`() {
-        val unitsOwned = 25
-        val globalMultiplier = 3.0
+    fun `individualIncomeMilestoneMultiplier is 1x below the first Income threshold`() {
+        for (owned in listOf(0, 1, 400, 499)) {
+            assertEquals(1.0, lair.individualIncomeMilestoneMultiplier(owned), 0.0001)
+        }
+    }
 
-        val income = lair.incomePerCycle(unitsOwned, globalMultiplier)
+    @Test
+    fun `individualIncomeMilestoneMultiplier compounds across the Income rungs only`() {
+        assertEquals(4.0, lair.individualIncomeMilestoneMultiplier(500), 0.0001)
+        assertEquals(4.0 * 5.0, lair.individualIncomeMilestoneMultiplier(1_000), 0.0001)
+        assertEquals(4.0 * 5.0 * 6.0, lair.individualIncomeMilestoneMultiplier(5_000), 0.0001)
+        assertEquals(4.0 * 5.0 * 6.0 * 7.0, lair.individualIncomeMilestoneMultiplier(10_000), 0.0001)
+    }
 
-        assertEquals(lair.baseIncomeGp * unitsOwned * 2.0 * globalMultiplier, income, 0.0001)
+    @Test
+    fun `incomePerCycle applies both the individual and global Income multiplier`() {
+        val unitsOwned = 500
+        val globalIncomeMultiplier = 3.0
+
+        val income = lair.incomePerCycle(unitsOwned, globalIncomeMultiplier)
+
+        assertEquals(lair.baseIncomeGp * unitsOwned * 4.0 * globalIncomeMultiplier, income, 0.0001)
+    }
+
+    @Test
+    fun `incomePerCycle ignores Speed-rung ownership entirely`() {
+        // 25 owned crosses a Speed rung, not an Income one, so incomePerCycle
+        // should see no milestone bonus at all here.
+        assertEquals(lair.baseIncomeGp * 25, lair.incomePerCycle(25), 0.0001)
     }
 
     @Test
@@ -126,14 +148,14 @@ class CreatureLairTest {
 
     @Test
     fun `incomePerCycle applies the profit boost multiplier on top of the others`() {
-        val unitsOwned = 25
-        val globalMultiplier = 3.0
+        val unitsOwned = 500
+        val globalIncomeMultiplier = 3.0
         val profitBoostMultiplier = 1.5
 
-        val income = lair.incomePerCycle(unitsOwned, globalMultiplier, profitBoostMultiplier)
+        val income = lair.incomePerCycle(unitsOwned, globalIncomeMultiplier, profitBoostMultiplier)
 
         assertEquals(
-            lair.baseIncomeGp * unitsOwned * 2.0 * globalMultiplier * profitBoostMultiplier,
+            lair.baseIncomeGp * unitsOwned * 4.0 * globalIncomeMultiplier * profitBoostMultiplier,
             income,
             0.0001,
         )
@@ -145,7 +167,43 @@ class CreatureLairTest {
     }
 
     @Test
-    fun `effectiveProductionSeconds shrinks the cycle time as the speed multiplier grows`() {
-        assertEquals(lair.baseProductionSeconds / 1.5, lair.effectiveProductionSeconds(1.5), 0.0001)
+    fun `effectiveProductionSeconds shrinks the cycle time as the speed boost multiplier grows`() {
+        assertEquals(
+            lair.baseProductionSeconds / 1.5,
+            lair.effectiveProductionSeconds(speedBoostMultiplier = 1.5),
+            0.0001,
+        )
+    }
+
+    @Test
+    fun `effectiveProductionSeconds also shrinks from this lair's own Speed milestone rungs`() {
+        // 25 owned crosses a Speed rung (2x) — should shrink cycle time just
+        // like the account-wide speed boost does.
+        assertEquals(
+            lair.baseProductionSeconds / 2.0,
+            lair.effectiveProductionSeconds(unitsOwned = 25),
+            0.0001,
+        )
+    }
+
+    @Test
+    fun `effectiveProductionSeconds ignores Income-rung ownership entirely`() {
+        // Crossing from 400 to 500 owned reaches an Income rung, not a
+        // Speed one, so cycle time shouldn't shrink any further than it
+        // already had at 400 (the last Speed rung).
+        assertEquals(
+            lair.effectiveProductionSeconds(unitsOwned = 400),
+            lair.effectiveProductionSeconds(unitsOwned = 500),
+            0.0001,
+        )
+    }
+
+    @Test
+    fun `effectiveProductionSeconds compounds the global Speed milestone multiplier too`() {
+        assertEquals(
+            lair.baseProductionSeconds / (2.0 * 3.0),
+            lair.effectiveProductionSeconds(unitsOwned = 25, globalSpeedMilestoneMultiplier = 3.0),
+            0.0001,
+        )
     }
 }

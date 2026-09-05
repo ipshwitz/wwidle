@@ -293,7 +293,7 @@ class GameEngineTest {
             GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), speedBoostLevel = speedLevel),
         )
         engine.purchaseLair("kobold_warren")
-        val productionSeconds = lair.effectiveProductionSeconds(speedBoostMultiplier(speedLevel))
+        val productionSeconds = lair.effectiveProductionSeconds(speedBoostMultiplier = speedBoostMultiplier(speedLevel))
         assertTrue(productionSeconds < 0.01)
 
         engine.startLairLoad("kobold_warren")
