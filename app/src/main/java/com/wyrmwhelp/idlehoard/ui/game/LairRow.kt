@@ -1,6 +1,7 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,14 +22,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
@@ -114,16 +119,32 @@ fun LairRow(
 }
 
 /**
- * A circular stand-in for real creature art (none exists yet — no monster
- * portraits have been dropped into `/assets`): a rarity-tinted radial
- * gradient disc with a carved border, and the monster's first letter in
- * serif type. Not unique per monster (a few tiers share an initial) but the
- * rarity color band and the full name right next to it in `LairCard` already
- * disambiguate — this is a placeholder, not a real icon system. Dims
- * whenever it isn't tappable (owned but Steward-managed, or already
- * mid-cycle) and shares the exact tap target contract as the card:
- * `enabled` mirrors `LairRow`'s `canStartLoad`, `onClick` is the same
- * hoisted `onStartLoad` action.
+ * The lair id → real portrait art mapping. Only a few lairs have art so far
+ * (dropped into `/assets` as `lair-<monster>.png`, copied into
+ * `drawable-nodpi/` as `lair_<lairId>.png` once verified as a genuinely
+ * transparent square) — everything else still falls back to
+ * [CreatureAvatar]'s placeholder disc until it gets its own art in the same
+ * style. Keyed by lair id (not monster name) since a couple of tiers already
+ * share a monster initial and could plausibly share art direction too.
+ */
+private fun lairPortraitRes(lairId: String): Int? = when (lairId) {
+    "kobold_warren" -> R.drawable.lair_kobold_warren
+    "giant_rat_burrow" -> R.drawable.lair_giant_rat_burrow
+    "bugbear_warcamp" -> R.drawable.lair_bugbear_warcamp
+    else -> null
+}
+
+/**
+ * A circular creature portrait — real art via [lairPortraitRes] where it
+ * exists, otherwise a stand-in: a rarity-tinted radial gradient disc with a
+ * carved border and the monster's first letter in serif type. The
+ * placeholder isn't unique per monster (a few tiers share an initial) but
+ * the rarity color band and the full name right next to it in `LairCard`
+ * already disambiguate. Both variants dim identically whenever the avatar
+ * isn't tappable (owned but Steward-managed, or already mid-cycle) and
+ * share the exact tap target contract as the card: `enabled` mirrors
+ * `LairRow`'s `canStartLoad`, `onClick` is the same hoisted `onStartLoad`
+ * action.
  */
 @Composable
 private fun CreatureAvatar(
@@ -133,8 +154,8 @@ private fun CreatureAvatar(
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
-    val rarity = rarityColor(lair.tier)
     val alpha = if (enabled) 1f else 0.55f
+    val portraitRes = lairPortraitRes(lair.id)
 
     Box(
         modifier = modifier
@@ -142,33 +163,58 @@ private fun CreatureAvatar(
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.fillMaxHeight().fillMaxWidth()) {
-            val radius = size.minDimension / 2f
-            val center = Offset(size.width / 2f, size.height / 2f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(rarity.copy(alpha = alpha), rarity.copy(alpha = alpha * 0.6f)),
-                    center = center,
-                    radius = radius,
-                ),
-                radius = radius,
-                center = center,
+        if (portraitRes != null) {
+            // matchParentSize(), not fillMaxHeight()/fillMaxWidth(): the Row this
+            // sits in uses Modifier.height(IntrinsicSize.Min), and an Image (unlike
+            // the Canvas below) reports its painter's own intrinsic size during
+            // that measurement pass — fillMaxWidth/fillMaxHeight let that leak
+            // through and blew the whole row up to the portrait's raw size.
+            // matchParentSize() sizes strictly off the already-resolved Box instead.
+            Image(
+                painter = painterResource(portraitRes),
+                contentDescription = lair.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .matchParentSize()
+                    .alpha(alpha),
             )
-            drawCircle(
-                color = palette.woodDark.copy(alpha = alpha),
-                radius = radius - 1.5f,
-                center = center,
-                style = Stroke(width = 3f),
+            Canvas(modifier = Modifier.matchParentSize()) {
+                drawCircle(
+                    color = palette.woodDark.copy(alpha = alpha),
+                    radius = size.minDimension / 2f - 1.5f,
+                    style = Stroke(width = 3f),
+                )
+            }
+        } else {
+            val rarity = rarityColor(lair.tier)
+            Canvas(modifier = Modifier.fillMaxHeight().fillMaxWidth()) {
+                val radius = size.minDimension / 2f
+                val center = Offset(size.width / 2f, size.height / 2f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(rarity.copy(alpha = alpha), rarity.copy(alpha = alpha * 0.6f)),
+                        center = center,
+                        radius = radius,
+                    ),
+                    radius = radius,
+                    center = center,
+                )
+                drawCircle(
+                    color = palette.woodDark.copy(alpha = alpha),
+                    radius = radius - 1.5f,
+                    center = center,
+                    style = Stroke(width = 3f),
+                )
+            }
+            Text(
+                text = lair.monster.take(1).uppercase(),
+                color = palette.parchment.copy(alpha = alpha),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = FontFamily.Serif,
+                    shadow = Shadow(palette.woodDark.copy(alpha = alpha), Offset(1f, 1f), blurRadius = 1f),
+                ),
             )
         }
-        Text(
-            text = lair.monster.take(1).uppercase(),
-            color = palette.parchment.copy(alpha = alpha),
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontFamily = FontFamily.Serif,
-                shadow = Shadow(palette.woodDark.copy(alpha = alpha), Offset(1f, 1f), blurRadius = 1f),
-            ),
-        )
     }
 }

@@ -66,7 +66,14 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   meant to be opaque. `coin.png` → `drawable-nodpi/coin.png`, an ornate gold
   coin (rope-braid rim, griffin-head emblem) — real transparent background,
   used by `GameHeader` next to the gold total in place of the `closed_chest`
-  placeholder it launched with.
+  placeholder it launched with. `lair-kobold.png` / `lair-rat.png` /
+  `lair-bugbear.png` → `drawable-nodpi/lair_kobold_warren.png` /
+  `lair_giant_rat_burrow.png` / `lair_bugbear_warcamp.png` (named by lair id,
+  not monster name, since a couple of tiers already share a monster
+  initial), the first real `CreatureAvatar` portraits (v0.20.2) — square
+  (1254x1254), genuinely transparent corners, no re-export needed. See the
+  Open Questions entry on creature portrait art for which other
+  already-generated candidates are being held back pending a style redo.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -85,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.20.1** (Shop and Settings now use their own
-     wooden-sign art in the floating menu instead of the plain fallback
-     surface — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.20.2** (Kobold Warren, Giant Rat Burrow, and
+     Bugbear Warcamp get real creature portrait art in place of the
+     lettered placeholder disc — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -249,12 +256,30 @@ These apply to every change made in this repo, however small:
     on the `Row` plus `fillMaxHeight().aspectRatio(1f)` on the avatar makes
     the avatar a perfect circle that automatically matches the card's own
     content-driven height — no magic numbers kept in sync between the two.
-    `CreatureAvatar` is a placeholder (no monster portrait art exists yet, no
-    files dropped into `/assets` for this): a rarity-tinted radial-gradient
-    disc with a carved border and the monster's first letter in serif type —
-    not unique per creature (a few tiers share an initial) but the rarity
-    color band and the full name in the card right next to it already
-    disambiguate, and this is explicitly a stand-in, not a real icon system.
+    `CreatureAvatar` shows real portrait art for the lairs that have it —
+    `lairPortraitRes(lairId)` (v0.20.2: Kobold Warren, Giant Rat Burrow,
+    Bugbear Warcamp so far, from `lair-kobold.png`/`lair-rat.png`/
+    `lair-bugbear.png` in `/assets`, copied into `drawable-nodpi/` as
+    `lair_<lairId>.png` after verifying each is a genuinely transparent
+    square via corner pixel alpha) — clipped to the circle with
+    `ContentScale.Crop` and the same carved-border ring as the placeholder.
+    Every other lair still falls back to the placeholder: a rarity-tinted
+    radial-gradient disc with a carved border and the monster's first letter
+    in serif type — not unique per creature (a few tiers share an initial)
+    but the rarity color band and the full name in the card right next to it
+    already disambiguate. **Gotcha hit wiring the real art in:** the portrait
+    `Image` must use `Modifier.matchParentSize()`, not
+    `fillMaxHeight()/fillMaxWidth()` like the placeholder `Canvas` uses —
+    this `Box` sits inside a `Row` with `Modifier.height(IntrinsicSize.Min)`,
+    and unlike `Canvas` (which has no intrinsic size of its own), `Image`
+    reports its painter's real intrinsic size during that intrinsic-height
+    measurement pass; `fillMaxWidth()/fillMaxHeight()` let that leak through
+    and blew the whole row up to the portrait's raw pixel size the first
+    time this ran on the emulator. `matchParentSize()` sizes strictly off
+    the already-resolved `Box` instead, sidestepping the intrinsic query
+    entirely — reach for it any time an `Image`/`AsyncImage` needs to sit
+    inside a `Box` that itself lives inside an `IntrinsicSize`-measured
+    parent.
     Tapping the avatar starts the lair's production cycle exactly like
     tapping the card (see the redesigned gold-collection flow below): both
     share one hoisted `onStartLoad` action, and `canStartLoad` (`owned.count
@@ -926,11 +951,18 @@ we'll pin these down as we build each system.
 - Avatar system — `GameHeader` has a `MedallionEmblem` slot (a carved
   gold-ringed medallion with an engraved shield silhouette, not yet an actual
   avatar) but no real avatar images or selection UI exist yet
-- Creature portrait art — `LairRow`'s `CreatureAvatar` (the circle next to
-  each lair card) is a rarity-tinted placeholder disc with the monster's
-  first initial, not real art; no monster portraits have been dropped into
-  `/assets` yet. Swap `CreatureAvatar`'s drawing for real per-monster images
-  once they exist
+- Creature portrait art — in progress, one lair at a time (see `LairRow`'s
+  `lairPortraitRes` above): Kobold Warren, Giant Rat Burrow, and Bugbear
+  Warcamp have real art as of v0.20.2; every other lair still shows
+  `CreatureAvatar`'s rarity-tinted placeholder disc with the monster's first
+  initial. Several already-generated candidates (`lair-goblin.png`,
+  `lair-orc.png`, `lair-gnoll.png`, `lair-hobgoblin.png` in `/assets`,
+  untracked) are sitting out because they were generated in a different,
+  more painterly/realistic style that doesn't match the kobold/rat/bugbear
+  art (which itself matches the established `coin.png`/`closed-chest.png`
+  look: bold black outlines, semi-flat cel-shading, soft painted
+  highlights) — regenerate those against that style before wiring them in,
+  don't just drop them in as-is.
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested

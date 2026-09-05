@@ -3,6 +3,27 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.20.2] - 2026-09-05 6:39 PM EDT
+
+- Kobold Warren, Giant Rat Burrow, and Bugbear Warcamp now show real
+  creature portrait art in their lair-list avatar instead of the
+  lettered placeholder disc. Every other lair still uses the placeholder
+  until it gets matching art — several already-generated candidates exist
+  but are being held back because they were drawn in a different, more
+  painterly style that doesn't match this batch.
+- Fixed a Compose layout bug hit while wiring the new art in: the portrait
+  image was blowing up to fill almost the entire screen instead of sitting
+  in its small circular avatar. Cause: the avatar's `Row` measures its
+  height via `IntrinsicSize.Min`, and unlike the placeholder's `Canvas`
+  (which has no opinion on its own size), an `Image` reports its source
+  art's real pixel size during that measurement pass — sizing it with
+  `fillMaxHeight()/fillMaxWidth()` let that leak through. Switched to
+  `Modifier.matchParentSize()`, which sizes strictly off the
+  already-resolved avatar circle instead.
+- Verified on the emulator: all three avatars render at the correct small
+  circular size, cropped and bordered like the placeholders, and every
+  other lair is unaffected.
+
 ## [0.20.1] - 2026-09-05 6:25 PM EDT
 
 - Shop and Settings now show their own wooden-sign art in the floating menu
