@@ -4,12 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,31 +28,42 @@ import com.wyrmwhelp.idlehoard.domain.model.MilestoneStep
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
+private const val CARDS_PER_ROW = 4
+
 /**
- * The "Unlocks" section's real content: one row per milestone rung actually
- * reached — not a compressed "current bonus" summary per lair. Owning 50
- * Kobold Warrens shows *two* rows (the 25 rung and the 50 rung), each
- * naming the specific bonus that rung grants, the same way the "Everything"
- * ladder gets one row per global rung reached rather than a single status
- * card. Nothing here is a preview of milestones still ahead; a rung simply
- * doesn't appear until it's actually been crossed. Pure display — reads
- * [state]/[lairs] passed in by the caller (`MainActivity`'s `WyrmWhelpApp`,
- * which already has the `GameViewModel`), no ViewModel reference of its own.
+ * The "Unlocks" section's real content: grouped by lair (plus an
+ * "Everything" group for the global ladder — see
+ * `GameState.globalMilestoneMultiplier`), each showing a 4-cards-per-row
+ * grid of the milestone rungs actually reached for that lair — not a
+ * compressed "current bonus" summary. Owning 50 Kobold Warrens shows *two*
+ * cards under "Kobold Warren" (the 25 rung and the 50 rung), each a compact
+ * "x25" / "2x Speed" pair rather than a sentence. Nothing here is a preview
+ * of milestones still ahead; a rung simply doesn't appear until it's
+ * actually been crossed. A lair with nothing unlocked yet doesn't get a
+ * group at all. Pure display — reads [state]/[lairs] passed in by the
+ * caller (`MainActivity`'s `WyrmWhelpApp`, which already has the
+ * `GameViewModel`), no ViewModel reference of its own.
  */
 @Composable
-fun UnlocksContent(lairs: List<CreatureLair>, state: GameState, modifier: Modifier = Modifier) {
+fun UnlocksContent(
+    lairs: List<CreatureLair>,
+    state: GameState,
+    modifier: Modifier = Modifier,
+    palette: FantasyPalette = FantasyPalette.Default,
+) {
     val everythingRungs = if (lairs.isEmpty()) {
         emptyList()
     } else {
         val minOwned = lairs.minOf { state.ownedLair(it.id).count }
         MILESTONE_STEPS.filter { minOwned >= it.threshold }
     }
-    val lairRungs = lairs.flatMap { lair ->
+    val lairSections = lairs.mapNotNull { lair ->
         val owned = state.ownedLair(lair.id).count
-        MILESTONE_STEPS.filter { owned >= it.threshold }.map { lair to it }
+        val rungs = MILESTONE_STEPS.filter { owned >= it.threshold }
+        if (rungs.isEmpty()) null else lair to rungs
     }
 
-    if (everythingRungs.isEmpty() && lairRungs.isEmpty()) {
+    if (everythingRungs.isEmpty() && lairSections.isEmpty()) {
         Text(
             text = "No milestones unlocked yet — keep growing your hoard!",
             style = MaterialTheme.typography.bodyLarge,
@@ -63,92 +73,77 @@ fun UnlocksContent(lairs: List<CreatureLair>, state: GameState, modifier: Modifi
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        items(everythingRungs, key = { "everything-${it.threshold}" }) { rung ->
-            EverythingUnlockRow(rung = rung)
+        if (everythingRungs.isNotEmpty()) {
+            item { GroupHeader(title = "Everything", palette = palette) }
+            everythingRungs.chunked(CARDS_PER_ROW).forEach { row ->
+                item { UnlockCardRow(rungs = row, palette = palette) }
+            }
         }
-        items(lairRungs, key = { (lair, rung) -> "${lair.id}-${rung.threshold}" }) { (lair, rung) ->
-            LairUnlockRow(lair = lair, rung = rung)
+        lairSections.forEach { (lair, rungs) ->
+            item { GroupHeader(title = lair.name, palette = palette) }
+            rungs.chunked(CARDS_PER_ROW).forEach { row ->
+                item { UnlockCardRow(rungs = row, palette = palette) }
+            }
         }
     }
 }
 
-/** What a milestone rung's multiplier actually does, in player-facing words. */
-private fun MilestoneStep.description(): String =
-    if (multiplier == 2.0) "Profit Speed Doubled" else "Profit x${GoldFormat.format(multiplier)}"
-
-/** A translucent parchment card matching `LairCard`/`StewardsContent`'s base treatment. */
 @Composable
-private fun ParchmentCard(
-    palette: FantasyPalette,
-    modifier: Modifier = Modifier,
-    borderColor: Color = palette.woodDark.copy(alpha = 0.5f),
-    content: @Composable ColumnScope.() -> Unit,
-) {
+private fun GroupHeader(title: String, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    Text(
+        text = title,
+        modifier = modifier.padding(top = 6.dp, bottom = 2.dp),
+        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.titleSmall.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+    )
+}
+
+/**
+ * One row of up to [CARDS_PER_ROW] unlock cards. A short final row (fewer
+ * than [CARDS_PER_ROW] rungs) is padded with invisible equal-weight spacers
+ * rather than letting its real cards stretch to fill the row, so every card
+ * — first row or last — is the same size.
+ */
+@Composable
+private fun UnlockCardRow(rungs: List<MilestoneStep>, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        rungs.forEach { rung ->
+            UnlockCard(rung = rung, palette = palette, modifier = Modifier.weight(1f))
+        }
+        repeat(CARDS_PER_ROW - rungs.size) {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+/** One reached milestone rung, reduced to its two load-bearing numbers: the ownership count and the bonus it grants. */
+@Composable
+private fun UnlockCard(rung: MilestoneStep, palette: FantasyPalette, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(
                 Brush.verticalGradient(
                     listOf(palette.parchmentShade.copy(alpha = 0.8f), palette.parchment.copy(alpha = 0.8f)),
                 ),
             )
-            .border(1.5.dp, borderColor, RoundedCornerShape(10.dp))
-            .padding(12.dp),
-        content = content,
-    )
-}
-
-/** One "Everything" milestone rung reached — every lair had to catch up to [rung]'s threshold for this to appear. */
-@Composable
-private fun EverythingUnlockRow(rung: MilestoneStep, palette: FantasyPalette = FantasyPalette.Default) {
-    ParchmentCard(palette = palette, borderColor = palette.goldDeep.copy(alpha = 0.8f)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(
-                    text = "Everything",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
-                )
-                Text(
-                    text = "${rung.threshold} owned of every lair",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = palette.ink.copy(alpha = 0.7f),
-                )
-            }
-            Text(text = rung.description(), fontWeight = FontWeight.Bold, color = palette.goldDeep)
-        }
-    }
-}
-
-/** One lair's own milestone rung reached. */
-@Composable
-private fun LairUnlockRow(lair: CreatureLair, rung: MilestoneStep, palette: FantasyPalette = FantasyPalette.Default) {
-    ParchmentCard(palette = palette) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(
-                    text = lair.name,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
-                )
-                Text(
-                    text = "${rung.threshold} owned",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = palette.ink.copy(alpha = 0.7f),
-                )
-            }
-            Text(text = rung.description(), fontWeight = FontWeight.Bold, color = palette.goldDeep)
-        }
+            .border(1.5.dp, palette.goldDeep.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+            .padding(vertical = 10.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "x${rung.threshold}",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = "${GoldFormat.format(rung.multiplier)}x Speed",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = palette.goldDeep,
+        )
     }
 }

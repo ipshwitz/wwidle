@@ -78,9 +78,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.19.0** (added a cheap 10-minute/2pp Time Skip
-     tier alongside the existing 1-hour/5pp one, so the Platinum economy
-     is easy to test end to end — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.19.1** (Unlocks screen grouped by lair, 4 compact
+     cards per row instead of one row per rung — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -564,25 +564,27 @@ These apply to every change made in this repo, however small:
     1.0. `nextMilestoneThreshold(unitsOwned)` (smallest rung still ahead, or
     null past 10,000) is what `BuyQuantity.NEXT` targets.
   - **`UnlocksContent`** (`ui/unlocks/UnlocksContent.kt`) — the Unlocks
-    section's real content (see `SectionOverlayCard` above): one row per
-    milestone *rung* actually reached, not a compressed per-lair summary —
-    owning 50 Kobold Warrens shows two separate "Kobold Warren — 25 owned"
-    and "Kobold Warren — 50 owned" rows (each labeled with what that rung
-    grants, e.g. "Profit Speed Doubled"), and the "Everything" ladder gets
-    the same one-row-per-rung treatment rather than a single status card.
-    Built by flattening `MILESTONE_STEPS` against each lair's owned count
-    (and against the global "Everything" minimum) into a flat list, so nothing
-    here is a preview of what's ahead — a rung simply doesn't appear in the
-    list until it's actually been crossed. A save with nothing unlocked at
-    all shows a "No milestones unlocked yet…" placeholder instead of an
-    empty screen. Pure display — takes `lairs`/`state` passed in by
-    `WyrmWhelpApp` (which already holds the `GameViewModel` reference)
-    rather than taking a ViewModel itself. Styled with the same parchment
-    `ParchmentCard`s as `StewardsContent` (this file used to have its own
-    older plain-Material-`Surface` look from before the cozy-fantasy
-    restyle; both screens now share the same look, though each still
-    defines its own private `ParchmentCard` copy rather than a shared one —
-    worth factoring out if a third section needs it).
+    section's real content (see `SectionOverlayCard` above), redesigned in
+    0.19.1: grouped by lair — a "Kobold Warren" header followed by a
+    4-cards-per-row grid of every milestone *rung* that lair has actually
+    reached, not a compressed single-bonus summary — owning 50 Kobold
+    Warrens shows two cards under one "Kobold Warren" header ("x25"/"2x
+    Speed" and "x50"/"2x Speed"), and the "Everything" ladder gets its own
+    group the same way. Each card is reduced to its two load-bearing
+    numbers (`"x${rung.threshold}"` / `"${rung.multiplier}x Speed"`)
+    instead of a sentence. `UnlockCardRow` chunks each group's rungs into
+    rows of `CARDS_PER_ROW` (4) via `List.chunked`, padding a short final
+    row with invisible `Modifier.weight(1f)` spacers rather than letting
+    its real cards stretch wider — every card is the same size regardless
+    of row length. Built by filtering `MILESTONE_STEPS` against each
+    lair's owned count (and against the global "Everything" minimum) —
+    nothing here is a preview of what's ahead, a rung simply doesn't
+    appear until it's actually been crossed, and a lair with zero rungs
+    reached doesn't get a group header at all. A save with nothing
+    unlocked at all shows a "No milestones unlocked yet…" placeholder
+    instead of an empty screen. Pure display — takes `lairs`/`state`
+    passed in by `WyrmWhelpApp` (which already holds the `GameViewModel`
+    reference) rather than taking a ViewModel itself.
   - **`StewardsContent`** (`ui/stewards/StewardsContent.kt`) — the Stewards
     section's real content: an intro card explaining what a Steward does,
     then one row per *owned* lair (a lair with zero units doesn't get a row —

@@ -3,6 +3,23 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.19.1] - 2026-09-05 4:38 PM EDT
+
+- Redesigned the Unlocks screen: milestones are now grouped by lair (a
+  "Kobold Warren" header, then every rung it's reached below it — plus an
+  "Everything" group for the global ladder), shown as a 4-cards-per-row
+  grid instead of one row per rung. Each card is reduced to its two
+  load-bearing numbers — "x25" (the ownership count) and "2x Speed" (the
+  bonus) — instead of a full sentence. A short final row (not a multiple
+  of 4) pads with invisible spacers rather than stretching its real cards,
+  so every card stays the same size regardless of row length.
+- Verified on the emulator: the empty state ("No milestones unlocked
+  yet…") still renders correctly, and a save with Kobold Warren at 600
+  owned (7 rungs reached) plus Goblin Camp at 30 (1 rung) correctly showed
+  two separate groups — Kobold Warren's 7 cards wrapping into a 4-then-3
+  grid with the second row left-aligned (not stretched), and Goblin
+  Camp's single card in its own group below.
+
 ## [0.19.0] - 2026-09-05 3:12 PM EDT
 
 - Added a second Time Skip tier to the Shop: 10 minutes of production for
