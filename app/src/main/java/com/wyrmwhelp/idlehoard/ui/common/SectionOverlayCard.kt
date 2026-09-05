@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,9 +42,14 @@ import com.wyrmwhelp.idlehoard.ui.menu.floatingMenuItems
 /** Fixed size for the overlapping sign header — see [SectionOverlayCard]. */
 private val SIGN_HEADER_WIDTH = 240.dp
 
-/** ≈ SIGN_HEADER_WIDTH / SIGN_ASPECT_RATIO (1672:941), as a fixed value so the
- * card surface below can reserve exactly half of it as a top inset. */
-private val SIGN_HEADER_HEIGHT = 135.dp
+/**
+ * Derived (not hardcoded) from [SIGN_ASPECT_RATIO] so it can't silently drift
+ * out of sync with the actual art the way a copy-pasted constant did when the
+ * sign images were recropped — needed as a concrete `Dp` (not just an
+ * `aspectRatio` modifier) so the card surface below can reserve exactly half
+ * of it as a top inset.
+ */
+private val SIGN_HEADER_HEIGHT = SIGN_HEADER_WIDTH / SIGN_ASPECT_RATIO
 
 /**
  * A card that slides up from the bottom to cover 92% of the screen height,
@@ -156,12 +160,8 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
                         painter = painterResource(headerImageRes),
                         contentDescription = lastTitle,
                         contentScale = ContentScale.Fit,
-                        // Shifted left off dead-center so the now-header-sized CloseButton
-                        // (also anchored to the top edge, over at TopEnd) has room at the
-                        // top-right without the two overlapping and clipping the label.
                         modifier = Modifier
                             .align(Alignment.TopCenter)
-                            .offset(x = -(SIGN_HEADER_HEIGHT / 2 + 8.dp))
                             .width(SIGN_HEADER_WIDTH)
                             .aspectRatio(SIGN_ASPECT_RATIO),
                     )

@@ -3,6 +3,30 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.7.6] - 2026-09-04 11:12 PM EDT
+
+- Fixed the real root cause of the header/close-button size mismatch from the
+  previous release: the five `menu-*.png` sign images had a transparent
+  margin baked into their canvas (1672x941) around the actual sign shape, so
+  `SIGN_ASPECT_RATIO` (and everything derived from it — the header height,
+  the close button's matching size) was computing against blank space
+  instead of the visible art. This is also why menu items looked oddly far
+  apart in the expanded menu despite a 4dp `spacedBy` — the invisible padding
+  inside each image was adding real visual gap on top of it.
+- All five sign images recropped tight to the art itself (1626x536, still
+  verified transparent at the corners) and re-copied into `drawable-nodpi`;
+  `SIGN_ASPECT_RATIO` updated to match.
+- `SIGN_HEADER_HEIGHT` in `SectionOverlayCard` is now derived
+  (`SIGN_HEADER_WIDTH / SIGN_ASPECT_RATIO`) instead of a hardcoded `Dp`, so
+  it can't silently go stale like this again.
+- Removed the manual left-offset on the header sign added last release to
+  dodge the oversized close button — with both elements now sized correctly
+  off the real art, they sit side by side with no overlap and no offset
+  needed.
+- Verified visually on the emulator: menu items now sit close together with
+  normal spacing, and the header/close button in an open section card are
+  properly sized, side by side, with no clipping.
+
 ## [0.7.5] - 2026-09-04 11:01 PM EDT
 
 - Resized the `CloseButton` in `SectionOverlayCard` to match the header sign's

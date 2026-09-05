@@ -32,8 +32,17 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   `menu-upgrades.png` / `menu-stewards.png` / `menu-level_up.png` →
   `drawable-nodpi/menu_*.png`, the wooden-sign art for those `FloatingMenu`
   items (each image already has its label baked in — no separate text overlay
-  needed). Settings has no art yet and still falls back to a plain labeled
-  surface. `woodenwall-1.png` → `drawable-nodpi/woodenwall_1.png`, a tavern-
+  needed). All five were re-exported once already: the first versions had a
+  transparent margin baked into the canvas around the actual sign shape
+  (1672x941), which silently threw off `SIGN_ASPECT_RATIO` and every size
+  derived from it — the sign rendered smaller than its bounding box implied,
+  which is why menu items looked oddly far apart even at a 4dp
+  `spacedBy` and why a same-height `CloseButton` looked mismatched next to
+  the header. Recropped tight to the sign art itself (1626x536, no padding) —
+  `SIGN_ASPECT_RATIO` must always match whatever the current export's real
+  dimensions are, not be left as a stale copy-pasted value. Settings has no
+  art yet and still falls back to a plain labeled surface. `woodenwall-1.png`
+  → `drawable-nodpi/woodenwall_1.png`, a tavern-
   interior background used by `SectionOverlayCard` (via `AppBackground`,
   which now takes an `imageRes` param instead of always using `main_bg`) —
   no transparency needed for this one, it's an opaque full-bleed backdrop
@@ -66,9 +75,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.7.5** (`CloseButton` resized to match the header
-     sign's height and straddle the card edge the same way — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.7.6** (recropped menu sign art fixing a stale
+     `SIGN_ASPECT_RATIO` — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -163,8 +171,10 @@ These apply to every change made in this repo, however small:
     reuses whichever `floatingMenuItems` entry matches the title (same
     wooden-sign image shown on that item in the menu) and straddles the
     card's top edge like a hanging plaque — the card's own `Surface` is inset
-    from the top by half the sign's fixed height (`SIGN_HEADER_HEIGHT / 2`),
-    and the sign sits at the very top of the surrounding `Box` (not inside the
+    from the top by half the sign's height (`SIGN_HEADER_HEIGHT / 2`, derived
+    from `SIGN_HEADER_WIDTH / SIGN_ASPECT_RATIO` rather than a hardcoded `Dp`
+    — see `CloseButton` bullet below for why that matters), and the sign sits
+    at the very top of the surrounding `Box` (not inside the
     `Surface`), so its top half reads as outside the card over the scrim and
     its bottom half overlaps the card surface. Settings (no art yet) falls
     back to a plain bold title with no overlap/inset. **Content padding inside
@@ -189,16 +199,18 @@ These apply to every change made in this repo, however small:
     forward instead of `Icons.Default.Close`. Takes a `size: Dp` (default
     32.dp) and renders as a plain clickable `Image`, not `IconButton` —
     `IconButton` clips content to its own fixed 40dp touch-target box, which
-    silently cropped the button when `SectionOverlayCard` sized it up to
-    `SIGN_HEADER_HEIGHT` (135dp) to match the header sign. In
-    `SectionOverlayCard` it's sized and positioned exactly like the header:
-    same height, anchored to the very top of the surrounding box so it
-    straddles the card edge the same way (half over the scrim, half over the
-    card). Because the sign is centered but this square button now eats a
-    big chunk of the top-right corner, the sign is shifted left off dead-center
-    (`offset(x = -(SIGN_HEADER_HEIGHT / 2 + 8.dp))`) so the two don't overlap
-    and clip the label — keep that offset in sync if either element's size
-    changes.
+    silently cropped the button the first time `SectionOverlayCard` sized it
+    up to match the header sign. In `SectionOverlayCard` it's sized and
+    positioned exactly like the header: same height (`SIGN_HEADER_HEIGHT`),
+    anchored to the very top of the surrounding box so it straddles the card
+    edge the same way (half over the scrim, half over the card). No manual
+    offset needed to keep it clear of the centered header — that was only
+    ever needed because the sign art still had a padded (1672x941) export at
+    the time, which made `SIGN_HEADER_HEIGHT` (and this button) render much
+    bigger than the sign actually needed. Once the sign art was recropped to
+    its true bounds (see Assets section), both elements shrank to their real
+    size and sit side by side with no overlap — don't reintroduce an offset
+    without first checking whether a stale aspect ratio is the real problem.
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt.
 - **Data:**
