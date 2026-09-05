@@ -78,7 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.12.0** (Stewards screen implemented — see
+   - Current version: **0.12.1** (Unlocks shows one row per milestone rung
+     instead of a compressed per-lair summary — see
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -391,35 +392,37 @@ These apply to every change made in this repo, however small:
     `state.globalMilestoneMultiplier(...)` and threads it through; callers
     that don't pass one (existing tests, mainly) get the no-bonus default of
     1.0. `nextMilestoneThreshold(unitsOwned)` (smallest rung still ahead, or
-    null past 10,000) is what `BuyQuantity.NEXT` targets and what the
-    Unlocks screen shows as "next at".
+    null past 10,000) is what `BuyQuantity.NEXT` targets.
   - **`UnlocksContent`** (`ui/unlocks/UnlocksContent.kt`) — the Unlocks
-    section's real content (see `SectionOverlayCard` above): an "Everything"
-    status card (current global multiplier, and which lair is currently
-    holding it back) followed by one row per lair showing its own multiplier
-    and how many more units to its next rung. **A record of what's already
-    been reached, not a preview of what's ahead** — the "Everything" card
-    only shows once its multiplier clears 1x, and a lair's row only appears
-    once *that lair's* multiplier does; an owned-but-under-25 lair (or a
-    brand-new save with nothing owned) shows a "No milestones unlocked yet…"
-    placeholder instead of a wall of untouched rows. Pure display — takes
-    `lairs`/`state` passed in by `WyrmWhelpApp` (which already holds the
-    `GameViewModel` reference) rather than taking a ViewModel itself.
+    section's real content (see `SectionOverlayCard` above): one row per
+    milestone *rung* actually reached, not a compressed per-lair summary —
+    owning 50 Kobold Warrens shows two separate "Kobold Warren — 25 owned"
+    and "Kobold Warren — 50 owned" rows (each labeled with what that rung
+    grants, e.g. "Profit Speed Doubled"), and the "Everything" ladder gets
+    the same one-row-per-rung treatment rather than a single status card.
+    Built by flattening `MILESTONE_STEPS` against each lair's owned count
+    (and against the global "Everything" minimum) into a flat list, so nothing
+    here is a preview of what's ahead — a rung simply doesn't appear in the
+    list until it's actually been crossed. A save with nothing unlocked at
+    all shows a "No milestones unlocked yet…" placeholder instead of an
+    empty screen. Pure display — takes `lairs`/`state` passed in by
+    `WyrmWhelpApp` (which already holds the `GameViewModel` reference)
+    rather than taking a ViewModel itself. Styled with the same parchment
+    `ParchmentCard`s as `StewardsContent` (this file used to have its own
+    older plain-Material-`Surface` look from before the cozy-fantasy
+    restyle; both screens now share the same look, though each still
+    defines its own private `ParchmentCard` copy rather than a shared one —
+    worth factoring out if a third section needs it).
   - **`StewardsContent`** (`ui/stewards/StewardsContent.kt`) — the Stewards
     section's real content: an intro card explaining what a Steward does,
     then one row per *owned* lair (a lair with zero units doesn't get a row —
     hiring a Steward for nothing owned isn't a real action) showing either a
     "Steward Hired" badge or a `WoodenButton` to hire one for
-    `CreatureLair.stewardCostGp`. This is the reference styling for a
-    fantasy-chrome section screen — parchment `ParchmentCard`s (a plain `Box`
-    with a gradient background, like `LairCard`'s own base, not a Material
-    `Surface`) and a shared `WoodenButton`, unlike `UnlocksContent` which
-    still uses the older plain Material `Surface` look from before the
-    cozy-fantasy restyle (candidate for the same treatment later). Forwards
-    hires through `onHireSteward: (String) -> Unit` rather than taking a
-    `GameViewModel` itself — `WyrmWhelpApp` wires it straight to
-    `gameViewModel::hireSteward`, the domain method that already existed
-    (and was already tested) from when the button lived on `LairCard`.
+    `CreatureLair.stewardCostGp`. Forwards hires through `onHireSteward:
+    (String) -> Unit` rather than taking a `GameViewModel` itself —
+    `WyrmWhelpApp` wires it straight to `gameViewModel::hireSteward`, the
+    domain method that already existed (and was already tested) from when
+    the button lived on `LairCard`.
 - **Data:**
   - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
     (single-row table for currencies/meta) + `OwnedLairEntity` (one row per

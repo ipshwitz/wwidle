@@ -3,6 +3,26 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.12.1] - 2026-09-05 11:28 AM EDT
+
+- Redesigned the Unlocks screen to stop compressing milestones: it now shows
+  one row per rung actually reached, instead of one row per lair summarizing
+  its current bonus. Owning 50 Kobold Warrens now shows two rows — "Kobold
+  Warren — 25 owned — Profit Speed Doubled" and "Kobold Warren — 50 owned —
+  Profit Speed Doubled" — instead of a single "Bonus: x4, Next at 100" line.
+  The "Everything" ladder gets the same treatment: one row per global rung
+  reached instead of a single status card.
+- Restyled `UnlocksContent` with the same parchment-card look as
+  `StewardsContent`/`LairCard`, replacing its older plain Material `Surface`
+  look from before the cozy-fantasy restyle.
+- Verified on the emulator, live: with Kobold Warren pushed to 25 then 50
+  owned in front of the running game, confirmed gp/cycle jumped 24→50→200
+  (exactly the 2x then compounding 4x the milestone math predicts) and that
+  the Unlocks screen now lists both the 25-owned and 50-owned rungs as
+  separate entries rather than one merged row. Also confirmed the
+  "Everything" ladder correctly stays empty since other lairs haven't
+  caught up — it doesn't fire just because one lair is far ahead.
+
 ## [0.12.0] - 2026-09-05 11:09 AM EDT
 
 - Implemented the Stewards screen for real (was "Coming soon…" since the

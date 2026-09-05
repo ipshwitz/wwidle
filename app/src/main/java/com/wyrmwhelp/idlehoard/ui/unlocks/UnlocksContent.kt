@@ -1,47 +1,59 @@
 package com.wyrmwhelp.idlehoard.ui.unlocks
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
-import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
-import com.wyrmwhelp.idlehoard.domain.model.milestoneMultiplierFor
-import com.wyrmwhelp.idlehoard.domain.model.nextMilestoneThreshold
+import com.wyrmwhelp.idlehoard.domain.model.MILESTONE_STEPS
+import com.wyrmwhelp.idlehoard.domain.model.MilestoneStep
+import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 /**
- * The "Unlocks" section's real content: the "Everything" milestone status
- * up top, then every lair's own milestone progress — but only for lairs (and
- * the "Everything" bonus) that have actually unlocked at least one rung.
- * Nothing here is a preview of milestones still ahead; it's a record of what
- * has already been reached, so an entry simply doesn't appear until its
- * multiplier moves past 1x. Pure display — reads [state]/[lairs] passed in
- * by the caller (`MainActivity`'s `WyrmWhelpApp`, which already has the
- * `GameViewModel`), no ViewModel reference of its own.
+ * The "Unlocks" section's real content: one row per milestone rung actually
+ * reached — not a compressed "current bonus" summary per lair. Owning 50
+ * Kobold Warrens shows *two* rows (the 25 rung and the 50 rung), each
+ * naming the specific bonus that rung grants, the same way the "Everything"
+ * ladder gets one row per global rung reached rather than a single status
+ * card. Nothing here is a preview of milestones still ahead; a rung simply
+ * doesn't appear until it's actually been crossed. Pure display — reads
+ * [state]/[lairs] passed in by the caller (`MainActivity`'s `WyrmWhelpApp`,
+ * which already has the `GameViewModel`), no ViewModel reference of its own.
  */
 @Composable
 fun UnlocksContent(lairs: List<CreatureLair>, state: GameState, modifier: Modifier = Modifier) {
-    val globalMultiplier = state.globalMilestoneMultiplier(lairs)
-    val weakestLair = lairs.minByOrNull { state.ownedLair(it.id).count }
-    val unlockedLairs = lairs.filter { milestoneMultiplierFor(state.ownedLair(it.id).count) > 1.0 }
+    val everythingRungs = if (lairs.isEmpty()) {
+        emptyList()
+    } else {
+        val minOwned = lairs.minOf { state.ownedLair(it.id).count }
+        MILESTONE_STEPS.filter { minOwned >= it.threshold }
+    }
+    val lairRungs = lairs.flatMap { lair ->
+        val owned = state.ownedLair(lair.id).count
+        MILESTONE_STEPS.filter { owned >= it.threshold }.map { lair to it }
+    }
 
-    if (globalMultiplier <= 1.0 && unlockedLairs.isEmpty()) {
+    if (everythingRungs.isEmpty() && lairRungs.isEmpty()) {
         Text(
             text = "No milestones unlocked yet — keep growing your hoard!",
             style = MaterialTheme.typography.bodyLarge,
@@ -53,96 +65,90 @@ fun UnlocksContent(lairs: List<CreatureLair>, state: GameState, modifier: Modifi
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (globalMultiplier > 1.0) {
-            item {
-                EverythingMilestoneCard(
-                    multiplier = globalMultiplier,
-                    weakestLairName = weakestLair?.name,
-                    weakestLairOwned = weakestLair?.let { state.ownedLair(it.id).count } ?: 0,
-                )
-                Spacer(Modifier.height(4.dp))
-            }
+        items(everythingRungs, key = { "everything-${it.threshold}" }) { rung ->
+            EverythingUnlockRow(rung = rung)
         }
-        items(unlockedLairs, key = { it.id }) { lair ->
-            LairMilestoneRow(lair = lair, ownedCount = state.ownedLair(lair.id).count)
+        items(lairRungs, key = { (lair, rung) -> "${lair.id}-${rung.threshold}" }) { (lair, rung) ->
+            LairUnlockRow(lair = lair, rung = rung)
         }
     }
 }
 
-/**
- * The "Everything" bonus: the same milestone ladder as each lair's own
- * bonus, but keyed on whichever lair has the *fewest* owned — every lair has
- * to catch up before this advances, not just the player's favorite.
- */
+/** What a milestone rung's multiplier actually does, in player-facing words. */
+private fun MilestoneStep.description(): String =
+    if (multiplier == 2.0) "Profit Speed Doubled" else "Profit x${GoldFormat.format(multiplier)}"
+
+/** A translucent parchment card matching `LairCard`/`StewardsContent`'s base treatment. */
 @Composable
-private fun EverythingMilestoneCard(
-    multiplier: Double,
-    weakestLairName: String?,
-    weakestLairOwned: Int,
+private fun ParchmentCard(
+    palette: FantasyPalette,
     modifier: Modifier = Modifier,
+    borderColor: Color = palette.woodDark.copy(alpha = 0.5f),
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = "Everything", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = "Every lair contributes once it reaches the same milestones as below — " +
-                    "the bonus applies to every lair's production.",
-                style = MaterialTheme.typography.bodySmall,
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(palette.parchmentShade.copy(alpha = 0.8f), palette.parchment.copy(alpha = 0.8f)),
+                ),
             )
-            Spacer(Modifier.height(6.dp))
-            Text(text = "Current bonus: x${GoldFormat.format(multiplier)}", fontWeight = FontWeight.Bold)
-            if (weakestLairName != null) {
-                val next = nextMilestoneThreshold(weakestLairOwned)
-                Text(
-                    text = if (next != null) {
-                        "Held back by $weakestLairName ($weakestLairOwned owned) — needs $next"
-                    } else {
-                        "Every lair has reached every milestone!"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
-    }
+            .border(1.5.dp, borderColor, RoundedCornerShape(10.dp))
+            .padding(12.dp),
+        content = content,
+    )
 }
 
-/** One lair's own milestone progress: its current bonus and how far to the next rung. */
+/** One "Everything" milestone rung reached — every lair had to catch up to [rung]'s threshold for this to appear. */
 @Composable
-private fun LairMilestoneRow(lair: CreatureLair, ownedCount: Int, modifier: Modifier = Modifier) {
-    val multiplier = milestoneMultiplierFor(ownedCount)
-    val next = nextMilestoneThreshold(ownedCount)
-
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-        modifier = modifier.fillMaxWidth(),
-    ) {
+private fun EverythingUnlockRow(rung: MilestoneStep, palette: FantasyPalette = FantasyPalette.Default) {
+    ParchmentCard(palette = palette, borderColor = palette.goldDeep.copy(alpha = 0.8f)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column {
-                Text(text = lair.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                Text(text = "Owned: $ownedCount", style = MaterialTheme.typography.bodySmall)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(text = "Bonus: x${GoldFormat.format(multiplier)}", fontWeight = FontWeight.Bold)
                 Text(
-                    text = if (next != null) {
-                        "Next at $next (${next - ownedCount} more)"
-                    } else {
-                        "Every milestone reached"
-                    },
+                    text = "Everything",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+                )
+                Text(
+                    text = "${rung.threshold} owned of every lair",
                     style = MaterialTheme.typography.bodySmall,
+                    color = palette.ink.copy(alpha = 0.7f),
                 )
             }
+            Text(text = rung.description(), fontWeight = FontWeight.Bold, color = palette.goldDeep)
+        }
+    }
+}
+
+/** One lair's own milestone rung reached. */
+@Composable
+private fun LairUnlockRow(lair: CreatureLair, rung: MilestoneStep, palette: FantasyPalette = FantasyPalette.Default) {
+    ParchmentCard(palette = palette) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text(
+                    text = lair.name,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+                )
+                Text(
+                    text = "${rung.threshold} owned",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.ink.copy(alpha = 0.7f),
+                )
+            }
+            Text(text = rung.description(), fontWeight = FontWeight.Bold, color = palette.goldDeep)
         }
     }
 }
