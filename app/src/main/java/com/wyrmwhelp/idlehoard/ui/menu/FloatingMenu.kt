@@ -12,9 +12,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,20 +31,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
 
+/** One entry in the floating menu. [imageRes] is null for sections without art yet. */
+data class MenuItem(val label: String, val imageRes: Int? = null)
+
 /** The floating menu's sections, in display order (top of the stack first). */
-val floatingMenuItems: List<String> = listOf(
-    "Help & Social",
-    "Unlocks",
-    "Upgrades",
-    "Stewards",
-    "Level Up",
-    "Settings",
+val floatingMenuItems: List<MenuItem> = listOf(
+    MenuItem("Help & Social", R.drawable.menu_help_social),
+    MenuItem("Unlocks", R.drawable.menu_unlocks),
+    MenuItem("Upgrades", R.drawable.menu_upgrades),
+    MenuItem("Stewards", R.drawable.menu_stewards),
+    MenuItem("Level Up", R.drawable.menu_level_up),
+    MenuItem("Settings"),
 )
+
+/** Wooden sign art is ~1672x941 — used to size each plank without distorting it. */
+private const val SIGN_ASPECT_RATIO = 1672f / 941f
 
 /**
  * A hamburger-style toggle fixed at the bottom of the screen that expands
@@ -52,8 +61,10 @@ val floatingMenuItems: List<String> = listOf(
  * — a FAB always draws its own solid container/shadow, which would show as a
  * box behind the chest art instead of letting the art float directly on the
  * background. It swaps between `closed_chest`/`open_chest` art depending on
- * [expanded]. Each item is its own container for now (plain labeled
- * surfaces); swap in per-item art later without changing this shell.
+ * [expanded]. Each `floatingMenuItems` entry with an [MenuItem.imageRes] renders
+ * as that wooden-sign art directly (no extra container — the sign image already
+ * is one); entries without art yet (currently just Settings) fall back to a
+ * plain labeled surface until their own art exists.
  */
 @Composable
 fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier) {
@@ -94,12 +105,12 @@ fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(bottom = 12.dp),
                 ) {
-                    floatingMenuItems.forEach { label ->
+                    floatingMenuItems.forEach { item ->
                         MenuItemPlank(
-                            label = label,
+                            item = item,
                             onClick = {
                                 expanded = false
-                                onItemSelected(label)
+                                onItemSelected(item.label)
                             },
                         )
                     }
@@ -123,20 +134,32 @@ fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun MenuItemPlank(label: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
-        modifier = Modifier.widthIn(min = 170.dp),
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            contentAlignment = Alignment.Center,
+private fun MenuItemPlank(item: MenuItem, onClick: () -> Unit) {
+    if (item.imageRes != null) {
+        Image(
+            painter = painterResource(item.imageRes),
+            contentDescription = item.label,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .width(200.dp)
+                .aspectRatio(SIGN_ASPECT_RATIO)
+                .clickable(onClick = onClick),
+        )
+    } else {
+        Surface(
+            onClick = onClick,
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            tonalElevation = 4.dp,
+            shadowElevation = 4.dp,
+            modifier = Modifier.widthIn(min = 170.dp),
         ) {
-            Text(text = label, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = item.label, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

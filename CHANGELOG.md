@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.6.4] - 2026-09-04 09:55 PM EDT
+
+- Wired up real art for 5 of the 6 floating-menu items: Help & Social,
+  Unlocks, Upgrades, Stewards, and Level Up now render as wooden trail-sign
+  images (label already baked into the art) instead of plain text planks.
+  Settings has no art yet and still falls back to the plain labeled surface.
+  Verified all 5 source PNGs actually had transparent backgrounds (alpha=0 at
+  every corner) before copying them in, per the new checklist item in
+  CLAUDE.md — `file` reporting "RGBA" only means an alpha channel exists, not
+  that it's used, which is exactly how open-chest.png's first export slipped
+  through opaque a few versions ago.
+- `floatingMenuItems` is now a list of `MenuItem(label, imageRes?)` instead
+  of plain strings, so items can mix real art and text-fallback planks.
+- Verified visually on the emulator: all 5 signs render with correct
+  transparency (irregular wood edges visible against the lair cards behind
+  them, no white box), and tapping one still navigates to its placeholder
+  screen correctly.
+
 ## [0.6.3] - 2026-09-04 09:43 PM EDT
 
 - Fixed the white box behind the chest icons: it wasn't coming from the PNGs

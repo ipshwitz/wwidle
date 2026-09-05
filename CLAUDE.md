@@ -28,7 +28,15 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   `open-chest.png` → `drawable-nodpi/closed_chest.png` / `open_chest.png`,
   `FloatingMenu`'s FAB art for its collapsed/expanded states — both have real
   transparent backgrounds now (open-chest.png's initial export didn't; it was
-  re-exported and re-copied).
+  re-exported and re-copied); `menu-help_social.png` / `menu-unlocks.png` /
+  `menu-upgrades.png` / `menu-stewards.png` / `menu-level_up.png` →
+  `drawable-nodpi/menu_*.png`, the wooden-sign art for those `FloatingMenu`
+  items (each image already has its label baked in — no separate text overlay
+  needed). Settings has no art yet and still falls back to a plain labeled
+  surface. **Before copying any new menu/icon art into `drawable-nodpi/`,
+  verify it actually has a transparent background** (check corner pixel alpha
+  — `file` reporting "RGBA" only means an alpha channel exists, not that it's
+  used; `open-chest.png`'s first export was RGBA but fully opaque).
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -47,7 +55,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.6.3** (removed FAB container box — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.6.4** (real menu item art — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -121,12 +129,12 @@ These apply to every change made in this repo, however small:
     shadow, which showed as a box behind the chest art. It shows
     `closed_chest`/`open_chest` art (swapped based on `expanded`) instead of a
     generic menu glyph. Expands upward into a vertical stack of tappable
-    "plank" containers, one per `floatingMenuItems` entry (currently: Help &
-    Social, Unlocks, Upgrades, Stewards, Level Up, Settings) — evoking the
-    wooden trail signpost in the background art. Each plank is a plain
-    labeled `Surface` for now; swap in real per-item art later without
-    changing the shell. Tapping a plank collapses the menu and navigates to
-    `ComingSoonRoute(title = label)` for every item (none of these sections
+    `floatingMenuItems` (a `MenuItem(label, imageRes?)` list) — evoking the
+    wooden trail signpost in the background art. An item with `imageRes` set
+    renders as that wooden-sign image directly, no extra container (the sign
+    art already has its label baked in); Settings (no art yet) falls back to
+    a plain labeled `Surface`. Tapping any item collapses the menu and
+    navigates to `ComingSoonRoute(title = label)` (none of these sections
     have a real screen yet).
   - **`AppBackground`** (`ui/common/AppBackground.kt`) — the shared
     background-art-plus-50%-white-overlay treatment, factored out of
