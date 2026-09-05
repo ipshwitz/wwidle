@@ -62,7 +62,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.7.2** (wooden-wall card background — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.7.3** (fixed overlay-card padding/sizing — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -146,7 +146,7 @@ These apply to every change made in this repo, however small:
     `SectionOverlayCard` — it does not navigate anywhere.
   - **`SectionOverlayCard`** (`ui/common/SectionOverlayCard.kt`) — the
     replacement for a separate "Coming Soon" screen: a card that slides up
-    from the bottom to cover 85% of the screen height (rounded top corners,
+    from the bottom to cover 92% of the screen height (rounded top corners,
     scrim behind it, game still visibly mounted/peeking above and dimmed
     underneath), with a close `X` (`IconButton` + `Icons.Default.Close`,
     top-right) plus tap-scrim-to-dismiss and back-button-to-dismiss
@@ -161,7 +161,11 @@ These apply to every change made in this repo, however small:
     and the sign sits at the very top of the surrounding `Box` (not inside the
     `Surface`), so its top half reads as outside the card over the scrim and
     its bottom half overlaps the card surface. Settings (no art yet) falls
-    back to a plain bold title with no overlap/inset. The card's own
+    back to a plain bold title with no overlap/inset. **Content padding inside
+    the surface must clear the sign's actual overlap
+    (`SIGN_HEADER_HEIGHT / 2`) plus its own breathing room, not a flat
+    guessed value** — using less renders content partly hidden underneath the
+    sign, which shipped once and was caught from a screenshot. The card's own
     background (inside the `Surface`, i.e. below the sign's overlap point) is
     `AppBackground` with `imageRes = R.drawable.woodenwall_1` — a tavern
     interior, distinct from `GameScreen`'s landscape — behind the same 50%-

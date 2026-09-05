@@ -3,6 +3,20 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.7.3] - 2026-09-04 10:44 PM EDT
+
+- Fixed "Coming soon…" rendering half-hidden underneath the sign header: the
+  content's top padding was a flat 24dp guess, way less than the ~67.5dp the
+  sign actually overlaps the card surface by. Now computed from the sign's
+  real overlap (`SIGN_HEADER_HEIGHT / 2`) plus its own breathing room.
+- Enlarged the overlay card from 85% to 92% of screen height, so it covers
+  more of the game behind it.
+- Added consistent breathing room on every edge: 20dp start/end (was 16dp),
+  24dp bottom (was none), so content never presses against the card or
+  screen edges.
+- Verified visually on the emulator: content now clears the sign with proper
+  spacing, and the card noticeably covers more of the screen.
+
 ## [0.7.2] - 2026-09-04 10:36 PM EDT
 
 - Every `SectionOverlayCard` now uses `woodenwall-1.png` (a tavern interior —

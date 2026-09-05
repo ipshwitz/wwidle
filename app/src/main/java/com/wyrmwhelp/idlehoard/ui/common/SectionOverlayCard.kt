@@ -51,12 +51,12 @@ private val SIGN_HEADER_WIDTH = 240.dp
 private val SIGN_HEADER_HEIGHT = 135.dp
 
 /**
- * A card that slides up from the bottom to cover most of the screen, with a
- * scrim behind it and a close button in its top-right corner — used for every
- * `FloatingMenu` section instead of navigating to a separate full screen, so
- * the game underneath is never actually left. [title] drives both visibility
- * (non-null = shown) and content; the last non-null value is retained while
- * animating out so the card doesn't go blank mid-exit.
+ * A card that slides up from the bottom to cover 92% of the screen height,
+ * with a scrim behind it and a close button in its top-right corner — used
+ * for every `FloatingMenu` section instead of navigating to a separate full
+ * screen, so the game underneath is never actually left. [title] drives both
+ * visibility (non-null = shown) and content; the last non-null value is
+ * retained while animating out so the card doesn't go blank mid-exit.
  *
  * The header reuses whichever `floatingMenuItems` entry matches [title] — the
  * same wooden-sign art shown on that item in the menu — and straddles the
@@ -68,6 +68,11 @@ private val SIGN_HEADER_HEIGHT = 135.dp
  * The card itself uses [AppBackground] with the wooden-wall art (a tavern
  * interior) instead of `GameScreen`'s landscape, behind the same 50%-white
  * overlay treatment.
+ *
+ * Content padding inside the surface must account for the sign's overlap on
+ * top of its own breathing room (`SIGN_HEADER_HEIGHT / 2 + 20.dp`, not a
+ * flat guess) — using less than the actual overlap renders content partly
+ * hidden underneath the sign, which is the bug this class previously had.
  */
 @Composable
 fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
@@ -101,7 +106,7 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.85f),
+                .fillMaxHeight(0.92f),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Surface(
@@ -113,13 +118,23 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
                         .fillMaxSize(),
                 ) {
                     AppBackground(imageRes = R.drawable.woodenwall_1) {
+                        // The sign overlaps SIGN_HEADER_HEIGHT/2 *into* this surface (see
+                        // class doc) — content must clear that plus its own breathing room,
+                        // not just a flat "looks about right" value, or it renders half
+                        // hidden under the sign.
+                        val contentTopPadding = if (headerImageRes != null) {
+                            SIGN_HEADER_HEIGHT / 2 + 20.dp
+                        } else {
+                            64.dp
+                        }
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(
-                                    top = if (headerImageRes != null) 24.dp else 56.dp,
-                                    start = 16.dp,
-                                    end = 16.dp,
+                                    top = contentTopPadding,
+                                    start = 20.dp,
+                                    end = 20.dp,
+                                    bottom = 24.dp,
                                 ),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
