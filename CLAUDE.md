@@ -37,7 +37,11 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   interior background used by `SectionOverlayCard` (via `AppBackground`,
   which now takes an `imageRes` param instead of always using `main_bg`) —
   no transparency needed for this one, it's an opaque full-bleed backdrop
-  like `main_bg.png`, not an icon. **Before copying any new *icon* art (things
+  like `main_bg.png`, not an icon. `x.png` → `drawable-nodpi/x.png`, crossed
+  swords in a wooden ring with a drop shadow — real transparent background
+  (verified via corner pixel alpha), used by the shared `CloseButton`
+  composable in place of `Icons.Default.Close` for any "close this
+  overlay/dialog" affordance. **Before copying any new *icon* art (things
   meant to sit on top of other content) into `drawable-nodpi/`, verify it
   actually has a transparent background** (check corner pixel alpha — `file`
   reporting "RGBA" only means an alpha channel exists, not that it's used;
@@ -62,7 +66,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.7.3** (fixed overlay-card padding/sizing — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.7.4** (custom crossed-swords `CloseButton` replacing
+     `Icons.Default.Close` — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -148,7 +153,7 @@ These apply to every change made in this repo, however small:
     replacement for a separate "Coming Soon" screen: a card that slides up
     from the bottom to cover 92% of the screen height (rounded top corners,
     scrim behind it, game still visibly mounted/peeking above and dimmed
-    underneath), with a close `X` (`IconButton` + `Icons.Default.Close`,
+    underneath), with a close button (shared `CloseButton` composable,
     top-right) plus tap-scrim-to-dismiss and back-button-to-dismiss
     (`BackHandler` in `MainActivity`, only enabled while a section is open).
     Driven by one nullable `openSection: String?` in `WyrmWhelpApp` — non-null
@@ -177,6 +182,11 @@ These apply to every change made in this repo, however small:
     `imageRes` (defaults to `main_bg`, `GameScreen`'s landscape). Also used by
     `SectionOverlayCard` with `woodenwall_1` — keep it parameterized rather
     than hardcoding a single image if a third surface needs this treatment.
+  - **`CloseButton`** (`ui/common/CloseButton.kt`) — the app's standard close
+    control: crossed swords in a wooden ring (`x.png`), not a Material icon
+    glyph. Use this for every "close this overlay/dialog" affordance going
+    forward instead of `Icons.Default.Close` — currently used by
+    `SectionOverlayCard`'s top-right dismiss button.
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt.
 - **Data:**

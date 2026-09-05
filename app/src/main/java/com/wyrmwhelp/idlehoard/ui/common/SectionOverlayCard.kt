@@ -20,10 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -166,14 +162,12 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
                     )
                 }
 
-                IconButton(
+                CloseButton(
                     onClick = onDismiss,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp),
-                ) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
-                }
+                )
             }
         }
     }

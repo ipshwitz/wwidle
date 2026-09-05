@@ -3,6 +3,22 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.7.4] - 2026-09-04 10:54 PM EDT
+
+- Replaced the Material "X" glyph (`Icons.Default.Close`) used to dismiss
+  overlay cards with a custom crossed-swords icon (`x.png`) in a shared new
+  `CloseButton` composable — this is now the app's standard close control for
+  any future "close this overlay/dialog" affordance, not just
+  `SectionOverlayCard`.
+- Verified `x.png`'s transparency by real corner-pixel alpha (not just file
+  type) before wiring it in, per the established habit — corners fully
+  transparent, swords opaque.
+- Removed the now-unused `material-icons-core` dependency since nothing in
+  the app references `Icons.*` anymore.
+- Verified visually and functionally on the emulator: the close button
+  renders with a genuinely transparent background (no white box) and still
+  correctly dismisses an open section card back to the game.
+
 ## [0.7.3] - 2026-09-04 10:44 PM EDT
 
 - Fixed "Coming soon…" rendering half-hidden underneath the sign header: the
