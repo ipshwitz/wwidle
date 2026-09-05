@@ -56,6 +56,8 @@ fun LairRow(
     onPlunder: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
+    speedBoostMultiplier: Double = 1.0,
+    profitBoostMultiplier: Double = 1.0,
 ) {
     // Bumped on every manual plunder tap (not on a Steward's automatic
     // collection, which never runs through either click handler below) to
@@ -93,6 +95,8 @@ fun LairRow(
             onPlunder = plunder,
             modifier = Modifier.weight(1f),
             palette = palette,
+            speedBoostMultiplier = speedBoostMultiplier,
+            profitBoostMultiplier = profitBoostMultiplier,
         )
     }
 }

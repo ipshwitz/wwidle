@@ -82,6 +82,8 @@ fun LairCard(
     onPlunder: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
+    speedBoostMultiplier: Double = 1.0,
+    profitBoostMultiplier: Double = 1.0,
 ) {
     // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
     // affordable — falling back to a 1-unit preview keeps the button showing
@@ -89,10 +91,11 @@ fun LairCard(
     val claimQuantity = buyQuantity.resolve(lair, owned.count, goldPieces).coerceAtLeast(1)
     val claimCost = lair.costForUnits(owned.count, claimQuantity)
     val canClaim = goldPieces >= claimCost
-    val progress = if (lair.baseProductionSeconds <= 0.0) {
+    val productionSeconds = lair.effectiveProductionSeconds(speedBoostMultiplier)
+    val progress = if (productionSeconds <= 0.0) {
         0f
     } else {
-        (owned.cycleProgressSeconds / lair.baseProductionSeconds).toFloat().coerceIn(0f, 1f)
+        (owned.cycleProgressSeconds / productionSeconds).toFloat().coerceIn(0f, 1f)
     }
     val fillFraction = if (owned.isReadyToCollect) 1f else progress
     // GameEngine only pushes a new fillFraction every TICK_INTERVAL_MS, which
@@ -175,7 +178,7 @@ fun LairCard(
                 )
                 if (owned.count > 0) {
                     Text(
-                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalMultiplier))} gp/cycle",
+                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalMultiplier, profitBoostMultiplier))} gp/cycle",
                         style = MaterialTheme.typography.bodySmall,
                         color = palette.goldDeep,
                         fontWeight = FontWeight.Bold,

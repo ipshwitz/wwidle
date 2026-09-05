@@ -12,6 +12,8 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     offlineCapHours = offlineCapHours,
     lastSavedAtEpochMillis = lastSavedAt.toEpochMilli(),
     totalMolts = totalMolts,
+    speedBoostLevel = speedBoostLevel,
+    profitBoostLevel = profitBoostLevel,
 )
 
 private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
@@ -29,6 +31,8 @@ fun GameStateDto.toDomain(): GameState = GameState(
     offlineCapHours = offlineCapHours,
     lastSavedAt = Instant.ofEpochMilli(lastSavedAtEpochMillis),
     totalMolts = totalMolts,
+    speedBoostLevel = speedBoostLevel,
+    profitBoostLevel = profitBoostLevel,
 )
 
 private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(

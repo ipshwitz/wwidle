@@ -22,6 +22,12 @@ import java.time.Instant
  * @property lastSavedAt Timestamp of the last save, used to compute offline
  *   earnings on the next launch.
  * @property totalMolts Number of times the player has Molted (prestiged).
+ * @property speedBoostLevel Permanent, account-wide production-speed boosts
+ *   bought with Platinum Pieces (see `domain/model/Boosts.kt`) — not tied to
+ *   any one lair, unlike the ownership milestones.
+ * @property profitBoostLevel Permanent, account-wide income boosts bought
+ *   with Platinum Pieces, same shape as [speedBoostLevel] but for profit
+ *   instead of speed.
  */
 data class GameState(
     val goldPieces: Double = 0.0,
@@ -36,6 +42,8 @@ data class GameState(
     val offlineCapHours: Double = 4.0,
     val lastSavedAt: Instant = Instant.now(),
     val totalMolts: Int = 0,
+    val speedBoostLevel: Int = 0,
+    val profitBoostLevel: Int = 0,
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

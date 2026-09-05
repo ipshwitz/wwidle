@@ -95,11 +95,24 @@ data class CreatureLair(
 
     /**
      * Total Gold Pieces produced per completed cycle by [unitsOwned] units,
-     * including this lair's own milestone bonus and, via [globalMultiplier],
-     * the "Everything" bonus from [GameState.globalMilestoneMultiplier] —
-     * callers that don't pass one (existing tests, mainly) get the
-     * no-bonus default of 1.0.
+     * including this lair's own milestone bonus, the "Everything" bonus via
+     * [globalMultiplier] (from `GameState.globalMilestoneMultiplier`), and
+     * the permanent account-wide profit boost via [profitBoostMultiplier]
+     * (from `profitBoostMultiplier(GameState.profitBoostLevel)` in
+     * `Boosts.kt`) — callers that don't pass one of these (existing tests,
+     * mainly) get the no-bonus default of 1.0 for it.
      */
-    fun incomePerCycle(unitsOwned: Int, globalMultiplier: Double = 1.0): Double =
-        baseIncomeGp * unitsOwned * individualMilestoneMultiplier(unitsOwned) * globalMultiplier
+    fun incomePerCycle(unitsOwned: Int, globalMultiplier: Double = 1.0, profitBoostMultiplier: Double = 1.0): Double =
+        baseIncomeGp * unitsOwned * individualMilestoneMultiplier(unitsOwned) * globalMultiplier * profitBoostMultiplier
+
+    /**
+     * This lair's actual cycle time after the permanent account-wide speed
+     * boost (`speedBoostMultiplier(GameState.speedBoostLevel)` in
+     * `Boosts.kt`) — a boost makes cycles complete *faster*, so it divides
+     * [baseProductionSeconds] rather than multiplying it. Defaults to
+     * [baseProductionSeconds] unchanged for callers that don't pass one
+     * (existing tests, mainly).
+     */
+    fun effectiveProductionSeconds(speedBoostMultiplier: Double = 1.0): Double =
+        baseProductionSeconds / speedBoostMultiplier
 }

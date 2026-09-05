@@ -21,7 +21,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): WyrmWhelpDatabase =
-        Room.databaseBuilder(context, WyrmWhelpDatabase::class.java, "wyrmwhelp.db").build()
+        Room.databaseBuilder(context, WyrmWhelpDatabase::class.java, "wyrmwhelp.db")
+            // No real migrations exist yet — see WyrmWhelpDatabase's class doc.
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
 
     @Provides
     fun provideGameStateDao(database: WyrmWhelpDatabase): GameStateDao = database.gameStateDao()

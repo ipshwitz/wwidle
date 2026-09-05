@@ -25,28 +25,77 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
+import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_COST_PP
+import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_SECONDS
+import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
+import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
+import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 /**
  * The "Shop" section's real content: the player's current Platinum Pieces
- * balance, then the two ways to earn more — watching a rewarded ad or
- * buying them outright (IAP) — both shown as disabled `WoodenButton`s with a
- * "Coming soon" note, since neither ads nor billing are wired up yet. No
- * actual shop items (what Platinum will eventually buy) are listed here —
- * none have been designed yet; this is the entry point and balance display,
- * not a stocked store. Pure display — takes `platinumPieces` passed in by
- * `MainActivity`'s `WyrmWhelpApp` (which already holds the `GameViewModel`
- * reference) rather than taking a ViewModel itself.
+ * balance, the permanent Boosts Platinum actually buys (Speed, Profit, Time
+ * Skip — see `domain/model/Boosts.kt`), then the two ways to earn more
+ * Platinum — watching a rewarded ad or buying it outright (IAP) — both shown
+ * as disabled `WoodenButton`s with a "Coming soon" note, since neither ads
+ * nor billing are wired up yet. Pure display plus three purchase callbacks —
+ * takes state passed in by `MainActivity`'s `WyrmWhelpApp` (which already
+ * holds the `GameViewModel` reference) rather than taking a ViewModel itself.
  */
 @Composable
-fun ShopContent(platinumPieces: Double, modifier: Modifier = Modifier, palette: FantasyPalette = FantasyPalette.Default) {
+fun ShopContent(
+    platinumPieces: Double,
+    speedBoostLevel: Int,
+    profitBoostLevel: Int,
+    onBuySpeedBoost: () -> Unit,
+    onBuyProfitBoost: () -> Unit,
+    onBuyTimeSkip: () -> Unit,
+    modifier: Modifier = Modifier,
+    palette: FantasyPalette = FantasyPalette.Default,
+) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item { BalanceCard(platinumPieces = platinumPieces, palette = palette) }
+        item { SectionLabel(text = "Boosts", palette = palette) }
+        item {
+            BoostRow(
+                title = "Speed Boost",
+                description = "Level ${speedBoostLevel} — every lair's cycle is " +
+                    "${GoldFormat.format((speedBoostMultiplier(speedBoostLevel) - 1.0) * 100.0)}% faster.",
+                cost = speedBoostCost(speedBoostLevel),
+                canAfford = platinumPieces >= speedBoostCost(speedBoostLevel),
+                onBuy = onBuySpeedBoost,
+                palette = palette,
+            )
+        }
+        item {
+            BoostRow(
+                title = "Profit Boost",
+                description = "Level ${profitBoostLevel} — every lair earns " +
+                    "${GoldFormat.format((profitBoostMultiplier(profitBoostLevel) - 1.0) * 100.0)}% more gold.",
+                cost = profitBoostCost(profitBoostLevel),
+                canAfford = platinumPieces >= profitBoostCost(profitBoostLevel),
+                onBuy = onBuyProfitBoost,
+                palette = palette,
+            )
+        }
+        item {
+            BoostRow(
+                title = "Time Skip",
+                description = "Instantly grants ${(TIME_SKIP_SECONDS / 3600.0).let { GoldFormat.format(it) }} " +
+                    "hour(s) of production from every owned lair.",
+                cost = TIME_SKIP_COST_PP,
+                canAfford = platinumPieces >= TIME_SKIP_COST_PP,
+                onBuy = onBuyTimeSkip,
+                palette = palette,
+            )
+        }
+        item { SectionLabel(text = "Earn Platinum", palette = palette) }
         item {
             EarnMethodRow(
                 title = "Watch an Ad",
@@ -62,6 +111,16 @@ fun ShopContent(platinumPieces: Double, modifier: Modifier = Modifier, palette: 
             )
         }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier.padding(top = 4.dp),
+        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.titleSmall.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+    )
 }
 
 /** A translucent parchment card matching `LairCard`/`StewardsContent`/`UnlocksContent`'s base treatment. */
@@ -108,6 +167,50 @@ private fun BalanceCard(platinumPieces: Double, palette: FantasyPalette, modifie
                     color = palette.ink.copy(alpha = 0.7f),
                 )
             }
+        }
+    }
+}
+
+/**
+ * One permanent-boost purchase row — Speed Boost / Profit Boost (leveled,
+ * compounding) or Time Skip (flat, repeatable). [onBuy] is only ever called
+ * from an enabled button, so it doesn't need to re-check affordability
+ * itself.
+ */
+@Composable
+private fun BoostRow(
+    title: String,
+    description: String,
+    cost: Double,
+    canAfford: Boolean,
+    onBuy: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    ParchmentCard(palette = palette, modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.ink.copy(alpha = 0.7f),
+                )
+            }
+            WoodenButton(
+                text = "Buy — ${GoldFormat.format(cost)} pp",
+                onClick = onBuy,
+                enabled = canAfford,
+                colors = palette,
+            )
         }
     }
 }

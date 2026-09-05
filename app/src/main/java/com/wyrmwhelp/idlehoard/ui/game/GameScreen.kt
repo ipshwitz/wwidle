@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.AppBackground
 
 @Composable
@@ -27,6 +29,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     // them. Computed once per recomposition and threaded through, since
     // it's the same number for every lair this tick.
     val globalMultiplier = state.globalMilestoneMultiplier(viewModel.lairs)
+    val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
+    val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
 
     // Theoretical total income rate across owned lairs, independent of
     // whether each has a Steward — matches how idle games typically show a
@@ -34,7 +38,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val goldPerSecond = viewModel.lairs.sumOf { lair ->
         val owned = state.ownedLair(lair.id)
         if (owned.count > 0) {
-            lair.incomePerCycle(owned.count, globalMultiplier) / lair.baseProductionSeconds
+            lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier) /
+                lair.effectiveProductionSeconds(speedMultiplier)
         } else {
             0.0
         }
@@ -73,6 +78,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         globalMultiplier = globalMultiplier,
                         onClaim = { viewModel.claimLair(lair.id) },
                         onPlunder = { viewModel.plunderLair(lair.id) },
+                        speedBoostMultiplier = speedMultiplier,
+                        profitBoostMultiplier = profitMultiplier,
                     )
                 }
             }

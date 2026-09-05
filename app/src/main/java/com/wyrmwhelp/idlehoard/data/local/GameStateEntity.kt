@@ -16,6 +16,8 @@ data class GameStateEntity(
     val offlineCapHours: Double,
     val lastSavedAtEpochMillis: Long,
     val totalMolts: Int,
+    val speedBoostLevel: Int = 0,
+    val profitBoostLevel: Int = 0,
 ) {
     companion object {
         const val SINGLETON_ID = 0

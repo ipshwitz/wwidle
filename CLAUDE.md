@@ -78,8 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.13.0** (Shop menu section added — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.14.0** (permanent Speed/Profit boosts and Time Skip
+     — Platinum Pieces' real spend path — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -434,16 +434,37 @@ These apply to every change made in this repo, however small:
     domain method that already existed (and was already tested) from when
     the button lived on `LairCard`.
   - **`ShopContent`** (`ui/shop/ShopContent.kt`) — the Shop section's real
-    content, added as the "spend/earn Platinum Pieces" screen `GameState.
-    platinumPieces` never had (see Monetization below): a balance card, then
-    two "earn more" rows (watch a rewarded ad, or buy outright via IAP), both
-    a disabled `WoodenButton` labeled "Soon" since neither ads nor billing
-    are wired up yet. Deliberately doesn't list any actual shop items (what
-    Platinum will eventually buy) — none have been designed, so this is the
-    entry point and balance display, not a stocked store yet. `FloatingMenu`
-    gained a `"Shop"` entry (no sign art yet, same plain-`Surface` fallback
-    as Settings) to reach it. Takes `platinumPieces: Double` directly rather
-    than the whole `GameState` — the only value this screen needs.
+    content: a balance card, then a "Boosts" section (the actual spend path
+    for Platinum Pieces — see the Boosts bullet below and Monetization) with
+    one row each for Speed Boost, Profit Boost, and Time Skip, then an "Earn
+    Platinum" section with the original two "earn more" rows (watch a
+    rewarded ad, or buy outright via IAP), both still a disabled
+    `WoodenButton` labeled "Soon" since neither ads nor billing are wired up
+    yet. `FloatingMenu`'s `"Shop"` entry (no sign art yet, same plain-`Surface`
+    fallback as Settings) reaches it. Takes `platinumPieces`/`speedBoostLevel`/
+    `profitBoostLevel` plus `onBuySpeedBoost`/`onBuyProfitBoost`/
+    `onBuyTimeSkip` callbacks — `WyrmWhelpApp` wires the callbacks straight to
+    the matching `GameViewModel` methods, same pattern as `StewardsContent`'s
+    `onHireSteward`.
+  - **Boosts** (`domain/model/Boosts.kt`) — permanent, account-wide bonuses
+    bought with Platinum Pieces, *not* tied to any one lair (unlike the
+    ownership milestones): Speed Boost (10 pp base, ×1.5 cost growth/level,
+    +5% production speed/level, compounding) and Profit Boost (same cost
+    curve, +10% income/level, compounding), plus a flat-cost repeatable Time
+    Skip (5 pp, instantly grants `TIME_SKIP_SECONDS` — 1 hour — of production
+    via the same `GameEngine.advance()` logic offline earnings use). Levels
+    live on `GameState.speedBoostLevel`/`profitBoostLevel`.
+    `CreatureLair.incomePerCycle` takes a third `profitBoostMultiplier`
+    parameter (default 1.0) alongside the existing global-milestone one, and
+    a new `CreatureLair.effectiveProductionSeconds(speedBoostMultiplier)`
+    (default 1.0, divides `baseProductionSeconds`) replaces raw
+    `baseProductionSeconds` everywhere a lair's actual cycle time matters —
+    `GameEngine.advance`/`advanceLair` (both the unmanaged-lair readiness
+    check and the Steward auto-collect loop), `LairCard`'s progress-bar
+    fraction, and `GameScreen`'s gold-per-second sum. `GameEngine` exposes
+    `purchaseSpeedBoost()`/`purchaseProfitBoost()`/`purchaseTimeSkip()`
+    (each: check affordability, deduct Platinum, apply); `GameViewModel` has
+    matching thin wrappers, same shape as `claimLair`/`hireSteward`.
 - **Data:**
   - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
     (single-row table for currencies/meta) + `OwnedLairEntity` (one row per
@@ -452,7 +473,19 @@ These apply to every change made in this repo, however small:
     (`domain/repository/GameRepository.kt`) — `GameViewModel` loads the save
     on creation (before applying offline earnings/starting the tick loop) and
     autosaves every 30s. Upgrades/milestones tables don't exist yet (those
-    systems aren't built).
+    systems aren't built). **No real migrations exist** — `WyrmWhelpDatabase`
+    has no `Migration` objects, so `DatabaseModule`'s `Room.databaseBuilder(...)`
+    call adds `.fallbackToDestructiveMigration(dropAllTables = true)` and
+    the database version is bumped by 1 (currently 2, for the Boosts
+    feature's two new `GameStateEntity` columns) any time a persisted field
+    is added or changed. This wipes existing local saves on that version
+    bump rather than crashing at DB-open time — a deliberate pre-release
+    trade-off (no real installs to preserve yet, and a full migration is out
+    of scope for now), not an oversight. Revisit before a real release.
+    Supabase's side of the same kind of change is lighter: since cloud saves
+    are one jsonb blob (see below), a new `GameStateDto` field only needs a
+    default value for old cloud saves to keep decoding — no schema/SQL
+    change needed there.
   - **Supabase** — auth + cloud saves implemented (`data/remote/`):
     `SupabaseAuthRepository` (anonymous sign-in, implements domain
     `AuthRepository`) and `SupabaseCloudSaveRepository` (upload/download the
@@ -521,9 +554,11 @@ Free-to-play: rewarded ads (boosts, offline-earnings multipliers) + optional IAP
 other premium currency was added; platinum was already designed for exactly
 this (IAP-sourced, ad-earnable) per its own doc comment, it just didn't have a
 UI home yet. The Shop section (`ui/shop/ShopContent.kt`, reachable from
-`FloatingMenu`) is that home now — a balance display plus "watch an ad" /
-"buy outright" entry points, both disabled ("Soon") since neither ads nor
-billing are integrated yet. See Open Questions for what's still missing.
+`FloatingMenu`) is that home now — a balance display, the real spend path
+(permanent Speed/Profit boosts and repeatable Time Skips — see the Boosts
+bullet under Tech stack above), and "watch an ad" / "buy outright" earn
+entry points, both still disabled ("Soon") since neither ads nor billing are
+integrated yet. See Open Questions for what's still missing.
 
 ## Core game design
 
@@ -568,11 +603,12 @@ we'll pin these down as we build each system.
 - Whelp/Wyrm collectible system mechanics (how it interacts with lairs)
 - Full currency list — Gold Pieces and Platinum Pieces are wired into
   `GameState`; the premium-currency naming question is settled (it's
-  Platinum, not a separate "Jewels" — see Monetization above), but Platinum
-  still has no real earn or spend path: the Shop screen exists now but its
-  "watch an ad" / "buy outright" buttons are just disabled placeholders (no
-  ad network or billing integration yet), and no actual shop items (what
-  Platinum buys) have been designed
+  Platinum, not a separate "Jewels" — see Monetization above), and Platinum
+  now has a real spend path (Speed/Profit boosts, Time Skip — see the
+  Boosts bullet under Tech stack). Still missing: a real *earn* path — the
+  Shop screen's "watch an ad" / "buy outright" buttons are still disabled
+  placeholders since no ad network or billing integration exists yet, so
+  Platinum can currently only be granted by direct save editing
 - Large-number formatting convention — first-pass answer landed in
   `ui/format/GoldFormat.kt`: K/M/B/T/Qa/.../Dc named short-scale suffixes,
   then A/B/.../Z/AA/AB/... (bijective base-26, same scheme as spreadsheet

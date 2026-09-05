@@ -3,6 +3,42 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.14.0] - 2026-09-05 12:17 PM EDT
+
+- Platinum Pieces now have a real spend path: permanent, account-wide
+  Speed Boost and Profit Boost levels (each costs more Platinum than the
+  last, compounding — +5%/level for Speed, +10%/level for Profit) plus a
+  repeatable Time Skip (flat 5 pp, instantly grants an hour of production
+  using the same math as offline earnings). All three are new rows in the
+  Shop screen's "Boosts" section, above the existing "Earn Platinum" rows.
+- New `domain/model/Boosts.kt` holds the cost/multiplier formulas
+  (closed-form, same shape as `CreatureLair.costForNextUnit`). `GameState`
+  gained `speedBoostLevel`/`profitBoostLevel`. `CreatureLair.incomePerCycle`
+  takes a third `profitBoostMultiplier` parameter and a new
+  `effectiveProductionSeconds(speedBoostMultiplier)` replaces raw
+  `baseProductionSeconds` everywhere a lair's actual cycle time is used
+  (`GameEngine`'s tick loop, `LairCard`'s progress bar, `GameScreen`'s
+  gold/sec sum) — all default to no-bonus (1.0) so every existing call site
+  and test keeps working unchanged at boost level 0.
+- Bumped Room's database version to 2 for the two new `GameStateEntity`
+  columns, with `DatabaseModule` now falling back to destructively
+  recreating the database on a schema mismatch — no formal migration exists
+  yet (still pre-1.0, no real installs to preserve), documented as a
+  deliberate trade-off in CLAUDE.md rather than building real migrations.
+  The Supabase side needed no schema change (jsonb blob) — just default
+  values on the two new `GameStateDto` fields so old cloud saves still
+  decode.
+- Verified on the emulator (via a save edited directly through the Room
+  database to grant Platinum for testing, then cleared afterward): buying
+  Speed Boost went Level 0→1, 500→490 pp, cost updated 10→15 pp for the
+  next level, and the description correctly showed "5.0% faster"; Profit
+  Boost behaved identically for its own 10%/level; Time Skip deducted its
+  flat 5 pp. Back on the game screen, Kobold Warren's income line updated
+  from "1 gp/cycle" to "1.1 gp/cycle" (the 10% profit boost) and the
+  header's gp/sec rose from 1.7 to 1.9 (reflecting the 5% speed boost too),
+  confirming both boosts actually apply to live production, not just the
+  Shop's own preview text.
+
 ## [0.13.0] - 2026-09-05 11:56 AM EDT
 
 - Added a Shop menu section. Considered adding a new "Jewels" premium

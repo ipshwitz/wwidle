@@ -4,6 +4,12 @@ import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
+import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
+import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_COST_PP
+import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_SECONDS
 import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
@@ -149,8 +155,10 @@ class GameEngine @Inject constructor() {
                 val lair = CreatureLairCatalog.get(lairId)
                 collected = true
                 val globalMultiplier = current.globalMilestoneMultiplier(CreatureLairCatalog.lairs)
+                val profitMultiplier = profitBoostMultiplier(current.profitBoostLevel)
                 current.copy(
-                    goldPieces = current.goldPieces + lair.incomePerCycle(owned.count, globalMultiplier),
+                    goldPieces = current.goldPieces +
+                        lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier),
                     lairs = current.lairs + (
                         lairId to owned.copy(cycleProgressSeconds = 0.0, isReadyToCollect = false)
                         ),
@@ -158,6 +166,72 @@ class GameEngine @Inject constructor() {
             }
         }
         return collected
+    }
+
+    /**
+     * Buys the next Speed Boost level with Platinum Pieces, permanently
+     * shortening every lair's cycle time (see [speedBoostMultiplier]).
+     * Returns true if bought, false if the player can't afford it.
+     */
+    fun purchaseSpeedBoost(): Boolean {
+        var bought = false
+        _state.update { current ->
+            val cost = speedBoostCost(current.speedBoostLevel)
+            if (current.platinumPieces < cost) {
+                current
+            } else {
+                bought = true
+                current.copy(
+                    platinumPieces = current.platinumPieces - cost,
+                    speedBoostLevel = current.speedBoostLevel + 1,
+                )
+            }
+        }
+        return bought
+    }
+
+    /**
+     * Buys the next Profit Boost level with Platinum Pieces, permanently
+     * increasing every lair's income (see [profitBoostMultiplier]).
+     * Returns true if bought, false if the player can't afford it.
+     */
+    fun purchaseProfitBoost(): Boolean {
+        var bought = false
+        _state.update { current ->
+            val cost = profitBoostCost(current.profitBoostLevel)
+            if (current.platinumPieces < cost) {
+                current
+            } else {
+                bought = true
+                current.copy(
+                    platinumPieces = current.platinumPieces - cost,
+                    profitBoostLevel = current.profitBoostLevel + 1,
+                )
+            }
+        }
+        return bought
+    }
+
+    /**
+     * Spends Platinum Pieces to instantly grant [TIME_SKIP_SECONDS] of
+     * production, using the same [advance] logic as the live tick loop and
+     * offline earnings. Returns true if bought, false if the player can't
+     * afford it.
+     */
+    fun purchaseTimeSkip(): Boolean {
+        var bought = false
+        _state.update { current ->
+            if (current.platinumPieces < TIME_SKIP_COST_PP) {
+                current
+            } else {
+                bought = true
+                advance(
+                    current.copy(platinumPieces = current.platinumPieces - TIME_SKIP_COST_PP),
+                    TIME_SKIP_SECONDS,
+                )
+            }
+        }
+        return bought
     }
 
     /**
@@ -191,9 +265,13 @@ class GameEngine @Inject constructor() {
     private fun advance(state: GameState, deltaSeconds: Double): GameState {
         if (deltaSeconds <= 0.0 || state.lairs.isEmpty()) return state
         val globalMultiplier = state.globalMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
+        val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
-            val (next, earned) = advanceLair(lairId, owned, deltaSeconds, globalMultiplier)
+            val (next, earned) = advanceLair(
+                lairId, owned, deltaSeconds, globalMultiplier, speedMultiplier, profitMultiplier,
+            )
             goldEarned += earned
             next
         }
@@ -208,25 +286,29 @@ class GameEngine @Inject constructor() {
      * complete cycles as fit in [deltaSeconds], auto-collecting each. Unmanaged
      * lairs progress toward one completed cycle and then sit full, waiting for
      * [plunderLair] — a second cycle never silently completes underneath the player.
-     * [globalMultiplier] is computed once per [advance] call (same value for
-     * every lair that tick), not per lair.
+     * [globalMultiplier], [speedMultiplier], and [profitMultiplier] are each
+     * computed once per [advance] call (same value for every lair that tick),
+     * not per lair.
      */
     private fun advanceLair(
         lairId: String,
         owned: OwnedLair,
         deltaSeconds: Double,
         globalMultiplier: Double,
+        speedMultiplier: Double,
+        profitMultiplier: Double,
     ): Pair<OwnedLair, Double> {
         if (owned.count <= 0) return owned to 0.0
         if (owned.isReadyToCollect && !owned.hasSteward) return owned to 0.0
 
         val lair = CreatureLairCatalog.get(lairId)
+        val productionSeconds = lair.effectiveProductionSeconds(speedMultiplier)
         val progress = owned.cycleProgressSeconds + deltaSeconds
 
         if (!owned.hasSteward) {
-            return if (progress >= lair.baseProductionSeconds) {
+            return if (progress >= productionSeconds) {
                 owned.copy(
-                    cycleProgressSeconds = lair.baseProductionSeconds,
+                    cycleProgressSeconds = productionSeconds,
                     isReadyToCollect = true,
                 ) to 0.0
             } else {
@@ -236,9 +318,9 @@ class GameEngine @Inject constructor() {
 
         var remaining = progress
         var earned = 0.0
-        while (remaining >= lair.baseProductionSeconds) {
-            remaining -= lair.baseProductionSeconds
-            earned += lair.incomePerCycle(owned.count, globalMultiplier)
+        while (remaining >= productionSeconds) {
+            remaining -= productionSeconds
+            earned += lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier)
         }
         return owned.copy(cycleProgressSeconds = remaining) to earned
     }

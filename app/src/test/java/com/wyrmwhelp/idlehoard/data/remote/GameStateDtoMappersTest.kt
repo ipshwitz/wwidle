@@ -29,11 +29,33 @@ class GameStateDtoMappersTest {
             offlineCapHours = 6.0,
             lastSavedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             totalMolts = 2,
+            speedBoostLevel = 3,
+            profitBoostLevel = 5,
         )
 
         val restored = original.toDto().toDomain()
 
         assertEquals(original, restored)
+    }
+
+    @Test
+    fun `a cloud save saved before boosts existed decodes with boost levels defaulting to 0`() {
+        val legacyJson = """
+            {
+                "gold_pieces": 25.0,
+                "platinum_pieces": 0.0,
+                "scale_shards": 0,
+                "lairs": {},
+                "offline_cap_hours": 4.0,
+                "last_saved_at_epoch_millis": 0,
+                "total_molts": 0
+            }
+        """.trimIndent()
+
+        val decoded = Json.decodeFromString(GameStateDto.serializer(), legacyJson)
+
+        assertEquals(0, decoded.speedBoostLevel)
+        assertEquals(0, decoded.profitBoostLevel)
     }
 
     @Test

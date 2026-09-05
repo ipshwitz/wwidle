@@ -13,6 +13,8 @@ data class GameStateDto(
     @SerialName("offline_cap_hours") val offlineCapHours: Double,
     @SerialName("last_saved_at_epoch_millis") val lastSavedAtEpochMillis: Long,
     @SerialName("total_molts") val totalMolts: Int,
+    @SerialName("speed_boost_level") val speedBoostLevel: Int = 0,
+    @SerialName("profit_boost_level") val profitBoostLevel: Int = 0,
 )
 
 /** JSON mirror of [com.wyrmwhelp.idlehoard.domain.model.OwnedLair]. */

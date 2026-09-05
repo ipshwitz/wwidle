@@ -113,6 +113,18 @@ class GameViewModel @Inject constructor(
         gameEngine.plunderLair(lairId)
     }
 
+    fun purchaseSpeedBoost() {
+        gameEngine.purchaseSpeedBoost()
+    }
+
+    fun purchaseProfitBoost() {
+        gameEngine.purchaseProfitBoost()
+    }
+
+    fun purchaseTimeSkip() {
+        gameEngine.purchaseTimeSkip()
+    }
+
     private companion object {
         const val TAG = "GameViewModel"
         const val AUTOSAVE_INTERVAL_MS = 30_000L

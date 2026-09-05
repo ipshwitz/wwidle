@@ -35,6 +35,8 @@ class GameStateMappersTest {
             // Room stores millisecond precision, so truncate before comparing.
             lastSavedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             totalMolts = 2,
+            speedBoostLevel = 3,
+            profitBoostLevel = 5,
         )
 
         val (stateEntity, lairEntities) = original.toEntities()

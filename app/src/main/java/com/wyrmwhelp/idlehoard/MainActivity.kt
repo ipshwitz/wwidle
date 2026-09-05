@@ -78,7 +78,18 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                         )
                     }
                 }
-                "Shop" -> { { ShopContent(platinumPieces = gameState.platinumPieces) } }
+                "Shop" -> {
+                    {
+                        ShopContent(
+                            platinumPieces = gameState.platinumPieces,
+                            speedBoostLevel = gameState.speedBoostLevel,
+                            profitBoostLevel = gameState.profitBoostLevel,
+                            onBuySpeedBoost = gameViewModel::purchaseSpeedBoost,
+                            onBuyProfitBoost = gameViewModel::purchaseProfitBoost,
+                            onBuyTimeSkip = gameViewModel::purchaseTimeSkip,
+                        )
+                    }
+                }
                 else -> { { ComingSoonPlaceholder() } }
             },
         )

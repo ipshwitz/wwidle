@@ -123,4 +123,29 @@ class CreatureLairTest {
     fun `incomePerCycle defaults to no global bonus`() {
         assertEquals(lair.baseIncomeGp, lair.incomePerCycle(1), 0.0001)
     }
+
+    @Test
+    fun `incomePerCycle applies the profit boost multiplier on top of the others`() {
+        val unitsOwned = 25
+        val globalMultiplier = 3.0
+        val profitBoostMultiplier = 1.5
+
+        val income = lair.incomePerCycle(unitsOwned, globalMultiplier, profitBoostMultiplier)
+
+        assertEquals(
+            lair.baseIncomeGp * unitsOwned * 2.0 * globalMultiplier * profitBoostMultiplier,
+            income,
+            0.0001,
+        )
+    }
+
+    @Test
+    fun `effectiveProductionSeconds defaults to the base cycle time unchanged`() {
+        assertEquals(lair.baseProductionSeconds, lair.effectiveProductionSeconds(), 0.0001)
+    }
+
+    @Test
+    fun `effectiveProductionSeconds shrinks the cycle time as the speed multiplier grows`() {
+        assertEquals(lair.baseProductionSeconds / 1.5, lair.effectiveProductionSeconds(1.5), 0.0001)
+    }
 }
