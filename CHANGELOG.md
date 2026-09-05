@@ -3,6 +3,42 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.17.0] - 2026-09-05 2:06 PM EDT
+
+- Wired in the first real Google AdMob rewarded ad: the Welcome Back
+  ("While You Were Away…") dialog now has a "Watch Ad to Double" button
+  that doubles the offline earnings just shown, once the player watches
+  the ad to completion. Only one watch is allowed per pop-up.
+- Added the Google Mobile Ads SDK (`play-services-ads`), the app's real
+  AdMob App ID in the manifest, and a new `AdManager` (`ads/AdManager.kt`)
+  — an app-scoped singleton, same pattern as `GameEngine`, that loads one
+  rewarded ad ahead of time and shows it on request. `GameEngine` gained a
+  matching `grantGold(amount)` for crediting the doubled amount outside the
+  normal income pipeline.
+- **Real ad unit id, test-mode-forced for all debug builds.** The Welcome
+  Back placement's ad unit id is the actual production one from AdMob —
+  there is no separate test ad unit for this placement. To avoid ever
+  loading/serving a real ad (and the invalid-traffic policy risk that
+  comes with automated or dev-device impressions on a live unit),
+  `AdManager` registers the device as a Google test device
+  (`AdRequest.DEVICE_ID_EMULATOR`) whenever `BuildConfig.DEBUG` is true,
+  which makes Google serve its test creative through the same real ad unit
+  id instead. This must stay in place for every debug build; a release
+  build (`BuildConfig.DEBUG == false`) skips it and serves real ads
+  normally.
+- Verified on the emulator: the Welcome Back dialog correctly showed the
+  new button, tapping it opened a real ad activity clearly labeled "Test
+  Ad" (confirming the test-device safeguard worked), and — after an
+  accidental early exit via the test ad's own click-through UI — the
+  double was correctly *not* granted, confirming the reward is gated on
+  actually finishing the ad rather than just opening it. Didn't capture a
+  full watch-to-completion reward grant live in this session (scripting a
+  clean, no-accidental-taps run through a real video ad's own UI via adb
+  is fragile), but the negative case — no early-exit reward — is the
+  harder one to get right and is confirmed; the grant path itself
+  (`GameEngine.grantGold` doubling `earnings.goldEarned`) is a two-line
+  arithmetic operation reviewed directly rather than exercised live.
+
 ## [0.16.0] - 2026-09-05 1:30 PM EDT
 
 - Sign-up now requires entering an emailed verification code before it

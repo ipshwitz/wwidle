@@ -43,10 +43,21 @@ import kotlin.math.roundToLong
  * title/text/button slots would let this look like anything other than a
  * Material dialog — `usePlatformDefaultWidth = false` hands control of
  * sizing to the content itself.
+ *
+ * Also the app's first rewarded-ad placement: while [isDoubled] is false, a
+ * "Watch Ad to Double" button sits above Claim (only one watch is allowed
+ * per pop-up — [isDoubled] flips true once the reward actually lands, not
+ * just on tapping the button, since `AdManager` only calls back on a
+ * completed watch). [adUnavailableMessage] surfaces the one real failure
+ * mode worth telling the player about — no ad loaded yet — rather than the
+ * button silently doing nothing.
  */
 @Composable
 fun WelcomeBackDialog(
     earnings: OfflineEarnings,
+    isDoubled: Boolean,
+    adUnavailableMessage: String?,
+    onWatchAd: () -> Unit,
     onDismiss: () -> Unit,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -87,6 +98,20 @@ fun WelcomeBackDialog(
                 ),
             )
             Spacer(Modifier.height(20.dp))
+            if (!isDoubled) {
+                WoodenButton(text = "Watch Ad to Double", onClick = onWatchAd, colors = palette)
+                adUnavailableMessage?.let { message ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontStyle = FontStyle.Italic,
+                            color = palette.ink.copy(alpha = 0.7f),
+                        ),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+            }
             WoodenButton(text = "Claim", onClick = onDismiss, colors = palette)
         }
     }

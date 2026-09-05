@@ -1,5 +1,6 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
+import android.app.Activity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
@@ -22,6 +24,8 @@ import com.wyrmwhelp.idlehoard.ui.common.AppBackground
 fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.gameState.collectAsStateWithLifecycle()
     val welcomeBack by viewModel.welcomeBackEarnings.collectAsStateWithLifecycle()
+    val isOfflineEarningsDoubled by viewModel.isOfflineEarningsDoubled.collectAsStateWithLifecycle()
+    val adUnavailableMessage by viewModel.adUnavailableMessage.collectAsStateWithLifecycle()
     val buyQuantity by viewModel.buyQuantity.collectAsStateWithLifecycle()
 
     // The "Everything" milestone bonus — same compounding schedule as each
@@ -87,6 +91,15 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     }
 
     welcomeBack?.let { earnings ->
-        WelcomeBackDialog(earnings = earnings, onDismiss = viewModel::dismissWelcomeBack)
+        val context = LocalContext.current
+        WelcomeBackDialog(
+            earnings = earnings,
+            isDoubled = isOfflineEarningsDoubled,
+            adUnavailableMessage = adUnavailableMessage,
+            onWatchAd = {
+                (context as? Activity)?.let { viewModel.watchAdToDoubleOfflineEarnings(it) }
+            },
+            onDismiss = viewModel::dismissWelcomeBack,
+        )
     }
 }

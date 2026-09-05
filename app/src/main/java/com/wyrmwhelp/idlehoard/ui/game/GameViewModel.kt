@@ -1,8 +1,10 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
+import android.app.Activity
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wyrmwhelp.idlehoard.ads.AdManager
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.engine.OfflineEarnings
@@ -32,7 +34,8 @@ import kotlinx.coroutines.launch
  * Also owns the account/sync side of the Settings screen (there's no
  * separate `AuthViewModel` — the two are tightly coupled, since signing in
  * or out directly changes which cloud row this save syncs to) —
- * [userEmail]/[signUp]/[signIn]/[signOut]/[syncNow] below.
+ * [userEmail]/[signUp]/[signIn]/[signOut]/[syncNow] below — and the one
+ * rewarded-ad placement built so far, [watchAdToDoubleOfflineEarnings].
  */
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -40,6 +43,7 @@ class GameViewModel @Inject constructor(
     private val gameRepository: GameRepository,
     private val authRepository: AuthRepository,
     private val cloudSaveRepository: CloudSaveRepository,
+    private val adManager: AdManager,
 ) : ViewModel() {
 
     val gameState: StateFlow<GameState> = gameEngine.state
@@ -48,6 +52,14 @@ class GameViewModel @Inject constructor(
 
     private val _welcomeBackEarnings = MutableStateFlow<OfflineEarnings?>(null)
     val welcomeBackEarnings: StateFlow<OfflineEarnings?> = _welcomeBackEarnings.asStateFlow()
+
+    // Only one rewarded-ad watch is allowed per Welcome Back pop-up —
+    // reset whenever a new one appears (see dismissWelcomeBack).
+    private val _isOfflineEarningsDoubled = MutableStateFlow(false)
+    val isOfflineEarningsDoubled: StateFlow<Boolean> = _isOfflineEarningsDoubled.asStateFlow()
+
+    private val _adUnavailableMessage = MutableStateFlow<String?>(null)
+    val adUnavailableMessage: StateFlow<String?> = _adUnavailableMessage.asStateFlow()
 
     // Not persisted — resets to X1 each launch, same as most idle games'
     // buy-quantity selector.
@@ -314,6 +326,36 @@ class GameViewModel @Inject constructor(
 
     fun dismissWelcomeBack() {
         _welcomeBackEarnings.value = null
+        _isOfflineEarningsDoubled.value = false
+        _adUnavailableMessage.value = null
+    }
+
+    /**
+     * The Welcome Back dialog's "Watch Ad to Double" button. Grants a
+     * second, identical [GameEngine.grantGold] credit on top of the offline
+     * earnings already applied (see `GameEngine.applyOfflineEarnings`) once
+     * the player watches the rewarded ad to completion — the reward, not
+     * the act of tapping the button, is what pays out.
+     */
+    fun watchAdToDoubleOfflineEarnings(activity: Activity) {
+        val earnings = _welcomeBackEarnings.value ?: return
+        if (_isOfflineEarningsDoubled.value) return
+        _adUnavailableMessage.value = null
+        adManager.showAd(
+            activity = activity,
+            onRewardEarned = {
+                gameEngine.grantGold(earnings.goldEarned)
+                _welcomeBackEarnings.value = earnings.copy(goldEarned = earnings.goldEarned * 2)
+                _isOfflineEarningsDoubled.value = true
+            },
+            onUnavailable = {
+                _adUnavailableMessage.value = "Ad isn't ready yet — try again in a moment."
+            },
+        )
+    }
+
+    fun dismissAdUnavailableMessage() {
+        _adUnavailableMessage.value = null
     }
 
     fun claimLair(lairId: String) {

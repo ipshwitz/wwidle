@@ -261,6 +261,17 @@ class GameEngine @Inject constructor() {
         return earnings
     }
 
+    /**
+     * Directly credits [amount] Gold Pieces, bypassing the normal
+     * income/milestone pipeline entirely — a flat grant for one-off bonuses
+     * like a rewarded ad (see `GameViewModel.watchAdToDoubleOfflineEarnings`),
+     * not anything a lair produces.
+     */
+    fun grantGold(amount: Double) {
+        if (amount <= 0.0) return
+        _state.update { it.copy(goldPieces = it.goldPieces + amount) }
+    }
+
     /** Pure production step: advances every owned lair and tallies Gold Pieces earned. */
     private fun advance(state: GameState, deltaSeconds: Double): GameState {
         if (deltaSeconds <= 0.0 || state.lairs.isEmpty()) return state
