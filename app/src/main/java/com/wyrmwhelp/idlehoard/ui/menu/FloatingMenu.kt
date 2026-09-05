@@ -50,8 +50,11 @@ val floatingMenuItems: List<MenuItem> = listOf(
     MenuItem("Settings"),
 )
 
-/** Wooden sign art is ~1672x941 — used to size each plank without distorting it. */
-private const val SIGN_ASPECT_RATIO = 1672f / 941f
+/**
+ * Wooden sign art is ~1672x941 — used to size each plank (and, in
+ * `SectionOverlayCard`, each section header) without distorting it.
+ */
+const val SIGN_ASPECT_RATIO = 1672f / 941f
 
 /**
  * A hamburger-style toggle fixed at the bottom of the screen that expands

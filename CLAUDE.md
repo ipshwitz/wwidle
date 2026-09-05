@@ -55,7 +55,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.7.0** (slide-up overlay cards replace navigation — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.7.1** (sign headers on overlay cards — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -146,10 +146,18 @@ These apply to every change made in this repo, however small:
     (`BackHandler` in `MainActivity`, only enabled while a section is open).
     Driven by one nullable `openSection: String?` in `WyrmWhelpApp` — non-null
     shows the card with that title. Retains the last non-null title internally
-    while animating out so the card doesn't go blank mid-exit. Every
-    `FloatingMenu` section currently opens this same reusable card with
-    "Coming soon…" content; give a section real content later by branching on
-    `title` inside it (or splitting it out) rather than reintroducing routes.
+    while animating out so the card doesn't go blank mid-exit. The header
+    reuses whichever `floatingMenuItems` entry matches the title (same
+    wooden-sign image shown on that item in the menu) and straddles the
+    card's top edge like a hanging plaque — the card's own `Surface` is inset
+    from the top by half the sign's fixed height (`SIGN_HEADER_HEIGHT / 2`),
+    and the sign sits at the very top of the surrounding `Box` (not inside the
+    `Surface`), so its top half reads as outside the card over the scrim and
+    its bottom half overlaps the card surface. Settings (no art yet) falls
+    back to a plain bold title with no overlap/inset. Every section currently
+    shows "Coming soon…" below the header; give
+    a section real content later by branching on `title` inside it (or
+    splitting it out) rather than reintroducing routes.
   - **`AppBackground`** (`ui/common/AppBackground.kt`) — the shared
     background-art-plus-50%-white-overlay treatment. Currently only
     `GameScreen` uses it (nothing else is a full top-level screen anymore),

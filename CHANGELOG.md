@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.7.1] - 2026-09-04 10:26 PM EDT
+
+- Each `SectionOverlayCard` now headers with the same wooden-sign art shown
+  on its `FloatingMenu` item (label already baked into the image) instead of
+  a plain text title — opening "Level Up" shows the "Level Up" sign, opening
+  "Help & Social" shows that sign, etc. Settings (no art yet) still falls
+  back to a plain bold title.
+- Refined the header placement per feedback: the sign now straddles the
+  card's top edge like a hanging plaque rather than sitting inside the card
+  — the card surface is inset from the top by half the sign's height, and
+  the sign sits at the very top of the surrounding box, so its top half
+  reads as outside the card (over the scrim) and its bottom half overlaps
+  the card surface.
+- Verified via the emulator's accessibility dump (screencap stayed blank
+  through two full restarts this session): the sign's element bounds span
+  355px, and the card surface begins exactly half that span down from the
+  sign's top — confirming the intended 50/50 overlap split precisely.
+
 ## [0.7.0] - 2026-09-04 10:07 PM EDT
 
 - Tightened the floating menu's item spacing to half its previous gap
