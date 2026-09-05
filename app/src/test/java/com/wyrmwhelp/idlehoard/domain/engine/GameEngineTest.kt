@@ -4,8 +4,7 @@ import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_COOLDOWN
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
-import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_COST_PP
-import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_SECONDS
+import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
@@ -219,12 +218,13 @@ class GameEngineTest {
     }
 
     @Test
-    fun `time skip deducts platinum and instantly grants an hour of production`() {
+    fun `time skip deducts platinum and instantly grants its production`() {
+        val timeSkip = TIME_SKIP_OPTIONS.last()
         val lair = CreatureLairCatalog.get("kobold_warren")
         engine.loadState(
             GameState(
                 goldPieces = lair.baseCostGp + lair.stewardCostGp,
-                platinumPieces = TIME_SKIP_COST_PP,
+                platinumPieces = timeSkip.costPp,
                 lairs = emptyMap(),
             ),
         )
@@ -232,11 +232,11 @@ class GameEngineTest {
         engine.hireSteward("kobold_warren")
         val goldBefore = engine.state.value.goldPieces
 
-        val bought = engine.purchaseTimeSkip()
+        val bought = engine.purchaseTimeSkip(timeSkip)
 
         assertTrue(bought)
         assertEquals(0.0, engine.state.value.platinumPieces, 0.0001)
-        val expectedCycles = Math.floor(TIME_SKIP_SECONDS / lair.baseProductionSeconds)
+        val expectedCycles = Math.floor(timeSkip.seconds / lair.baseProductionSeconds)
         assertEquals(
             goldBefore + expectedCycles * lair.incomePerCycle(1),
             engine.state.value.goldPieces,
@@ -246,12 +246,13 @@ class GameEngineTest {
 
     @Test
     fun `time skip fails when platinum is insufficient`() {
-        engine.loadState(GameState(platinumPieces = TIME_SKIP_COST_PP - 0.01))
+        val timeSkip = TIME_SKIP_OPTIONS.first()
+        engine.loadState(GameState(platinumPieces = timeSkip.costPp - 0.01))
 
-        val bought = engine.purchaseTimeSkip()
+        val bought = engine.purchaseTimeSkip(timeSkip)
 
         assertFalse(bought)
-        assertEquals(TIME_SKIP_COST_PP - 0.01, engine.state.value.platinumPieces, 0.0001)
+        assertEquals(timeSkip.costPp - 0.01, engine.state.value.platinumPieces, 0.0001)
     }
 
     @Test

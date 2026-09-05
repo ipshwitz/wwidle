@@ -1,6 +1,7 @@
 package com.wyrmwhelp.idlehoard.domain.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BoostsTest {
@@ -31,5 +32,13 @@ class BoostsTest {
         assertEquals(1.0, profitBoostMultiplier(0), 0.0001)
         assertEquals(1.10, profitBoostMultiplier(1), 0.0001)
         assertEquals(1.10 * 1.10, profitBoostMultiplier(2), 0.0001)
+    }
+
+    @Test
+    fun `time skip options are ordered cheapest first`() {
+        assertEquals(2, TIME_SKIP_OPTIONS.size)
+        assertEquals(TimeSkipOption(costPp = 2.0, seconds = 600.0), TIME_SKIP_OPTIONS[0])
+        assertEquals(TimeSkipOption(costPp = 5.0, seconds = 3_600.0), TIME_SKIP_OPTIONS[1])
+        assertTrue(TIME_SKIP_OPTIONS.zipWithNext().all { (a, b) -> a.costPp < b.costPp })
     }
 }

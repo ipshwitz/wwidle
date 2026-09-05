@@ -43,8 +43,18 @@ fun profitBoostCost(currentLevel: Int): Double =
  */
 fun profitBoostMultiplier(level: Int): Double = Math.pow(PROFIT_BOOST_PER_LEVEL, level.toDouble())
 
-/** Platinum Pieces to buy one time skip (see `GameEngine.purchaseTimeSkip`). */
-const val TIME_SKIP_COST_PP = 5.0
+/**
+ * One purchasable Time Skip tier — instantly grants [seconds] of production
+ * (see `GameEngine.purchaseTimeSkip`) for [costPp] Platinum Pieces, using
+ * the same [GameEngine] `advance()` logic offline earnings use. Deliberately
+ * a list ([TIME_SKIP_OPTIONS]) rather than one fixed size/cost pair — the
+ * Shop is expected to grow more of these over time (first one added to make
+ * the whole Platinum economy cheaply testable end to end).
+ */
+data class TimeSkipOption(val costPp: Double, val seconds: Double)
 
-/** Real-world seconds one time skip instantly grants. */
-const val TIME_SKIP_SECONDS = 3_600.0
+/** Every Time Skip tier the Shop currently sells, cheapest first. */
+val TIME_SKIP_OPTIONS: List<TimeSkipOption> = listOf(
+    TimeSkipOption(costPp = 2.0, seconds = 600.0), // 10 minutes
+    TimeSkipOption(costPp = 5.0, seconds = 3_600.0), // 1 hour
+)

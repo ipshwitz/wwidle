@@ -78,8 +78,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.18.1** (Shop's "Watch an Ad" opened to guests
-     too, not just signed-in players — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.19.0** (added a cheap 10-minute/2pp Time Skip
+     tier alongside the existing 1-hour/5pp one, so the Platinum economy
+     is easy to test end to end — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -595,24 +596,31 @@ These apply to every change made in this repo, however small:
   - **`ShopContent`** (`ui/shop/ShopContent.kt`) — the Shop section's real
     content: a balance card, then a "Boosts" section (the actual spend path
     for Platinum Pieces — see the Boosts bullet below and Monetization) with
-    one row each for Speed Boost, Profit Boost, and Time Skip, then an "Earn
-    Platinum" section with the original two "earn more" rows (watch a
-    rewarded ad, or buy outright via IAP), both still a disabled
-    `WoodenButton` labeled "Soon" since neither ads nor billing are wired up
-    yet. `FloatingMenu`'s `"Shop"` entry (no sign art yet, same plain-`Surface`
-    fallback as Settings) reaches it. Takes `platinumPieces`/`speedBoostLevel`/
-    `profitBoostLevel` plus `onBuySpeedBoost`/`onBuyProfitBoost`/
-    `onBuyTimeSkip` callbacks — `WyrmWhelpApp` wires the callbacks straight to
-    the matching `GameViewModel` methods, same pattern as `StewardsContent`'s
+    one row each for Speed Boost, Profit Boost, and every entry in
+    `TIME_SKIP_OPTIONS` (0.19.0 added a second, cheap tier — see that
+    bullet), then the "Earn Platinum" section covered under Monetization
+    below (the real "Watch an Ad" plus the still-disabled "buy outright"
+    IAP). `FloatingMenu`'s `"Shop"` entry (no sign art yet, same
+    plain-`Surface` fallback as Settings) reaches it. Takes
+    `platinumPieces`/`speedBoostLevel`/`profitBoostLevel` plus
+    `onBuySpeedBoost`/`onBuyProfitBoost`/`onBuyTimeSkip` callbacks —
+    `WyrmWhelpApp` wires the callbacks straight to the matching
+    `GameViewModel` methods, same pattern as `StewardsContent`'s
     `onHireSteward`.
   - **Boosts** (`domain/model/Boosts.kt`) — permanent, account-wide bonuses
     bought with Platinum Pieces, *not* tied to any one lair (unlike the
     ownership milestones): Speed Boost (10 pp base, ×1.5 cost growth/level,
     +5% production speed/level, compounding) and Profit Boost (same cost
-    curve, +10% income/level, compounding), plus a flat-cost repeatable Time
-    Skip (5 pp, instantly grants `TIME_SKIP_SECONDS` — 1 hour — of production
-    via the same `GameEngine.advance()` logic offline earnings use). Levels
-    live on `GameState.speedBoostLevel`/`profitBoostLevel`.
+    curve, +10% income/level, compounding), plus repeatable Time Skips —
+    `TIME_SKIP_OPTIONS: List<TimeSkipOption>` (`costPp`/`seconds` pairs,
+    cheapest first: 2 pp for 10 minutes, 5 pp for 1 hour as of 0.19.0),
+    each instantly granting that much production via the same
+    `GameEngine.advance()` logic offline earnings use. Deliberately a list
+    rather than a single fixed size/cost pair — more tiers are expected
+    here over time; the 10-minute one exists specifically so the whole
+    Platinum loop (earn 2 pp from one ad watch, spend it immediately) is
+    cheaply testable end to end. Levels live on
+    `GameState.speedBoostLevel`/`profitBoostLevel`.
     `CreatureLair.incomePerCycle` takes a third `profitBoostMultiplier`
     parameter (default 1.0) alongside the existing global-milestone one, and
     a new `CreatureLair.effectiveProductionSeconds(speedBoostMultiplier)`
@@ -621,9 +629,10 @@ These apply to every change made in this repo, however small:
     `GameEngine.advance`/`advanceLair` (both the unmanaged-lair readiness
     check and the Steward auto-collect loop), `LairCard`'s progress-bar
     fraction, and `GameScreen`'s gold-per-second sum. `GameEngine` exposes
-    `purchaseSpeedBoost()`/`purchaseProfitBoost()`/`purchaseTimeSkip()`
-    (each: check affordability, deduct Platinum, apply); `GameViewModel` has
-    matching thin wrappers, same shape as `claimLair`/`hireSteward`.
+    `purchaseSpeedBoost()`/`purchaseProfitBoost()`/
+    `purchaseTimeSkip(option: TimeSkipOption)` (each: check affordability,
+    deduct Platinum, apply); `GameViewModel` has matching thin wrappers,
+    same shape as `claimLair`/`hireSteward`.
 - **Data:**
   - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
     (single-row table for currencies/meta) + `OwnedLairEntity` (one row per

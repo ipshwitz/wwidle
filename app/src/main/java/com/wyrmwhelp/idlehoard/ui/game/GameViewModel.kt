@@ -14,6 +14,7 @@ import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
+import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 import com.wyrmwhelp.idlehoard.domain.repository.AuthRepository
@@ -432,8 +433,8 @@ class GameViewModel @Inject constructor(
         gameEngine.purchaseProfitBoost()
     }
 
-    fun purchaseTimeSkip() {
-        gameEngine.purchaseTimeSkip()
+    fun purchaseTimeSkip(option: TimeSkipOption) {
+        gameEngine.purchaseTimeSkip(option)
     }
 
     private companion object {

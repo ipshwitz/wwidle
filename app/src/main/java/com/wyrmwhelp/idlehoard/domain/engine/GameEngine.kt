@@ -10,8 +10,7 @@ import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
-import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_COST_PP
-import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_SECONDS
+import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
@@ -215,21 +214,21 @@ class GameEngine @Inject constructor() {
     }
 
     /**
-     * Spends Platinum Pieces to instantly grant [TIME_SKIP_SECONDS] of
+     * Spends Platinum Pieces to instantly grant [TimeSkipOption.seconds] of
      * production, using the same [advance] logic as the live tick loop and
      * offline earnings. Returns true if bought, false if the player can't
-     * afford it.
+     * afford [option].
      */
-    fun purchaseTimeSkip(): Boolean {
+    fun purchaseTimeSkip(option: TimeSkipOption): Boolean {
         var bought = false
         _state.update { current ->
-            if (current.platinumPieces < TIME_SKIP_COST_PP) {
+            if (current.platinumPieces < option.costPp) {
                 current
             } else {
                 bought = true
                 advance(
-                    current.copy(platinumPieces = current.platinumPieces - TIME_SKIP_COST_PP),
-                    TIME_SKIP_SECONDS,
+                    current.copy(platinumPieces = current.platinumPieces - option.costPp),
+                    option.seconds,
                 )
             }
         }

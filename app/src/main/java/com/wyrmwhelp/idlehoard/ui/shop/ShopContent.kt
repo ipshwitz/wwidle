@@ -27,8 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
-import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_COST_PP
-import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_SECONDS
+import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
+import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
@@ -41,9 +41,10 @@ import java.time.Duration
 
 /**
  * The "Shop" section's real content: the player's current Platinum Pieces
- * balance, the permanent Boosts Platinum actually buys (Speed, Profit, Time
- * Skip — see `domain/model/Boosts.kt`), then the two ways to earn more
- * Platinum. "Watch an Ad" (see [platinumAdCooldownRemaining]/[onWatchAd])
+ * balance, the permanent Boosts Platinum actually buys (Speed, Profit, one
+ * row per [TIME_SKIP_OPTIONS] tier — see `domain/model/Boosts.kt`), then
+ * the two ways to earn more Platinum. "Watch an Ad" (see
+ * [platinumAdCooldownRemaining]/[onWatchAd])
  * is open to guests too — it has no monetary value, so a guest losing it on
  * reinstall isn't a real loss the way losing an IAP receipt would be.
  * "Buy Platinum Pieces" (IAP, still a disabled `WoodenButton` with a
@@ -64,7 +65,7 @@ fun ShopContent(
     platinumAdMessage: String?,
     onBuySpeedBoost: () -> Unit,
     onBuyProfitBoost: () -> Unit,
-    onBuyTimeSkip: () -> Unit,
+    onBuyTimeSkip: (TimeSkipOption) -> Unit,
     onWatchAd: () -> Unit,
     onDismissPlatinumAdMessage: () -> Unit,
     modifier: Modifier = Modifier,
@@ -98,16 +99,19 @@ fun ShopContent(
                 palette = palette,
             )
         }
-        item {
-            BoostRow(
-                title = "Time Skip",
-                description = "Instantly grants ${(TIME_SKIP_SECONDS / 3600.0).let { GoldFormat.format(it) }} " +
-                    "hour(s) of production from every owned lair.",
-                cost = TIME_SKIP_COST_PP,
-                canAfford = platinumPieces >= TIME_SKIP_COST_PP,
-                onBuy = onBuyTimeSkip,
-                palette = palette,
-            )
+        TIME_SKIP_OPTIONS.forEach { option ->
+            item {
+                val duration = Duration.ofSeconds(option.seconds.toLong())
+                BoostRow(
+                    title = "Time Skip — ${DurationFormat.format(duration)}",
+                    description = "Instantly grants ${DurationFormat.format(duration)} of production " +
+                        "from every owned lair.",
+                    cost = option.costPp,
+                    canAfford = platinumPieces >= option.costPp,
+                    onBuy = { onBuyTimeSkip(option) },
+                    palette = palette,
+                )
+            }
         }
         item { SectionLabel(text = "Earn Platinum", palette = palette) }
         item {

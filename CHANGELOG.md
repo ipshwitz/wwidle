@@ -3,6 +3,37 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.19.0] - 2026-09-05 3:12 PM EDT
+
+- Added a second Time Skip tier to the Shop: 10 minutes of production for
+  2 Platinum Pieces, alongside the existing 1 hour for 5 pp. Cheap enough
+  to buy from a single "Watch an Ad" reward, specifically so the whole
+  Platinum economy (earn via ad, spend on a Boost) is easy to test
+  end to end without needing to grind or edit a save.
+- `domain/model/Boosts.kt`'s flat `TIME_SKIP_COST_PP`/`TIME_SKIP_SECONDS`
+  constants became `TIME_SKIP_OPTIONS: List<TimeSkipOption>` (a
+  `costPp`/`seconds` pair per tier) — deliberately a list, not another flat
+  pair, since more tiers are expected here later. `GameEngine.purchaseTimeSkip`
+  and `GameViewModel.purchaseTimeSkip` now take a `TimeSkipOption` parameter
+  instead of always buying the one hardcoded size. `ShopContent` renders one
+  `BoostRow` per entry in `TIME_SKIP_OPTIONS` ("Time Skip — 10m", "Time Skip
+  — 1h", ...) instead of a single fixed row.
+- Verified end to end on the emulator: granted Platinum via a direct save
+  edit (safer than repeated ad interactions — see the note below), bought
+  the new 10-minute tier for 2 pp (balance correctly went 20 → 18 pp), and
+  confirmed the underlying `advance()` call actually ran — the unmanaged
+  Kobold Warren lair filled to its one allowed pending cycle exactly as
+  offline earnings would, and plundering it credited 1 gp.
+- Also attempted to test via a real "Watch an Ad" → spend flow, which hit
+  the same automated-testing hazard noted for 0.17.0: an accidental
+  click-through on the test ad's own "Learn More"/"Install" UI (most likely
+  a queued/delayed tap landing on the wrong screen, the `adb input tap`
+  quirk already documented in CLAUDE.md) navigated to the Play Store before
+  the ad finished, correctly earning no reward — a real confirmation of the
+  reward-gating logic, just not the happy path. Switched to the direct
+  save-edit approach for the actual Time Skip verification instead of
+  retrying the ad repeatedly.
+
 ## [0.18.1] - 2026-09-05 2:45 PM EDT
 
 - The Shop's "Watch an Ad" is now open to guests too, not just signed-in
