@@ -10,5 +10,6 @@ data class OwnedLairEntity(
     val count: Int,
     val hasSteward: Boolean,
     val cycleProgressSeconds: Double,
-    val isReadyToCollect: Boolean,
+    val isLoading: Boolean = false,
+    val completedLoads: Int = 0,
 )

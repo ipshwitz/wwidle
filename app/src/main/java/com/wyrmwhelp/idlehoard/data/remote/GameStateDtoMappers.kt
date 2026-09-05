@@ -21,7 +21,8 @@ private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
     count = count,
     hasSteward = hasSteward,
     cycleProgressSeconds = cycleProgressSeconds,
-    isReadyToCollect = isReadyToCollect,
+    isLoading = isLoading,
+    completedLoads = completedLoads,
 )
 
 fun GameStateDto.toDomain(): GameState = GameState(
@@ -42,5 +43,6 @@ private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(
     count = count,
     hasSteward = hasSteward,
     cycleProgressSeconds = cycleProgressSeconds,
-    isReadyToCollect = isReadyToCollect,
+    isLoading = isLoading,
+    completedLoads = completedLoads,
 )

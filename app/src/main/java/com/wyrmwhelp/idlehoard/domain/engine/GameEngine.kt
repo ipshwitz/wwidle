@@ -40,10 +40,11 @@ data class OfflineEarnings(
 /**
  * Core domain engine: owns the authoritative [GameState], runs the passive
  * production tick loop, and applies player actions (claiming lairs, hiring
- * Stewards, plundering completed cycles). App-scoped singleton — outlives any
- * single screen/ViewModel, since production must keep running across
- * navigation. No persistence wiring yet; [loadState] and [applyOfflineEarnings]
- * are the seams the Room/Supabase repositories will call into once they exist.
+ * Stewards, starting lairs' production cycles). App-scoped singleton —
+ * outlives any single screen/ViewModel, since production must keep running
+ * across navigation. No persistence wiring yet; [loadState] and
+ * [applyOfflineEarnings] are the seams the Room/Supabase repositories will
+ * call into once they exist.
  */
 @Singleton
 class GameEngine @Inject constructor() {
@@ -142,31 +143,27 @@ class GameEngine @Inject constructor() {
     }
 
     /**
-     * Manually collects a finished production cycle from [lairId] (the player
-     * tapping a lair that's sitting full and waiting). Returns true if there was
-     * anything to collect.
+     * Starts [lairId]'s production cycle (the player tapping a lair that's
+     * sitting idle) — gold isn't credited here; it's credited automatically
+     * once the cycle actually completes (see [advanceLair] and
+     * [OwnedLair.isLoading]). Returns true if a cycle was actually started,
+     * false if the lair isn't owned, has a Steward (which runs continuously
+     * on its own — tapping does nothing), or is already mid-cycle.
      */
-    fun plunderLair(lairId: String): Boolean {
-        var collected = false
+    fun startLairLoad(lairId: String): Boolean {
+        var started = false
         _state.update { current ->
             val owned = current.ownedLair(lairId)
-            if (!owned.isReadyToCollect) {
+            if (owned.count <= 0 || owned.hasSteward || owned.isLoading) {
                 current
             } else {
-                val lair = CreatureLairCatalog.get(lairId)
-                collected = true
-                val globalMultiplier = current.globalMilestoneMultiplier(CreatureLairCatalog.lairs)
-                val profitMultiplier = profitBoostMultiplier(current.profitBoostLevel)
+                started = true
                 current.copy(
-                    goldPieces = current.goldPieces +
-                        lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier),
-                    lairs = current.lairs + (
-                        lairId to owned.copy(cycleProgressSeconds = 0.0, isReadyToCollect = false)
-                        ),
+                    lairs = current.lairs + (lairId to owned.copy(isLoading = true, cycleProgressSeconds = 0.0)),
                 )
             }
         }
-        return collected
+        return started
     }
 
     /**
@@ -215,9 +212,9 @@ class GameEngine @Inject constructor() {
 
     /**
      * Spends Platinum Pieces to instantly grant [TimeSkipOption.seconds] of
-     * production, using the same [advance] logic as the live tick loop and
-     * offline earnings. Returns true if bought, false if the player can't
-     * afford [option].
+     * production from every owned lair — see [grantInstantProduction] for why
+     * this doesn't just reuse [advance]. Returns true if bought, false if the
+     * player can't afford [option].
      */
     fun purchaseTimeSkip(option: TimeSkipOption): Boolean {
         var bought = false
@@ -226,7 +223,7 @@ class GameEngine @Inject constructor() {
                 current
             } else {
                 bought = true
-                advance(
+                grantInstantProduction(
                     current.copy(platinumPieces = current.platinumPieces - option.costPp),
                     option.seconds,
                 )
@@ -239,8 +236,12 @@ class GameEngine @Inject constructor() {
      * Settles production that happened while the app was closed, based on the
      * time since [GameState.lastSavedAt], capped at [GameState.offlineCapHours].
      * Uses the same per-lair rules as the live tick loop: Steward-managed lairs
-     * auto-collect every completed cycle, unmanaged lairs cap at one pending
-     * cycle waiting for a tap. Call once on load, before [start].
+     * keep auto-collecting every completed cycle exactly as if the app had
+     * stayed open. Unmanaged lairs only continue if they were already mid-cycle
+     * ([OwnedLair.isLoading]) when the app closed — completing that one cycle at
+     * most, same as live play; a lair that was sitting idle (not tapped) earns
+     * nothing while away, since nothing was running for it to interrupt. Call
+     * once on load, before [start].
      */
     fun applyOfflineEarnings(now: Instant = Instant.now()): OfflineEarnings {
         var earnings = OfflineEarnings(0.0, 0.0, 0.0)
@@ -321,11 +322,19 @@ class GameEngine @Inject constructor() {
     /**
      * Advances a single lair's production. Steward-managed lairs run as many
      * complete cycles as fit in [deltaSeconds], auto-collecting each. Unmanaged
-     * lairs progress toward one completed cycle and then sit full, waiting for
-     * [plunderLair] — a second cycle never silently completes underneath the player.
-     * [globalMultiplier], [speedMultiplier], and [profitMultiplier] are each
-     * computed once per [advance] call (same value for every lair that tick),
-     * not per lair.
+     * lairs only progress while [OwnedLair.isLoading] is true (started by
+     * [startLairLoad]) — sitting idle otherwise, earning nothing, rather than
+     * silently filling in the background. A started cycle completes at most
+     * once per call (it doesn't loop for extra completions even if
+     * [deltaSeconds] covers several cycles' worth of time — the player tapped
+     * once, they get one load), crediting the gold immediately and returning
+     * to idle; [OwnedLair.completedLoads] increments so the UI can fire a
+     * coin-burst effect, but only if this cycle's own production time was at
+     * least [MIN_CONFETTI_PRODUCTION_SECONDS] — a very heavily Speed-Boosted
+     * lair can complete faster than that effect can read as anything but a
+     * flicker, so it's skipped rather than spammed. [globalMultiplier],
+     * [speedMultiplier], and [profitMultiplier] are each computed once per
+     * [advance] call (same value for every lair that tick), not per lair.
      */
     private fun advanceLair(
         lairId: String,
@@ -336,24 +345,27 @@ class GameEngine @Inject constructor() {
         profitMultiplier: Double,
     ): Pair<OwnedLair, Double> {
         if (owned.count <= 0) return owned to 0.0
-        if (owned.isReadyToCollect && !owned.hasSteward) return owned to 0.0
 
         val lair = CreatureLairCatalog.get(lairId)
         val productionSeconds = lair.effectiveProductionSeconds(speedMultiplier)
-        val progress = owned.cycleProgressSeconds + deltaSeconds
 
         if (!owned.hasSteward) {
+            if (!owned.isLoading) return owned to 0.0
+            val progress = owned.cycleProgressSeconds + deltaSeconds
             return if (progress >= productionSeconds) {
+                val earned = lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier)
+                val confettiWorthy = productionSeconds >= MIN_CONFETTI_PRODUCTION_SECONDS
                 owned.copy(
-                    cycleProgressSeconds = productionSeconds,
-                    isReadyToCollect = true,
-                ) to 0.0
+                    cycleProgressSeconds = 0.0,
+                    isLoading = false,
+                    completedLoads = if (confettiWorthy) owned.completedLoads + 1 else owned.completedLoads,
+                ) to earned
             } else {
                 owned.copy(cycleProgressSeconds = progress) to 0.0
             }
         }
 
-        var remaining = progress
+        var remaining = owned.cycleProgressSeconds + deltaSeconds
         var earned = 0.0
         while (remaining >= productionSeconds) {
             remaining -= productionSeconds
@@ -362,21 +374,73 @@ class GameEngine @Inject constructor() {
         return owned.copy(cycleProgressSeconds = remaining) to earned
     }
 
+    /**
+     * Credits [seconds] worth of production for every owned lair as a
+     * one-off bonus — used by [purchaseTimeSkip]. Deliberately separate from
+     * [advance]: a Time Skip is a deliberate, paid purchase explicitly
+     * described (see `ui/shop/ShopContent.kt`) as granting production "from
+     * every owned lair," so unlike the live tick loop it must apply
+     * uniformly rather than silently skipping a lair that isn't currently
+     * loading. Steward-managed lairs use the same looping/carry-over math
+     * [advanceLair] does; unmanaged lairs get a standalone credit that
+     * doesn't touch their actual [OwnedLair.isLoading]/`cycleProgressSeconds`
+     * — using a Time Skip is a bonus on top of whatever the player is doing
+     * with that lair's own tap cycle, not a substitute for tapping it.
+     */
+    private fun grantInstantProduction(state: GameState, seconds: Double): GameState {
+        if (seconds <= 0.0 || state.lairs.isEmpty()) return state
+        val globalMultiplier = state.globalMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
+        val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
+
+        var goldEarned = 0.0
+        val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
+            if (owned.count <= 0) return@mapValues owned
+            val lair = CreatureLairCatalog.get(lairId)
+            val productionSeconds = lair.effectiveProductionSeconds(speedMultiplier)
+            if (owned.hasSteward) {
+                var remaining = owned.cycleProgressSeconds + seconds
+                var earned = 0.0
+                while (remaining >= productionSeconds) {
+                    remaining -= productionSeconds
+                    earned += lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier)
+                }
+                goldEarned += earned
+                owned.copy(cycleProgressSeconds = remaining)
+            } else {
+                val cycles = kotlin.math.floor(seconds / productionSeconds)
+                goldEarned += cycles * lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier)
+                owned
+            }
+        }
+        return state.copy(lairs = updatedLairs, goldPieces = state.goldPieces + goldEarned)
+    }
+
     companion object {
+        /**
+         * The shortest a lair's own production time can be for its
+         * completion to still fire the coin-burst effect (see [advanceLair]).
+         * Below this, the burst would complete faster than it can read as
+         * anything but a flicker — gold is still credited either way, only
+         * the confetti is skipped.
+         */
+        const val MIN_CONFETTI_PRODUCTION_SECONDS = 0.01
+
         /**
          * How often [start] advances production. Public so the UI can match its
          * progress-fill animation duration to this and avoid visibly stepping
          * between updates — see `LairCard`.
          *
          * Deliberately short: a tick's `deltaSeconds` is measured from the
-         * *previous* tick regardless of when a cycle reset (a plunder) happened
-         * in between, so any reset is immediately "overshot" by up to one full
-         * tick interval on the very next tick. At the old 200ms that was a third
-         * of Kobold Warren's 0.6s cycle — visibly skipping the start of the fill
-         * and, for fast cycles, making repeated taps look like they were
-         * corrupting the animation. At 33ms the same overshoot is ~5.5% of even
-         * that fastest cycle (and under 2% for every longer one) — small enough
-         * to read as a clean start.
+         * *previous* tick regardless of when a cycle reset (a completed load
+         * starting fresh, or a fresh tap) happened in between, so any reset is
+         * immediately "overshot" by up to one full tick interval on the very
+         * next tick. At the old 200ms that was a third of Kobold Warren's 0.6s
+         * cycle — visibly skipping the start of the fill and, for fast cycles,
+         * making repeated taps look like they were corrupting the animation.
+         * At 33ms the same overshoot is ~5.5% of even that fastest cycle (and
+         * under 2% for every longer one) — small enough to read as a clean
+         * start.
          */
         const val TICK_INTERVAL_MS = 33L
     }

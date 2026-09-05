@@ -51,11 +51,12 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  *   tinted rectangle — but stays sheer enough to keep `GameScreen`'s
  *   background art showing through, same as the card always has.
  * - A faint rarity tint over the whole card, then a stronger rarity-gradient
- *   fill for the claimed fraction (`cycleProgressSeconds / baseProductionSeconds`,
- *   100% = ready to plunder) with a bright "leading edge" line marking
- *   exactly how far the fill has come — drawn via `drawBehind` on the fill
- *   `Box` itself at its own right edge, so it always tracks the animated
- *   fraction without any extra position math.
+ *   fill for the claimed fraction (`cycleProgressSeconds / effectiveProductionSeconds`,
+ *   100% = the cycle a tap started is about to complete and auto-collect)
+ *   with a bright "leading edge" line marking exactly how far the fill has
+ *   come — drawn via `drawBehind` on the fill `Box` itself at its own right
+ *   edge, so it always tracks the animated fraction without any extra
+ *   position math.
  * - `FontFamily.Serif` for the name (matching `GameHeader`'s lettering) with
  *   a subtle emboss shadow.
  * - The Claim action is a shared `WoodenButton` instead of a Material
@@ -68,7 +69,8 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * [coinBurstTrigger] is hoisted up to `LairRow` (not local `remember` state
  * here) so the creature avatar next to this card — a separate container —
  * can fire the same burst as tapping the card itself; both go through the
- * same counter.
+ * same counter, and `LairRow` is what actually decides when to bump it now
+ * (on `OwnedLair.completedLoads` changing, not on the tap — see that file).
  */
 @Composable
 fun LairCard(
@@ -79,7 +81,7 @@ fun LairCard(
     globalMultiplier: Double,
     coinBurstTrigger: Int,
     onClaim: () -> Unit,
-    onPlunder: () -> Unit,
+    onStartLoad: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
     speedBoostMultiplier: Double = 1.0,
@@ -92,12 +94,15 @@ fun LairCard(
     val claimCost = lair.costForUnits(owned.count, claimQuantity)
     val canClaim = goldPieces >= claimCost
     val productionSeconds = lair.effectiveProductionSeconds(speedBoostMultiplier)
-    val progress = if (productionSeconds <= 0.0) {
+    // Naturally reads 0% while idle (cycleProgressSeconds stays pinned at 0
+    // until a tap starts the cycle — see GameEngine.advanceLair) with no
+    // special-casing needed: there's no separate "ready, waiting" plateau
+    // anymore, since completion auto-collects and resets in the same step.
+    val fillFraction = if (productionSeconds <= 0.0) {
         0f
     } else {
         (owned.cycleProgressSeconds / productionSeconds).toFloat().coerceIn(0f, 1f)
     }
-    val fillFraction = if (owned.isReadyToCollect) 1f else progress
     // GameEngine only pushes a new fillFraction every TICK_INTERVAL_MS, which
     // would otherwise render as visible steps — animating linearly across
     // that same window turns it back into continuous motion.
@@ -124,8 +129,8 @@ fun LairCard(
             .background(rarity.copy(alpha = if (owned.count > 0) 0.14f else 0.08f))
             .border(1.5.dp, rarity.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
             .clickable(
-                enabled = owned.isReadyToCollect,
-                onClick = onPlunder,
+                enabled = owned.count > 0 && !owned.hasSteward && !owned.isLoading,
+                onClick = onStartLoad,
             ),
     ) {
         if (owned.count > 0) {

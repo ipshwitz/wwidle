@@ -82,7 +82,7 @@ class GameEngineTest {
     }
 
     @Test
-    fun `unmanaged lair caps at one completed cycle awaiting collection`() {
+    fun `an untapped unmanaged lair sits idle and earns nothing no matter how long it ticks`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
         engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
         engine.purchaseLair("kobold_warren")
@@ -91,22 +91,46 @@ class GameEngineTest {
         engine.tick(lair.baseProductionSeconds * 5)
 
         val owned = engine.state.value.ownedLair("kobold_warren")
-        assertTrue(owned.isReadyToCollect)
-        assertEquals(0.0, engine.state.value.goldPieces, 0.0001) // nothing auto-collected
+        assertFalse(owned.isLoading)
+        assertEquals(0.0, owned.cycleProgressSeconds, 0.0001)
+        assertEquals(0, owned.completedLoads)
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
     }
 
     @Test
-    fun `plundering a ready lair grants its income and resets the cycle`() {
+    fun `starting a lair's load and letting it finish auto-collects and marks a completion`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
         engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
         engine.purchaseLair("kobold_warren")
+
+        val started = engine.startLairLoad("kobold_warren")
+        assertTrue(started)
         engine.tick(lair.baseProductionSeconds)
 
-        val collected = engine.plunderLair("kobold_warren")
-
-        assertTrue(collected)
+        val owned = engine.state.value.ownedLair("kobold_warren")
         assertEquals(lair.incomePerCycle(1), engine.state.value.goldPieces, 0.0001)
-        assertFalse(engine.state.value.ownedLair("kobold_warren").isReadyToCollect)
+        assertFalse(owned.isLoading)
+        assertEquals(1, owned.completedLoads)
+    }
+
+    @Test
+    fun `starting a lair's load twice in a row is a no-op the second time`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
+        engine.purchaseLair("kobold_warren")
+
+        assertTrue(engine.startLairLoad("kobold_warren"))
+        assertFalse(engine.startLairLoad("kobold_warren"))
+    }
+
+    @Test
+    fun `starting a load does nothing for a Steward-managed lair`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(GameState(goldPieces = lair.baseCostGp + lair.stewardCostGp, lairs = emptyMap()))
+        engine.purchaseLair("kobold_warren")
+        engine.hireSteward("kobold_warren")
+
+        assertFalse(engine.startLairLoad("kobold_warren"))
     }
 
     @Test
@@ -125,7 +149,9 @@ class GameEngineTest {
 
         val expectedGold = lair.incomePerCycle(1) * 3
         assertEquals(expectedGold, engine.state.value.goldPieces, 0.0001)
-        assertFalse(engine.state.value.ownedLair("kobold_warren").isReadyToCollect)
+        assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
+        // Steward cycles collect silently and never touch this counter.
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").completedLoads)
     }
 
     @Test
@@ -179,12 +205,15 @@ class GameEngineTest {
         )
         engine.purchaseLair("kobold_warren")
         engine.purchaseSpeedBoost()
+        engine.startLairLoad("kobold_warren")
 
         // A full base-cycle's worth of ticking isn't enough time anymore once
-        // the effective cycle is shorter, so the lair should already be ready.
+        // the effective cycle is shorter, so the started load should already
+        // have completed and auto-collected.
         engine.tick(lair.baseProductionSeconds / speedBoostMultiplier(1))
 
-        assertTrue(engine.state.value.ownedLair("kobold_warren").isReadyToCollect)
+        assertEquals(1, engine.state.value.ownedLair("kobold_warren").completedLoads)
+        assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
     }
 
     @Test
@@ -199,16 +228,15 @@ class GameEngineTest {
     }
 
     @Test
-    fun `profit boost increases a plundered lair's income`() {
+    fun `profit boost increases a completed load's income`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
         engine.loadState(
             GameState(goldPieces = lair.baseCostGp, platinumPieces = profitBoostCost(0), lairs = emptyMap()),
         )
         engine.purchaseLair("kobold_warren")
         engine.purchaseProfitBoost()
+        engine.startLairLoad("kobold_warren")
         engine.tick(lair.baseProductionSeconds)
-
-        engine.plunderLair("kobold_warren")
 
         assertEquals(
             lair.incomePerCycle(1, profitBoostMultiplier = profitBoostMultiplier(1)),
@@ -253,6 +281,55 @@ class GameEngineTest {
 
         assertFalse(bought)
         assertEquals(timeSkip.costPp - 0.01, engine.state.value.platinumPieces, 0.0001)
+    }
+
+    @Test
+    fun `a load faster than the confetti threshold still pays out but doesn't mark a completion`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        // 1.05^84 ~= 60.85x, pushing kobold_warren's 0.6s base cycle under the
+        // 10ms confetti threshold (see GameEngine.MIN_CONFETTI_PRODUCTION_SECONDS).
+        val speedLevel = 84
+        engine.loadState(
+            GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), speedBoostLevel = speedLevel),
+        )
+        engine.purchaseLair("kobold_warren")
+        val productionSeconds = lair.effectiveProductionSeconds(speedBoostMultiplier(speedLevel))
+        assertTrue(productionSeconds < 0.01)
+
+        engine.startLairLoad("kobold_warren")
+        engine.tick(productionSeconds)
+
+        val owned = engine.state.value.ownedLair("kobold_warren")
+        assertEquals(lair.incomePerCycle(1), engine.state.value.goldPieces, 0.0001)
+        assertFalse(owned.isLoading)
+        assertEquals(0, owned.completedLoads)
+    }
+
+    @Test
+    fun `time skip credits an idle, untapped, unmanaged lair despite it not currently loading`() {
+        val timeSkip = TIME_SKIP_OPTIONS.last()
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                goldPieces = lair.baseCostGp,
+                platinumPieces = timeSkip.costPp,
+                lairs = emptyMap(),
+            ),
+        )
+        engine.purchaseLair("kobold_warren")
+        val goldBefore = engine.state.value.goldPieces
+
+        val bought = engine.purchaseTimeSkip(timeSkip)
+
+        assertTrue(bought)
+        val expectedCycles = Math.floor(timeSkip.seconds / lair.baseProductionSeconds)
+        assertEquals(
+            goldBefore + expectedCycles * lair.incomePerCycle(1),
+            engine.state.value.goldPieces,
+            0.01,
+        )
+        // Time Skip is a bonus on top of the tap cycle, not a substitute for it.
+        assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
     }
 
     @Test

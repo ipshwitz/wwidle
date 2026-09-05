@@ -36,12 +36,14 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
     val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
 
-    // Theoretical total income rate across owned lairs, independent of
-    // whether each has a Steward — matches how idle games typically show a
-    // "per sec" stat regardless of manual-tap vs. auto-collect status.
+    // Total income rate from Steward-managed lairs only — the only ones
+    // that actually run continuously on their own now. A lair without a
+    // Steward sits idle earning nothing until tapped (see
+    // `GameEngine.startLairLoad`), so including it here would overstate
+    // what the player is actually earning per second while not playing.
     val goldPerSecond = viewModel.lairs.sumOf { lair ->
         val owned = state.ownedLair(lair.id)
-        if (owned.count > 0) {
+        if (owned.count > 0 && owned.hasSteward) {
             lair.incomePerCycle(owned.count, globalMultiplier, profitMultiplier) /
                 lair.effectiveProductionSeconds(speedMultiplier)
         } else {
@@ -81,7 +83,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         buyQuantity = buyQuantity,
                         globalMultiplier = globalMultiplier,
                         onClaim = { viewModel.claimLair(lair.id) },
-                        onPlunder = { viewModel.plunderLair(lair.id) },
+                        onStartLoad = { viewModel.startLairLoad(lair.id) },
                         speedBoostMultiplier = speedMultiplier,
                         profitBoostMultiplier = profitMultiplier,
                     )

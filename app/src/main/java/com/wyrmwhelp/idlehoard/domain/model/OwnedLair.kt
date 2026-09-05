@@ -7,16 +7,28 @@ package com.wyrmwhelp.idlehoard.domain.model
  *
  * @property lairId Foreign key into the [CreatureLair] catalog.
  * @property count Number of units of this lair the player has claimed.
- * @property hasSteward Whether a Steward is hired, auto-collecting finished cycles.
+ * @property hasSteward Whether a Steward is hired, auto-collecting finished cycles
+ *   continuously — [isLoading] is meaningless once this is true (see below).
  * @property cycleProgressSeconds Seconds elapsed in the current production cycle.
- * @property isReadyToCollect True once a cycle has finished but hasn't been
- *   collected yet (only relevant when [hasSteward] is false — production pauses,
- *   full and waiting, until the player taps to collect it).
+ *   For a lair without a Steward, this only advances while [isLoading] is true —
+ *   an idle lair stays pinned at 0 rather than silently filling in the background.
+ * @property isLoading Only meaningful when [hasSteward] is false: true once the
+ *   player has tapped this lair to start its production cycle
+ *   (`GameEngine.startLairLoad`), false while it's sitting idle waiting to be
+ *   tapped. When a started cycle completes, the gold is credited automatically
+ *   and this flips back to false — there's no separate "ready, waiting to be
+ *   collected" state to tap through; the tap starts the cycle, not the collection.
+ * @property completedLoads Counts every time this lair's manually-started cycle
+ *   has completed and auto-collected (see [isLoading]) — a monotonic counter, not
+ *   a boolean, so the UI can detect each individual completion (for the coin-burst
+ *   effect) even if several happen in quick succession. Never incremented for
+ *   Steward-managed cycles, which collect silently.
  */
 data class OwnedLair(
     val lairId: String,
     val count: Int = 0,
     val hasSteward: Boolean = false,
     val cycleProgressSeconds: Double = 0.0,
-    val isReadyToCollect: Boolean = false,
+    val isLoading: Boolean = false,
+    val completedLoads: Int = 0,
 )

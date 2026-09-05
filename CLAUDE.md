@@ -78,9 +78,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.19.1** (Unlocks screen grouped by lair, 4 compact
-     cards per row instead of one row per rung — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.20.0** (tap-to-start-load gold collection —
+     unmanaged lairs idle until tapped, then auto-collect with a coin burst
+     on completion — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -145,7 +145,7 @@ These apply to every change made in this repo, however small:
   `StateFlow` to the UI. `@HiltViewModel` throughout.
   - `GameViewModel` — implemented (`ui/game/GameViewModel.kt`): wraps
     `GameEngine`, starts its tick loop and settles offline earnings once on
-    creation, exposes claim/hire-Steward/plunder actions plus a `buyQuantity:
+    creation, exposes claim/hire-Steward/start-load actions plus a `buyQuantity:
     StateFlow<BuyQuantity>` (see `BuyQuantity` bullet below for how it drives
     `claimLair` — the selection itself isn't persisted, resetting to `X1`
     each launch). `GameScreen`/`LairCard`/
@@ -209,9 +209,11 @@ These apply to every change made in this repo, however small:
     and a few `Path` calls wouldn't read as one convincingly the way the
     shield silhouette does for a simple heraldic shape.
     Gold-per-second is computed inline in `GameScreen` (`sum of
-    incomePerCycle(count) / baseProductionSeconds` across owned lairs) — a
-    theoretical rate independent of Steward status, matching how idle games
-    typically show this stat.
+    incomePerCycle(count) / effectiveProductionSeconds` across owned lairs)
+    but only counts Steward-managed lairs — an unmanaged lair no longer runs
+    continuously on its own (see `LairRow`/`GameEngine` below), so including
+    it here would overstate what the player is actually earning while not
+    tapping.
   - **`WelcomeBackDialog`** (`ui/game/WelcomeBackDialog.kt`) — the offline-
     earnings pop-up, restyled from a plain Material `AlertDialog` to match
     the cozy-fantasy chrome: a plain `Dialog` (not `AlertDialog` — none of
@@ -246,17 +248,41 @@ These apply to every change made in this repo, however small:
     not unique per creature (a few tiers share an initial) but the rarity
     color band and the full name in the card right next to it already
     disambiguate, and this is explicitly a stand-in, not a real icon system.
-    Tapping the avatar plunders the lair exactly like tapping the card: both
-    share one hoisted `plunder` lambda (bumps `coinBurstTrigger`, then calls
-    `onPlunder`) owned by `LairRow`, passed into `LairCard` as a plain `Int`
+    Tapping the avatar starts the lair's production cycle exactly like
+    tapping the card (see the redesigned gold-collection flow below): both
+    share one hoisted `onStartLoad` action, and `canStartLoad` (`owned.count
+    > 0 && !owned.hasSteward && !owned.isLoading`) gates both tap targets and
+    dims the avatar identically to the card's own disabled state. Owns the
+    `coinBurstTrigger` counter passed into `LairCard` as a plain `Int`
     parameter instead of `LairCard` keeping that counter as local `remember`
     state — needed so both tap targets fire the same `CoinBurstOverlay`
-    (which still only renders over the card, not the avatar).
+    (which still only renders over the card, not the avatar). Unlike the old
+    tap-to-collect flow, `LairRow` doesn't bump the counter on tap anymore —
+    a `LaunchedEffect` watches `OwnedLair.completedLoads` (see `GameEngine`
+    below) and bumps `coinBurstTrigger` whenever it changes, so the burst
+    fires at the moment a started cycle actually finishes, not at the moment
+    of the tap.
+  - **Gold collection redesign (v0.20.0):** a lair without a hired Steward no
+    longer fills continuously in the background — it sits idle at 0%
+    (`OwnedLair.cycleProgressSeconds` pinned to 0) until tapped. Tapping it
+    (`GameEngine.startLairLoad`) starts the cycle; it fills up over its
+    normal production time with no further input, then automatically
+    credits the gold and fires the coin-burst effect the instant it
+    completes — there's no separate "ready, waiting to be collected" state
+    to tap through anymore. Tapping again while already mid-cycle is a
+    no-op. This also means an idle unmanaged lair earns nothing while the
+    app is closed unless it happened to be mid-cycle when the player left —
+    a deliberate, confirmed change to offline earnings (see `applyOfflineEarnings`
+    below). **Steward-managed lairs are completely unaffected** — they keep
+    auto-collecting every completed cycle continuously, online or offline,
+    with no confetti, exactly as before; `isLoading`/`completedLoads` are
+    meaningless once `hasSteward` is true.
   - `LairCard` styling: no Material `Card` — a custom `Box` sized via
     `Modifier.height(IntrinsicSize.Min)` so a second, fractionally-widthed Box
     can render *behind* the text/buttons as a left-to-right fill representing
-    `cycleProgressSeconds / baseProductionSeconds` (100% = ready to plunder).
-    Restyled to match `GameHeader`'s cozy-fantasy chrome (was flat rarity-
+    `cycleProgressSeconds / effectiveProductionSeconds` (100% = the cycle a
+    tap started is about to complete and auto-collect). Restyled to match
+    `GameHeader`'s cozy-fantasy chrome (was flat rarity-
     colored blocks with a Material `Button`/`OutlinedButton` pair, which read
     as "boring" against the rest of the game): a translucent parchment
     gradient base (`FantasyPalette.parchmentShade`/`parchment`, alpha 0.55 —
@@ -277,23 +303,31 @@ These apply to every change made in this repo, however small:
     the shared `WoodenButton` instead of a Material `Button`. **The Steward
     button is gone** — hiring a Steward now lives solely in the Stewards
     menu section (see `StewardsContent` below), not on every card;
-    `LairCard` no longer takes `onHireSteward`.
+    `LairCard` no longer takes `onHireSteward`. The card's `clickable`
+    (`enabled = owned.count > 0 && !owned.hasSteward && !owned.isLoading`,
+    `onClick = onStartLoad`) is what actually starts the cycle now, not a
+    collection.
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
-    the stated art style — no sprite asset) fired only on a manual plunder
-    tap (from either the card or its avatar — see `LairRow` above), not a
-    Steward's automatic collection, since both tap targets go through the
-    same hoisted `coinBurstTrigger` counter (owned by `LairRow`, incremented
-    right before calling `onPlunder`) — a Steward's auto-collect runs inside
-    `GameEngine`'s tick loop and never touches either click handler. Uses a
+    the stated art style — no sprite asset) fired only when a manually
+    started cycle actually completes (from either the card or its avatar —
+    see `LairRow` above), not a Steward's automatic collection, since both
+    tap targets share `LairRow`'s hoisted `coinBurstTrigger` counter, which
+    only gets bumped by the `LaunchedEffect` watching `OwnedLair.completedLoads`
+    — a Steward's auto-collect runs inside `GameEngine`'s tick loop and never
+    touches that counter. Uses a
     counter rather than a boolean so a
-    second plunder mid-animation restarts the effect (`key(trigger)` tears
+    second completion mid-animation restarts the effect (`key(trigger)` tears
     down and relaunches the old one) instead of being a no-op. Rendered as
     the last child in `LairCard`'s `Box` (`Modifier.matchParentSize()`, no
     pointer input) so it draws over the card's content without blocking taps
     on it. Clips to the card's own rounded-rect bounds like everything else
     in that `Box` — coins bursting past the edge just get clipped there,
-    which reads fine at this card size and duration (~650ms).
+    which reads fine at this card size and duration (~650ms). Below a 10ms
+    production time (`GameEngine.MIN_CONFETTI_PRODUCTION_SECONDS` —
+    reachable only after dozens of stacked Speed Boost levels) the
+    completion doesn't bump `completedLoads` at all, so the burst is skipped
+    entirely; the gold is still credited either way.
   - **`SettingsContent`** (`ui/settings/SettingsContent.kt`) — the Settings
     section's real content: an Account card (sign up/in/out) and a Cloud
     Sync card (automatic-every-5-minutes note, last-synced time, manual
@@ -540,6 +574,33 @@ These apply to every change made in this repo, however small:
   loops — a loop for `maxAffordableUnits` could need an unbounded number of
   iterations for a slow-growth lair once gold reaches the kind of totals
   `GoldFormat`'s letter suffixes exist for.
+  - **Tap-to-start gold collection (v0.20.0)** — `advanceLair` (called every
+    tick, per lair) branches on `OwnedLair.hasSteward`: a Steward-managed
+    lair still loops/carries over progress across multiple completed cycles
+    exactly as before; an unmanaged lair does nothing at all unless
+    `owned.isLoading` is true, and even then completes **at most one** cycle
+    per call ("the player tapped once, they get one load") rather than
+    looping through however many cycles `deltaSeconds` covers. `startLairLoad(lairId)`
+    (replacing the old `plunderLair`) is what a tap calls — it flips
+    `isLoading = true` and resets `cycleProgressSeconds`, returning `false`
+    (a no-op) if the lair isn't owned, has a Steward, or is already
+    `isLoading`. On completion, gold is credited automatically,
+    `isLoading` resets to `false`, and `OwnedLair.completedLoads` increments
+    (unless `effectiveProductionSeconds < MIN_CONFETTI_PRODUCTION_SECONDS`,
+    a 10ms floor below which the coin-burst effect would just read as a
+    flicker — gold is still credited either way, only the counter that
+    triggers the burst is skipped; reachable only after ~84+ stacked Speed
+    Boost levels). Time Skip (`purchaseTimeSkip`) is deliberately **not**
+    routed through `advance`/`advanceLair` — it calls a separate private
+    `grantInstantProduction(state, seconds)` that credits every owned lair
+    uniformly regardless of `isLoading`, since the Shop's own copy promises
+    "instantly grants X of production from every owned lair"; it doesn't
+    touch an unmanaged lair's `isLoading`/`cycleProgressSeconds`, so buying a
+    Time Skip is a bonus layered on top of the tap cycle, never a substitute
+    for tapping. `applyOfflineEarnings` inherits this same gating for free
+    (it calls `advance` under the hood) — an unmanaged lair that was idle
+    when the app closed earns nothing while away; one that was mid-cycle
+    keeps advancing and can complete during the offline window.
   - **Milestones** (`domain/model/Milestone.kt`) — `MILESTONE_STEPS` is the
     shared ownership-count ladder (25/50/100/200/300/400 each ×2, then 500
     ×4, 1,000 ×5, 5,000 ×6, 10,000 ×7), applied two ways, both compounding
@@ -557,7 +618,7 @@ These apply to every change made in this repo, however small:
     globalMultiplier = 1.0)` (`baseIncomeGp * unitsOwned *
     individualMilestoneMultiplier(unitsOwned) * globalMultiplier`) — every
     caller that credits or previews income (`GameEngine.advance`/
-    `advanceLair`/`plunderLair`, `LairCard`'s "gp/cycle" text, `GameScreen`'s
+    `advanceLair`/`grantInstantProduction`, `LairCard`'s "gp/cycle" text, `GameScreen`'s
     gold-per-second sum) computes the global multiplier once via
     `state.globalMilestoneMultiplier(...)` and threads it through; callers
     that don't pass one (existing tests, mainly) get the no-bonus default of
@@ -646,8 +707,9 @@ These apply to every change made in this repo, however small:
     systems aren't built). **No real migrations exist** — `WyrmWhelpDatabase`
     has no `Migration` objects, so `DatabaseModule`'s `Room.databaseBuilder(...)`
     call adds `.fallbackToDestructiveMigration(dropAllTables = true)` and
-    the database version is bumped by 1 (currently 2, for the Boosts
-    feature's two new `GameStateEntity` columns) any time a persisted field
+    the database version is bumped by 1 (currently 4, most recently for the
+    v0.20.0 gold-collection redesign's `OwnedLairEntity.isReadyToCollect` →
+    `isLoading`+`completedLoads` column swap) any time a persisted field
     is added or changed. This wipes existing local saves on that version
     bump rather than crashing at DB-open time — a deliberate pre-release
     trade-off (no real installs to preserve yet, and a full migration is out
@@ -798,10 +860,13 @@ real-money transaction. See Open Questions for what's still missing.
   `domain/catalog/CreatureLairCatalog.kt` for the full 14-tier list and
   `domain/model/CreatureLair.kt` / `OwnedLair.kt` / `GameState.kt` for the data
   model. `domain/engine/GameEngine.kt` is the app-scoped singleton tick loop:
-  each lair produces gold on a cycle timer; without a hired Steward, a
-  finished cycle sits full and waits for the player to tap it ("plunder") —
-  it never silently completes a second cycle underneath them. A Steward
-  auto-collects every completed cycle, online or offline. Whelps/Wyrms are a
+  each lair produces gold on a cycle timer; without a hired Steward, a lair
+  sits idle earning nothing until tapped — the tap *starts* its production
+  cycle (`startLairLoad`), which then fills up on its own and auto-collects
+  the instant it completes, firing a coin-burst effect (see the gold
+  collection redesign under `LairRow`/`LairCard` above). A Steward
+  auto-collects every completed cycle continuously, online or offline, with
+  no tap needed and no confetti. Whelps/Wyrms are a
   separate collectible/pet system layered on top of the lair economy (details
   TBD as we build it out — not yet started).
 - **Balance:** tiers 0–9 (Kobold Warren through Troll Warren) use AdVenture

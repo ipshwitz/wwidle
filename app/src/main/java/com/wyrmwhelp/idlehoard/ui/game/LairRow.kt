@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -36,14 +37,22 @@ import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
  * One row in the lair list: a circular [CreatureAvatar] on the left and the
  * [LairCard] on the right, as two separate containers sharing a `Row`
  * (rather than the avatar living inside the card) — tapping either one
- * plunders the lair. `Modifier.height(IntrinsicSize.Min)` on the row plus
- * `fillMaxHeight().aspectRatio(1f)` on the avatar makes the avatar a perfect
- * circle that matches the card's own (content-driven) height automatically,
- * no matching magic numbers between the two composables.
+ * starts the lair's production cycle. `Modifier.height(IntrinsicSize.Min)`
+ * on the row plus `fillMaxHeight().aspectRatio(1f)` on the avatar makes the
+ * avatar a perfect circle that matches the card's own (content-driven)
+ * height automatically, no matching magic numbers between the two
+ * composables.
  *
- * Owns the `coinBurstTrigger` counter (hoisted here, not local to `LairCard`)
- * so both the avatar and the card can fire the same [CoinBurstOverlay] via
- * one shared `plunder` action.
+ * Owns the `coinBurstTrigger` counter (hoisted here, not local to
+ * `LairCard`) so both the avatar and the card can fire the same
+ * [CoinBurstOverlay] — but unlike the old tap-to-collect flow, tapping
+ * doesn't bump it directly anymore. Gold collection (and the burst) now
+ * happens when `GameEngine` actually finishes the cycle the tap started,
+ * not at the moment of the tap itself — see `OwnedLair.completedLoads`,
+ * which increments on the domain side each time that happens. This
+ * composable just watches that counter via [LaunchedEffect] and bumps
+ * [coinBurstTrigger] whenever it changes, so the burst always fires at
+ * completion regardless of how long the load actually took.
  */
 @Composable
 fun LairRow(
@@ -53,21 +62,24 @@ fun LairRow(
     buyQuantity: BuyQuantity,
     globalMultiplier: Double,
     onClaim: () -> Unit,
-    onPlunder: () -> Unit,
+    onStartLoad: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
     speedBoostMultiplier: Double = 1.0,
     profitBoostMultiplier: Double = 1.0,
 ) {
-    // Bumped on every manual plunder tap (not on a Steward's automatic
-    // collection, which never runs through either click handler below) to
-    // fire a fresh CoinBurstOverlay on the card — see that file for why it's
-    // a counter, not a boolean.
     var coinBurstTrigger by remember { mutableIntStateOf(0) }
-    val plunder: () -> Unit = {
-        coinBurstTrigger++
-        onPlunder()
+    var lastSeenCompletedLoads by remember { mutableIntStateOf(owned.completedLoads) }
+    LaunchedEffect(owned.completedLoads) {
+        if (owned.completedLoads != lastSeenCompletedLoads) {
+            coinBurstTrigger++
+            lastSeenCompletedLoads = owned.completedLoads
+        }
     }
+
+    // Tappable only when this lair is owned, has no Steward (which runs on
+    // its own — tapping it does nothing), and isn't already mid-cycle.
+    val canStartLoad = owned.count > 0 && !owned.hasSteward && !owned.isLoading
 
     Row(
         modifier = modifier
@@ -77,8 +89,8 @@ fun LairRow(
     ) {
         CreatureAvatar(
             lair = lair,
-            enabled = owned.isReadyToCollect,
-            onClick = plunder,
+            enabled = canStartLoad,
+            onClick = onStartLoad,
             palette = palette,
             modifier = Modifier
                 .fillMaxHeight()
@@ -92,7 +104,7 @@ fun LairRow(
             globalMultiplier = globalMultiplier,
             coinBurstTrigger = coinBurstTrigger,
             onClaim = onClaim,
-            onPlunder = plunder,
+            onStartLoad = onStartLoad,
             modifier = Modifier.weight(1f),
             palette = palette,
             speedBoostMultiplier = speedBoostMultiplier,
@@ -107,11 +119,11 @@ fun LairRow(
  * gradient disc with a carved border, and the monster's first letter in
  * serif type. Not unique per monster (a few tiers share an initial) but the
  * rarity color band and the full name right next to it in `LairCard` already
- * disambiguate — this is a placeholder, not a real icon system. Dims to the
- * same "waiting" alpha as everything else on an unready lair, and shares the
- * exact tap target contract as the card: `enabled` mirrors
- * `owned.isReadyToCollect`, `onClick` is the same hoisted `plunder` action
- * from `LairRow`.
+ * disambiguate — this is a placeholder, not a real icon system. Dims
+ * whenever it isn't tappable (owned but Steward-managed, or already
+ * mid-cycle) and shares the exact tap target contract as the card:
+ * `enabled` mirrors `LairRow`'s `canStartLoad`, `onClick` is the same
+ * hoisted `onStartLoad` action.
  */
 @Composable
 private fun CreatureAvatar(

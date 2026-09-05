@@ -24,7 +24,8 @@ data class OwnedLairDto(
     val count: Int,
     @SerialName("has_steward") val hasSteward: Boolean,
     @SerialName("cycle_progress_seconds") val cycleProgressSeconds: Double,
-    @SerialName("is_ready_to_collect") val isReadyToCollect: Boolean,
+    @SerialName("is_loading") val isLoading: Boolean = false,
+    @SerialName("completed_loads") val completedLoads: Int = 0,
 )
 
 /** One row of the `cloud_saves` table. */

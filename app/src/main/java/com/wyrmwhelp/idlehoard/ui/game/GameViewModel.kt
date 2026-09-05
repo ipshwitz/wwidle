@@ -421,8 +421,9 @@ class GameViewModel @Inject constructor(
         gameEngine.hireSteward(lairId)
     }
 
-    fun plunderLair(lairId: String) {
-        gameEngine.plunderLair(lairId)
+    /** The player tapping a lair to start its production cycle — see `GameEngine.startLairLoad`. */
+    fun startLairLoad(lairId: String) {
+        gameEngine.startLairLoad(lairId)
     }
 
     fun purchaseSpeedBoost() {

@@ -3,6 +3,50 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.20.0] - 2026-09-05 5:47 PM EDT
+
+- Redesigned gold collection for lairs without a hired Steward: tapping a
+  lair (its card or its avatar) no longer collects gold directly — it
+  starts that lair's production cycle instead. The cycle fills up on its
+  own over the lair's normal production time with no further input, then
+  automatically credits the gold and fires the gold-coin burst effect the
+  instant it finishes. Tapping again while a cycle is already running does
+  nothing. This is a deliberate, confirmed change to how unmanaged lairs
+  earn: they now sit completely idle (0% progress, no income) until
+  tapped, including while the app is closed — an idle lair earns nothing
+  offline unless it happened to be mid-cycle when the app was backgrounded.
+  Steward-hired lairs are completely unaffected: they keep collecting
+  silently and continuously, online or offline, with no confetti, exactly
+  as before.
+- The gold-coin burst is now driven by the cycle actually completing, not
+  by the tap itself — so a completed cycle always shows the burst
+  regardless of how long the load took. Below a 10ms production time
+  (reachable only after dozens of stacked Speed Boost levels) the burst is
+  skipped entirely since it can't read as anything but a flicker at that
+  speed — the gold is still credited either way.
+- Time Skip (the Shop's Platinum-Pieces spend) still instantly grants
+  production from every owned lair regardless of whether it's currently
+  mid-cycle, matching its existing "every owned lair" description — it's a
+  bonus layered on top of the tap cycle, not a substitute for tapping.
+- The header's gold-per-second stat now only counts Steward-managed lairs,
+  since an unmanaged lair no longer runs continuously on its own and
+  including it would overstate real passive income.
+- Domain/data changes: `OwnedLair.isReadyToCollect` was replaced by
+  `isLoading` (true while a tapped cycle is running) and `completedLoads`
+  (a counter bumped each time a tapped cycle finishes, used to detect
+  completions for the burst effect). Local save format bumped (Room DB
+  version 3→4, wiping local saves via the existing destructive-migration
+  fallback — no real installs to preserve yet); old cloud saves still
+  decode fine since Supabase's JSON decoding ignores unknown/missing keys.
+- Verified on the emulator: a freshly claimed lair sits at 0% and earns
+  nothing until tapped; tapping starts a visible fill that completes on
+  its own and credits gold automatically; tapping again mid-fill is a
+  no-op (confirmed via a visible partial-fill screenshot followed by an
+  immediate second tap that changed nothing extra). Also added new unit
+  tests for `startLairLoad` (no-op on a Steward-managed or already-loading
+  lair), the confetti-skip threshold, and Time Skip crediting an idle,
+  untapped lair.
+
 ## [0.19.1] - 2026-09-05 4:38 PM EDT
 
 - Redesigned the Unlocks screen: milestones are now grouped by lair (a

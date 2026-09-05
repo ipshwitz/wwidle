@@ -25,7 +25,8 @@ private fun OwnedLair.toEntity(): OwnedLairEntity = OwnedLairEntity(
     count = count,
     hasSteward = hasSteward,
     cycleProgressSeconds = cycleProgressSeconds,
-    isReadyToCollect = isReadyToCollect,
+    isLoading = isLoading,
+    completedLoads = completedLoads,
 )
 
 fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = GameState(
@@ -46,5 +47,6 @@ private fun OwnedLairEntity.toDomain(): OwnedLair = OwnedLair(
     count = count,
     hasSteward = hasSteward,
     cycleProgressSeconds = cycleProgressSeconds,
-    isReadyToCollect = isReadyToCollect,
+    isLoading = isLoading,
+    completedLoads = completedLoads,
 )
