@@ -78,8 +78,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.10.1** (Unlocks now only shows milestones already
-     reached — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.10.2** (`LairCard` restyled to match the cozy-
+     fantasy chrome, Steward button removed from the card — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -141,11 +142,14 @@ These apply to every change made in this repo, however small:
     where a built-in shape/modifier couldn't do it (the medallion's ring and
     shield, the banner's grain lines and carved bottom edge) — no new image
     assets, consistent with the stated "Canvas for animation, no sprite
-    pack" art style. Colors live in a separate `GameHeaderColors` data class
-    (`colors` param, defaults to `GameHeaderColors.Default`) so the whole
-    look can be retinted without touching drawing code; it's a standalone
-    palette, not wired into `ui/theme/Color.kt`/`Theme.kt` (those are still
-    the untouched default M3 template). Three sections left-to-right:
+    pack" art style. Colors live in a separate `FantasyPalette` data class
+    (`ui/common/FantasyPalette.kt`; `colors` param, defaults to
+    `FantasyPalette.Default`) so the whole look can be retinted without
+    touching drawing code; it's a standalone palette, not wired into
+    `ui/theme/Color.kt`/`Theme.kt` (those are still the untouched default M3
+    template) — promoted out of `GameHeader` (it started as that screen's
+    private `GameHeaderColors`) once `LairCard` needed the same look too.
+    Three sections left-to-right:
     - `MedallionEmblem` — gold sweep-gradient ring + embossed wood disc +
       engraved shield-`Path` silhouette, standing in for the not-yet-built
       avatar system ("a handful of pre-created avatar images they can choose
@@ -161,9 +165,18 @@ These apply to every change made in this repo, however small:
       `platinumPieces` name rather than introduce a second label for the
       same currency). `FontFamily.Serif` approximates "fantasy-style"
       lettering — there's no bundled display font to use instead yet.
-    - `WoodenQuantityButton` — the buy-quantity selector, restyled with
-      `CutCornerShape` (matching the angled corners on `FloatingMenu`'s
-      wooden signs) and a wood gradient instead of a plain white `Surface`.
+    - `WoodenButton` (`ui/common/WoodenButton.kt`) — the buy-quantity
+      selector, restyled with `CutCornerShape` (matching the angled corners
+      on `FloatingMenu`'s wooden signs) and a wood gradient instead of a
+      plain white `Surface`. Shared with `LairCard`'s Claim button (see
+      below) rather than kept private to the header, once the card redesign
+      needed the same carved-wood look — takes `modifier`/`contentPadding`
+      separately (mirroring Material's own `Button`) so the header can force
+      a fixed size (`Modifier.size(...)`, `contentPadding = PaddingValues(0.dp)`,
+      so cycling "x1"↔"x100" doesn't reflow the row) while `LairCard` just
+      takes the default padding and lets the button size to its text.
+      `enabled = false` fades the wood/border/text itself since it isn't a
+      Material component and gets no disabled treatment for free.
     A hand-drawn dragon/wyrm silhouette in the banner background (mentioned
     as optional in the request) was skipped — no dragon art asset exists,
     and a few `Path` calls wouldn't read as one convincingly the way the
@@ -188,15 +201,30 @@ These apply to every change made in this repo, however small:
     `Modifier.height(IntrinsicSize.Min)` so a second, fractionally-widthed Box
     can render *behind* the text/buttons as a left-to-right fill representing
     `cycleProgressSeconds / baseProductionSeconds` (100% = ready to plunder).
-    Both the track and the fill are the same per-tier "rarity" color
-    (`rarityColor(tier)`, a 5-band green→blue→purple→orange→gold ramp) at
-    different alpha, so the whole card doubles as its own progress bar and
-    stays translucent enough to show `GameScreen`'s background art through.
-    The fill's target value is wrapped in `animateFloatAsState` (linear
+    Restyled to match `GameHeader`'s cozy-fantasy chrome (was flat rarity-
+    colored blocks with a Material `Button`/`OutlinedButton` pair, which read
+    as "boring" against the rest of the game): a translucent parchment
+    gradient base (`FantasyPalette.parchmentShade`/`parchment`, alpha 0.55 —
+    sheer enough that `GameScreen`'s background art still shows through, same
+    as before) plus a faint per-tier "rarity" tint (`rarityColor(tier)`, the
+    same 5-band green→blue→purple→orange→gold ramp as always) over the whole
+    card, with a stronger rarity gradient for the claimed-fraction fill and a
+    bright 2px line at the fill's own trailing edge (drawn via `drawBehind`
+    *on the fill `Box` itself*, at its own right edge — since that edge
+    already sits exactly at the animated fraction, no extra position math
+    needed). `FontFamily.Serif` for the name (matching `GameHeader`), italic
+    muted text for monster/CR, bold `goldDeep`-colored text for the income
+    line. The fill's target value is wrapped in `animateFloatAsState` (linear
     easing, duration = `GameEngine.TICK_INTERVAL_MS`) — `GameEngine` only
     pushes a new value every tick, which reads as visible steps without this;
     animating linearly across that same window turns it back into continuous
-    motion. Keep the two in sync if either changes.
+    motion. Keep the two in sync if either changes. The Claim button is now
+    the shared `WoodenButton` instead of a Material `Button`. **The Steward
+    button is gone** — hiring a Steward now lives solely in the Stewards
+    menu section (not built yet, currently "Coming soon…"), not on every
+    card; `LairCard` no longer takes `onHireSteward`, and there's currently
+    no UI path to `GameViewModel.hireSteward`/`GameEngine.hireSteward` at all
+    until that screen exists (see Open Questions).
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
     the stated art style — no sprite asset) fired only on a manual plunder
@@ -461,6 +489,14 @@ we'll pin these down as we build each system.
 
 ## Open questions / not yet decided
 
+- Stewards screen — hiring a Steward used to be a button on every `LairCard`;
+  that button was removed (the user wants it to "rest solely under the
+  Stewards menu item") but the Stewards section is still just "Coming
+  soon…", so there's currently **no UI path to hire a Steward at all**.
+  `GameViewModel.hireSteward`/`GameEngine.hireSteward` are untouched and
+  ready to be called from whatever the Stewards screen ends up being —
+  building that screen (and deciding what it shows beyond a hire button —
+  per-lair list? bulk-hire?) is the follow-up work
 - Whelp/Wyrm collectible system mechanics (how it interacts with lairs)
 - Full currency list (gold + premium currency name, any specialty currencies) —
   Gold Pieces and Platinum Pieces are wired into `GameState`, but Platinum has

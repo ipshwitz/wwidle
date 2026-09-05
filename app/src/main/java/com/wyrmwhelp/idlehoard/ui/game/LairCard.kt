@@ -10,16 +10,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,16 +25,49 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
+import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
-private val buttonContentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-
+/**
+ * One lair in the list. Styled to match the app's cozy-fantasy chrome
+ * ([FantasyPalette] — parchment/wood/gold tones, the same palette
+ * `GameHeader` uses) instead of a flat Material-colored block. Still no
+ * Material `Card` — a custom `Box` sized via `Modifier.height(IntrinsicSize.Min)`
+ * so the whole card keeps doubling as its own progress bar (see the fill
+ * layer below), just painted richer now:
+ * - A translucent parchment gradient base (`palette.parchmentShade` →
+ *   `palette.parchment`, alpha 0.55) instead of a flat rarity wash, so an
+ *   *unclaimed* lair still reads as a card rather than a near-invisible
+ *   tinted rectangle — but stays sheer enough to keep `GameScreen`'s
+ *   background art showing through, same as the card always has.
+ * - A faint rarity tint over the whole card, then a stronger rarity-gradient
+ *   fill for the claimed fraction (`cycleProgressSeconds / baseProductionSeconds`,
+ *   100% = ready to plunder) with a bright "leading edge" line marking
+ *   exactly how far the fill has come — drawn via `drawBehind` on the fill
+ *   `Box` itself at its own right edge, so it always tracks the animated
+ *   fraction without any extra position math.
+ * - `FontFamily.Serif` for the name (matching `GameHeader`'s lettering) with
+ *   a subtle emboss shadow.
+ * - The Claim action is a shared `WoodenButton` instead of a Material
+ *   `Button`.
+ *
+ * The Steward button that used to sit next to Claim is gone — hiring a
+ * Steward now lives solely in the Stewards menu section (not built yet), not
+ * on every card. `onHireSteward`/`hasSteward` are no longer read here.
+ */
 @Composable
 fun LairCard(
     lair: CreatureLair,
@@ -46,9 +76,9 @@ fun LairCard(
     buyQuantity: BuyQuantity,
     globalMultiplier: Double,
     onClaim: () -> Unit,
-    onHireSteward: () -> Unit,
     onPlunder: () -> Unit,
     modifier: Modifier = Modifier,
+    palette: FantasyPalette = FantasyPalette.Default,
 ) {
     // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
     // affordable — falling back to a 1-unit preview keeps the button showing
@@ -56,7 +86,6 @@ fun LairCard(
     val claimQuantity = buyQuantity.resolve(lair, owned.count, goldPieces).coerceAtLeast(1)
     val claimCost = lair.costForUnits(owned.count, claimQuantity)
     val canClaim = goldPieces >= claimCost
-    val canHireSteward = owned.count > 0 && !owned.hasSteward && goldPieces >= lair.stewardCostGp
     val progress = if (lair.baseProductionSeconds <= 0.0) {
         0f
     } else {
@@ -85,9 +114,14 @@ fun LairCard(
         modifier = modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .clip(RoundedCornerShape(10.dp))
-            .background(rarity.copy(alpha = if (owned.count > 0) 0.35f else 0.20f))
-            .border(1.dp, rarity.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(palette.parchmentShade.copy(alpha = 0.55f), palette.parchment.copy(alpha = 0.55f)),
+                ),
+            )
+            .background(rarity.copy(alpha = if (owned.count > 0) 0.14f else 0.08f))
+            .border(1.5.dp, rarity.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
             .clickable(
                 enabled = owned.isReadyToCollect,
                 onClick = {
@@ -101,7 +135,17 @@ fun LairCard(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(fraction = animatedFillFraction)
-                    .background(rarity.copy(alpha = 0.55f)),
+                    .background(Brush.horizontalGradient(listOf(rarity.copy(alpha = 0.22f), rarity.copy(alpha = 0.48f))))
+                    .drawBehind {
+                        if (animatedFillFraction in 0.001f..0.999f) {
+                            drawLine(
+                                color = rarity,
+                                start = Offset(size.width - 1f, 0f),
+                                end = Offset(size.width - 1f, size.height),
+                                strokeWidth = 2f,
+                            )
+                        }
+                    },
             )
         }
 
@@ -110,8 +154,20 @@ fun LairCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(text = lair.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                Text(text = "Owned: ${owned.count}", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = lair.name,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Serif,
+                        color = palette.ink,
+                        shadow = Shadow(Color.Black.copy(alpha = 0.2f), Offset(0.5f, 0.5f), blurRadius = 0.5f),
+                    ),
+                )
+                Text(
+                    text = "Owned: ${owned.count}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.ink.copy(alpha = 0.75f),
+                )
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -119,47 +175,31 @@ fun LairCard(
             ) {
                 Text(
                     text = "${lair.monster} • CR ${lair.challengeRating}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                    color = palette.ink.copy(alpha = 0.65f),
                 )
                 if (owned.count > 0) {
                     Text(
                         text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalMultiplier))} gp/cycle",
                         style = MaterialTheme.typography.bodySmall,
+                        color = palette.goldDeep,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Button(
+            Row(modifier = Modifier.padding(top = 6.dp)) {
+                WoodenButton(
+                    text = if (owned.count == 0) {
+                        val prefix = if (claimQuantity == 1) "Claim" else "Claim x$claimQuantity"
+                        "$prefix — ${GoldFormat.format(claimCost)} gp"
+                    } else {
+                        "+$claimQuantity — ${GoldFormat.format(claimCost)} gp"
+                    },
                     onClick = onClaim,
                     enabled = canClaim,
-                    contentPadding = buttonContentPadding,
-                ) {
-                    Text(
-                        text = if (owned.count == 0) {
-                            val prefix = if (claimQuantity == 1) "Claim" else "Claim x$claimQuantity"
-                            "$prefix — ${GoldFormat.format(claimCost)} gp"
-                        } else {
-                            "+$claimQuantity — ${GoldFormat.format(claimCost)} gp"
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-                if (owned.count > 0 && !owned.hasSteward) {
-                    OutlinedButton(
-                        onClick = onHireSteward,
-                        enabled = canHireSteward,
-                        contentPadding = buttonContentPadding,
-                    ) {
-                        Text(
-                            text = "Steward — ${GoldFormat.format(lair.stewardCostGp)} gp",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
-                }
+                    colors = palette,
+                )
             }
         }
 

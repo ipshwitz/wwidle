@@ -72,7 +72,6 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         buyQuantity = buyQuantity,
                         globalMultiplier = globalMultiplier,
                         onClaim = { viewModel.claimLair(lair.id) },
-                        onHireSteward = { viewModel.hireSteward(lair.id) },
                         onPlunder = { viewModel.plunderLair(lair.id) },
                     )
                 }

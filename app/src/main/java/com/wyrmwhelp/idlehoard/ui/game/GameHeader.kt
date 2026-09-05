@@ -4,10 +4,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,6 +34,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
+import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
+import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 /**
@@ -51,40 +52,6 @@ data class GameHeaderState(
 )
 
 /**
- * Wood/gold/parchment tones used to paint [GameHeader], pulled into one
- * object so the whole header can be retinted without touching drawing code.
- * Not part of the app's Material theme (`ui/theme/Color.kt`/`Theme.kt`) —
- * those are still the untouched default M3 template — this is a
- * self-contained palette, themeable via the `colors` param, that could seed
- * a proper fantasy-chrome theme later if more UI needs this look.
- */
-data class GameHeaderColors(
-    val woodLight: Color,
-    val woodMid: Color,
-    val woodDark: Color,
-    val woodGrain: Color,
-    val goldBright: Color,
-    val goldDeep: Color,
-    val parchment: Color,
-    val parchmentShade: Color,
-    val ink: Color,
-) {
-    companion object {
-        val Default = GameHeaderColors(
-            woodLight = Color(0xFF8B5A2B),
-            woodMid = Color(0xFF6B4226),
-            woodDark = Color(0xFF3E2417),
-            woodGrain = Color(0xFF2A160C),
-            goldBright = Color(0xFFFFE082),
-            goldDeep = Color(0xFFB8860B),
-            parchment = Color(0xFFE8D9B5),
-            parchmentShade = Color(0xFFC9B183),
-            ink = Color(0xFF3B2A1A),
-        )
-    }
-}
-
-/**
  * The game screen's top bar, styled to match the rest of the app's cozy-
  * fantasy chrome (wooden signs, parchment, carved edges) instead of a plain
  * Material title bar. Three sections, left to right:
@@ -96,7 +63,8 @@ data class GameHeaderColors(
  *   "pp" — "Premium Coins" in the original ask, but kept the existing
  *   5E-flavored `platinumPieces` name rather than add a second label for the
  *   same currency).
- * - [WoodenQuantityButton]: the bulk-purchase quantity selector.
+ * - `WoodenButton` (`ui/common/`): the bulk-purchase quantity selector,
+ *   shared with `LairCard`'s Claim button.
  *
  * The whole row sits on a [woodenBanner] background that spans full width —
  * including behind the status bar, since it's drawn before
@@ -112,7 +80,7 @@ fun GameHeader(
     state: GameHeaderState,
     onCycleBuyQuantity: () -> Unit,
     modifier: Modifier = Modifier,
-    colors: GameHeaderColors = GameHeaderColors.Default,
+    colors: FantasyPalette = FantasyPalette.Default,
 ) {
     Row(
         modifier = modifier
@@ -148,7 +116,13 @@ fun GameHeader(
             }
         }
 
-        WoodenQuantityButton(quantity = state.buyQuantity, colors = colors, onClick = onCycleBuyQuantity)
+        WoodenButton(
+            text = state.buyQuantity.label,
+            onClick = onCycleBuyQuantity,
+            modifier = Modifier.size(width = 56.dp, height = 40.dp),
+            colors = colors,
+            contentPadding = PaddingValues(0.dp),
+        )
     }
 }
 
@@ -158,7 +132,7 @@ fun GameHeader(
  * line along the bottom edge. Own `Modifier` extension rather than a
  * composable since it's pure drawing with no layout/state of its own.
  */
-private fun Modifier.woodenBanner(colors: GameHeaderColors): Modifier = drawBehind {
+private fun Modifier.woodenBanner(colors: FantasyPalette): Modifier = drawBehind {
     drawRect(
         brush = Brush.verticalGradient(listOf(colors.woodLight, colors.woodMid, colors.woodDark)),
     )
@@ -195,7 +169,7 @@ private fun Modifier.woodenBanner(colors: GameHeaderColors): Modifier = drawBehi
  * direct drawing.
  */
 @Composable
-private fun MedallionEmblem(colors: GameHeaderColors, modifier: Modifier = Modifier) {
+private fun MedallionEmblem(colors: FantasyPalette, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(52.dp)) {
         val radius = size.minDimension / 2f
         val center = Offset(size.width / 2f, size.height / 2f)
@@ -254,7 +228,7 @@ private fun shieldPath(center: Offset, r: Float): Path = Path().apply {
  * gets a custom font asset.
  */
 @Composable
-private fun GlowingGoldText(text: String, colors: GameHeaderColors, modifier: Modifier = Modifier) {
+private fun GlowingGoldText(text: String, colors: FantasyPalette, modifier: Modifier = Modifier) {
     val baseStyle = MaterialTheme.typography.headlineSmall.copy(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.ExtraBold,
@@ -281,7 +255,7 @@ private fun GlowingGoldText(text: String, colors: GameHeaderColors, modifier: Mo
 /** A thin strip of parchment the rate readouts sit on, distinct from the wood behind it. */
 @Composable
 private fun ParchmentStrip(
-    colors: GameHeaderColors,
+    colors: FantasyPalette,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -296,45 +270,3 @@ private fun ParchmentStrip(
     )
 }
 
-/**
- * The bulk-purchase quantity selector, restyled as a small carved-wood
- * button — cut corners (matching the angled corners on `FloatingMenu`'s
- * wooden signs), a wood-tone gradient with a thin gold bevel highlight along
- * the top edge, and engraved-looking label text. Tapping advances through
- * [BuyQuantity] in order, wrapping back to x1.
- */
-@Composable
-private fun WoodenQuantityButton(
-    quantity: BuyQuantity,
-    colors: GameHeaderColors,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val shape = CutCornerShape(6.dp)
-    Box(
-        modifier = modifier
-            .size(width = 56.dp, height = 40.dp)
-            .clip(shape)
-            .background(Brush.verticalGradient(listOf(colors.woodLight, colors.woodMid, colors.woodDark)))
-            .drawBehind {
-                drawLine(
-                    color = colors.goldBright.copy(alpha = 0.3f),
-                    start = Offset(4f, 2f),
-                    end = Offset(size.width - 4f, 2f),
-                    strokeWidth = 1.5f,
-                )
-            }
-            .border(1.dp, colors.woodDark, shape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = quantity.label,
-            color = colors.parchment,
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.labelLarge.copy(
-                shadow = Shadow(colors.woodDark, Offset(1f, 1f), blurRadius = 0.5f),
-            ),
-        )
-    }
-}

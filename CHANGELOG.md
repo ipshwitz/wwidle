@@ -3,6 +3,37 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.10.2] - 2026-09-05 10:15 AM EDT
+
+- Removed the Steward button from every `LairCard`. Hiring a Steward will
+  live solely in the Stewards menu section going forward — but that screen
+  is still just "Coming soon…", so there's currently no way to hire one at
+  all until it's built. `GameViewModel.hireSteward`/`GameEngine.hireSteward`
+  are untouched, just unreachable from the UI for now (see CLAUDE.md's open
+  questions).
+- Restyled `LairCard` to match the rest of the game's cozy-fantasy chrome
+  instead of flat Material colors — it was reading as "boring" next to the
+  restyled header:
+  - A translucent parchment gradient base instead of a flat rarity wash
+    (still sheer enough to show the game's background art through), with a
+    per-tier rarity tint over the whole card and a stronger rarity gradient
+    for the claimed-progress fill.
+  - A bright line now marks exactly where the fill has reached, drawn at the
+    fill bar's own trailing edge so it always tracks the animation with no
+    extra position math.
+  - The lair name uses the same serif lettering as the header; monster/CR is
+    italic and muted; the income line is bold and gold-colored.
+  - The Claim button is now a `WoodenButton` (carved wood, cut corners)
+    instead of a Material `Button` — the same button now shared with the
+    header's buy-quantity selector, promoted out of `GameHeader` into
+    `ui/common/` along with its `FantasyPalette` (renamed from the header's
+    private `GameHeaderColors`) so both screens paint with the same
+    material.
+- Verified on the emulator: cards read far richer against the background art
+  while staying translucent, the fill/leading-edge line animates correctly,
+  and Claim still enables/disables and purchases correctly with the new
+  button.
+
 ## [0.10.1] - 2026-09-05 08:23 AM EDT
 
 - The Unlocks screen now only shows milestones that have actually been
