@@ -67,9 +67,9 @@ private val SIGN_HEADER_HEIGHT = SIGN_HEADER_WIDTH / SIGN_ASPECT_RATIO
  * (taller) surrounding box, so its top half reads as "outside" the card over
  * the scrim and its bottom half overlaps the card surface. The sign is
  * anchored top-start (not centered) so it doesn't compete with the
- * `CloseButton` anchored top-end — same straddle, opposite corners. Sections
- * without art yet (e.g. Settings) fall back to a plain bold title with no
- * overlap.
+ * `CloseButton` anchored top-end — same straddle, opposite corners. Every
+ * section has its own sign now; a future section added before its own art
+ * exists falls back to a plain bold title with no overlap.
  * The card itself uses [AppBackground] with the wooden-wall art (a tavern
  * interior) instead of `GameScreen`'s landscape, behind the same 50%-white
  * overlay treatment.

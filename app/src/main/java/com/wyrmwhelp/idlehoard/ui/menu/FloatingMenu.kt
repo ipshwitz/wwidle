@@ -47,8 +47,8 @@ val floatingMenuItems: List<MenuItem> = listOf(
     MenuItem("Upgrades", R.drawable.menu_upgrades),
     MenuItem("Stewards", R.drawable.menu_stewards),
     MenuItem("Level Up", R.drawable.menu_level_up),
-    MenuItem("Shop"),
-    MenuItem("Settings"),
+    MenuItem("Shop", R.drawable.menu_shop),
+    MenuItem("Settings", R.drawable.menu_settings),
 )
 
 /**
@@ -70,8 +70,9 @@ const val SIGN_ASPECT_RATIO = 1626f / 536f
  * background. It swaps between `closed_chest`/`open_chest` art depending on
  * [expanded]. Each `floatingMenuItems` entry with an [MenuItem.imageRes] renders
  * as that wooden-sign art directly (no extra container — the sign image already
- * is one); entries without art yet (currently Shop and Settings) fall back
- * to a plain labeled surface until their own art exists.
+ * is one) — every entry has its own sign now; the plain labeled `Surface`
+ * fallback in [MenuItemPlank] stays in place for any future section added
+ * before its own art exists.
  */
 @Composable
 fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier) {

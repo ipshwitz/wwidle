@@ -40,8 +40,15 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   `spacedBy` and why a same-height `CloseButton` looked mismatched next to
   the header. Recropped tight to the sign art itself (1626x536, no padding) —
   `SIGN_ASPECT_RATIO` must always match whatever the current export's real
-  dimensions are, not be left as a stale copy-pasted value. Settings has no
-  art yet and still falls back to a plain labeled surface. `woodenwall-1.png`
+  dimensions are, not be left as a stale copy-pasted value. `menu-shop.png` /
+  `menu-settings.png` → `drawable-nodpi/menu_shop.png` /
+  `drawable-nodpi/menu_settings.png`, the same wooden-sign treatment for the
+  two remaining `FloatingMenu` items that had been using the plain labeled
+  `Surface` fallback — both already came in pre-cropped to the correct
+  1626x536, no re-export needed this time. Every `FloatingMenu` item now has
+  real sign art; the plain-`Surface` fallback in `MenuItemPlank` (and
+  `SectionOverlayCard`'s plain-title fallback) stay in place for whatever
+  section gets added next before its own art exists. `woodenwall-1.png`
   → `drawable-nodpi/woodenwall_1.png`, a tavern-
   interior background used by `SectionOverlayCard` (via `AppBackground`,
   which now takes an `imageRes` param instead of always using `main_bg`) —
@@ -78,9 +85,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.20.0** (tap-to-start-load gold collection —
-     unmanaged lairs idle until tapped, then auto-collect with a coin burst
-     on completion — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.20.1** (Shop and Settings now use their own
+     wooden-sign art in the floating menu instead of the plain fallback
+     surface — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -497,8 +504,9 @@ These apply to every change made in this repo, however small:
     imageRes?)` list, `Arrangement.spacedBy(5.dp)` between them) — evoking the
     wooden trail signpost in the background art. An item with `imageRes` set
     renders as that wooden-sign image directly, no extra container (the sign
-    art already has its label baked in); Settings (no art yet) falls back to
-    a plain labeled `Surface`. Tapping any item collapses the menu and calls
+    art already has its label baked in) — every item has its own sign now
+    (Shop/Settings were the last two still on the plain labeled `Surface`
+    fallback, wired up to `menu_shop`/`menu_settings` in v0.20.1). Tapping any item collapses the menu and calls
     `onItemSelected(label)`, which `WyrmWhelpApp` uses to open a
     `SectionOverlayCard` — it does not navigate anywhere.
   - **`SectionOverlayCard`** (`ui/common/SectionOverlayCard.kt`) — the
@@ -521,8 +529,9 @@ These apply to every change made in this repo, however small:
     `Surface`), so its top half reads as outside the card over the scrim and
     its bottom half overlaps the card surface. Anchored top-start (not
     centered) so it sits opposite the `CloseButton` (top-end) rather than
-    competing with it for the same space — header left, close right. Settings
-    (no art yet) falls back to a plain bold title with no overlap/inset.
+    competing with it for the same space — header left, close right. Every
+    section has its own sign now; a future section without art yet would
+    fall back to a plain bold title with no overlap/inset.
     **Content padding inside
     the surface must clear the sign's actual overlap
     (`SIGN_HEADER_HEIGHT / 2`) plus its own breathing room, not a flat
@@ -663,8 +672,8 @@ These apply to every change made in this repo, however small:
     `TIME_SKIP_OPTIONS` (0.19.0 added a second, cheap tier — see that
     bullet), then the "Earn Platinum" section covered under Monetization
     below (the real "Watch an Ad" plus the still-disabled "buy outright"
-    IAP). `FloatingMenu`'s `"Shop"` entry (no sign art yet, same
-    plain-`Surface` fallback as Settings) reaches it. Takes
+    IAP). `FloatingMenu`'s `"Shop"` entry (its own wooden-sign art as of
+    v0.20.1) reaches it. Takes
     `platinumPieces`/`speedBoostLevel`/`profitBoostLevel` plus
     `onBuySpeedBoost`/`onBuyProfitBoost`/`onBuyTimeSkip` callbacks —
     `WyrmWhelpApp` wires the callbacks straight to the matching

@@ -3,6 +3,18 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.20.1] - 2026-09-05 6:25 PM EDT
+
+- Shop and Settings now show their own wooden-sign art in the floating menu
+  (and as the section header when opened), matching every other menu item
+  instead of falling back to a plain white surface/title. New art:
+  `menu-shop.png` and `menu-settings.png` (already cropped to match the
+  other signs, no re-export needed).
+- Verified on the emulator: both signs render at the correct size in the
+  menu stack, and opening either section shows the sign straddling the
+  card's top edge exactly like Unlocks/Stewards/etc., with no content
+  hidden underneath it.
+
 ## [0.20.0] - 2026-09-05 5:47 PM EDT
 
 - Redesigned gold collection for lairs without a hired Steward: tapping a
