@@ -27,28 +27,43 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 /**
  * The "Unlocks" section's real content: the "Everything" milestone status
- * up top, then every lair's own milestone progress. Pure display — reads
- * [state]/[lairs] passed in by the caller (`MainActivity`'s `WyrmWhelpApp`,
- * which already has the `GameViewModel`), no ViewModel reference of its own.
+ * up top, then every lair's own milestone progress — but only for lairs (and
+ * the "Everything" bonus) that have actually unlocked at least one rung.
+ * Nothing here is a preview of milestones still ahead; it's a record of what
+ * has already been reached, so an entry simply doesn't appear until its
+ * multiplier moves past 1x. Pure display — reads [state]/[lairs] passed in
+ * by the caller (`MainActivity`'s `WyrmWhelpApp`, which already has the
+ * `GameViewModel`), no ViewModel reference of its own.
  */
 @Composable
 fun UnlocksContent(lairs: List<CreatureLair>, state: GameState, modifier: Modifier = Modifier) {
     val globalMultiplier = state.globalMilestoneMultiplier(lairs)
     val weakestLair = lairs.minByOrNull { state.ownedLair(it.id).count }
+    val unlockedLairs = lairs.filter { milestoneMultiplierFor(state.ownedLair(it.id).count) > 1.0 }
+
+    if (globalMultiplier <= 1.0 && unlockedLairs.isEmpty()) {
+        Text(
+            text = "No milestones unlocked yet — keep growing your hoard!",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        return
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item {
-            EverythingMilestoneCard(
-                multiplier = globalMultiplier,
-                weakestLairName = weakestLair?.name,
-                weakestLairOwned = weakestLair?.let { state.ownedLair(it.id).count } ?: 0,
-            )
-            Spacer(Modifier.height(4.dp))
+        if (globalMultiplier > 1.0) {
+            item {
+                EverythingMilestoneCard(
+                    multiplier = globalMultiplier,
+                    weakestLairName = weakestLair?.name,
+                    weakestLairOwned = weakestLair?.let { state.ownedLair(it.id).count } ?: 0,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
         }
-        items(lairs, key = { it.id }) { lair ->
+        items(unlockedLairs, key = { it.id }) { lair ->
             LairMilestoneRow(lair = lair, ownedCount = state.ownedLair(lair.id).count)
         }
     }

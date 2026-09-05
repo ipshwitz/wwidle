@@ -78,8 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.10.0** (bulk-purchase quantities, ownership
-     milestones, and the Unlocks screen — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.10.1** (Unlocks now only shows milestones already
+     reached — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -339,7 +339,12 @@ These apply to every change made in this repo, however small:
     section's real content (see `SectionOverlayCard` above): an "Everything"
     status card (current global multiplier, and which lair is currently
     holding it back) followed by one row per lair showing its own multiplier
-    and how many more units to its next rung. Pure display — takes
+    and how many more units to its next rung. **A record of what's already
+    been reached, not a preview of what's ahead** — the "Everything" card
+    only shows once its multiplier clears 1x, and a lair's row only appears
+    once *that lair's* multiplier does; an owned-but-under-25 lair (or a
+    brand-new save with nothing owned) shows a "No milestones unlocked yet…"
+    placeholder instead of a wall of untouched rows. Pure display — takes
     `lairs`/`state` passed in by `WyrmWhelpApp` (which already holds the
     `GameViewModel` reference) rather than taking a ViewModel itself.
 - **Data:**

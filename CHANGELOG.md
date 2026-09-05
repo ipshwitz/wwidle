@@ -3,6 +3,19 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.10.1] - 2026-09-05 08:23 AM EDT
+
+- The Unlocks screen now only shows milestones that have actually been
+  reached, instead of previewing every lair's progress toward its first one.
+  A lair's row appears once its own bonus clears 1x; the "Everything" card
+  appears once every lair has caught up to at least the first rung. A save
+  with nothing unlocked yet shows a short placeholder instead of a wall of
+  untouched rows.
+- Verified on the emulator: a fresh save shows the "No milestones unlocked
+  yet" placeholder; after pushing one lair past its first milestone, only
+  that lair's row appears (Everything stays hidden, since the rest haven't
+  caught up).
+
 ## [0.10.0] - 2026-09-05 12:45 AM EDT
 
 - Wired the header's buy-quantity selector into actual purchases: `x1`/`x10`/
