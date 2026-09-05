@@ -55,7 +55,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.6.4** (real menu item art — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.7.0** (slide-up overlay cards replace navigation — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -114,32 +114,46 @@ These apply to every change made in this repo, however small:
   - `AuthViewModel` — Supabase auth
   - `SettingsViewModel` — user preferences
   - `ConsentViewModel` — privacy/ad consent
-  - **Navigation** — implemented (`ui/navigation/Routes.kt`): type-safe
-    Navigation Compose routes (`@Serializable` route objects/data classes,
-    using the kotlinx.serialization plugin already in the project — no manual
-    string-route encoding). `GameRoute` (start destination) and
-    `ComingSoonRoute(title)` (one reusable placeholder for every
-    not-yet-built section) are the only routes so far. `MainActivity`'s
-    `WyrmWhelpApp` composable owns the single `NavController`/`NavHost`.
+  - **No Navigation Compose** — tried it first (type-safe routes,
+    `NavController`/`NavHost`), then removed it: every `FloatingMenu` section
+    is a card that slides up over the still-mounted game rather than a
+    separate screen you navigate to (see `SectionOverlayCard` below), so
+    there was nothing left for a nav graph to do with only one real
+    destination. Don't re-add it reflexively if a section later needs a
+    "real" screen — reconsider whether it should instead just be a bigger
+    `SectionOverlayCard` first.
   - **`FloatingMenu`** (`ui/menu/FloatingMenu.kt`) — the app-wide hamburger
-    toggle, fixed bottom-center, overlaid *above* the `NavHost` in
-    `MainActivity` (not per-screen) so it persists across navigation. The
-    toggle is a transparent-background `IconButton`, not a Material
-    `FloatingActionButton` — a FAB always draws its own solid container/
-    shadow, which showed as a box behind the chest art. It shows
-    `closed_chest`/`open_chest` art (swapped based on `expanded`) instead of a
-    generic menu glyph. Expands upward into a vertical stack of tappable
-    `floatingMenuItems` (a `MenuItem(label, imageRes?)` list) — evoking the
+    toggle, fixed bottom-center, overlaid *above* `GameScreen` in
+    `MainActivity`'s `WyrmWhelpApp`. The toggle is a transparent-background
+    `IconButton`, not a Material `FloatingActionButton` — a FAB always draws
+    its own solid container/shadow, which showed as a box behind the chest
+    art. It shows `closed_chest`/`open_chest` art (swapped based on
+    `expanded`) instead of a generic menu glyph. Expands upward into a
+    vertical stack of tappable `floatingMenuItems` (a `MenuItem(label,
+    imageRes?)` list, `Arrangement.spacedBy(4.dp)` between them) — evoking the
     wooden trail signpost in the background art. An item with `imageRes` set
     renders as that wooden-sign image directly, no extra container (the sign
     art already has its label baked in); Settings (no art yet) falls back to
-    a plain labeled `Surface`. Tapping any item collapses the menu and
-    navigates to `ComingSoonRoute(title = label)` (none of these sections
-    have a real screen yet).
+    a plain labeled `Surface`. Tapping any item collapses the menu and calls
+    `onItemSelected(label)`, which `WyrmWhelpApp` uses to open a
+    `SectionOverlayCard` — it does not navigate anywhere.
+  - **`SectionOverlayCard`** (`ui/common/SectionOverlayCard.kt`) — the
+    replacement for a separate "Coming Soon" screen: a card that slides up
+    from the bottom to cover 85% of the screen height (rounded top corners,
+    scrim behind it, game still visibly mounted/peeking above and dimmed
+    underneath), with a close `X` (`IconButton` + `Icons.Default.Close`,
+    top-right) plus tap-scrim-to-dismiss and back-button-to-dismiss
+    (`BackHandler` in `MainActivity`, only enabled while a section is open).
+    Driven by one nullable `openSection: String?` in `WyrmWhelpApp` — non-null
+    shows the card with that title. Retains the last non-null title internally
+    while animating out so the card doesn't go blank mid-exit. Every
+    `FloatingMenu` section currently opens this same reusable card with
+    "Coming soon…" content; give a section real content later by branching on
+    `title` inside it (or splitting it out) rather than reintroducing routes.
   - **`AppBackground`** (`ui/common/AppBackground.kt`) — the shared
-    background-art-plus-50%-white-overlay treatment, factored out of
-    `GameScreen` so `ComingSoonScreen` (and any future top-level screen) looks
-    consistent without duplicating the Image/overlay Boxes.
+    background-art-plus-50%-white-overlay treatment. Currently only
+    `GameScreen` uses it (nothing else is a full top-level screen anymore),
+    but kept as its own composable for whatever the next full screen is.
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt.
 - **Data:**

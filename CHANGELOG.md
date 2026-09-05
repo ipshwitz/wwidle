@@ -3,6 +3,28 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.7.0] - 2026-09-04 10:07 PM EDT
+
+- Tightened the floating menu's item spacing to half its previous gap
+  (`Arrangement.spacedBy(4.dp)`, was `8.dp`).
+- Replaced full-screen navigation with slide-up overlay cards: tapping a
+  `FloatingMenu` item no longer navigates to a separate "Coming Soon" screen
+  — it opens a `SectionOverlayCard` that slides up from the bottom to cover
+  85% of the screen (rounded top corners, scrim behind it, the game still
+  visibly mounted and dimmed above/underneath), with a close `X` in the
+  top-right corner. Tapping the scrim or pressing Back also dismisses it.
+  The game screen — and its running `GameEngine` tick loop — is never
+  actually left, so there's no more "how do I get back?" moment.
+- Removed Navigation Compose entirely (dependency, `ui/navigation/Routes.kt`,
+  `ComingSoonScreen.kt`, `NavHost`/`NavController` in `MainActivity`) — with
+  every section now an overlay card instead of a real screen, there was
+  nothing left for a nav graph to route between. Re-added
+  `material-icons-core` (removed two versions ago as unused) for the card's
+  close icon.
+- Verified visually on the emulator: tighter spacing, the card sliding up
+  over the dimmed game screen, and the close button correctly returning to
+  the game with the menu collapsed.
+
 ## [0.6.4] - 2026-09-04 09:55 PM EDT
 
 - Wired up real art for 5 of the 6 floating-menu items: Help & Social,

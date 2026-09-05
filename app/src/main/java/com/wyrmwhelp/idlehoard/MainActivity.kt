@@ -2,23 +2,22 @@ package com.wyrmwhelp.idlehoard
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
-import com.wyrmwhelp.idlehoard.ui.common.ComingSoonScreen
+import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
-import com.wyrmwhelp.idlehoard.ui.navigation.ComingSoonRoute
-import com.wyrmwhelp.idlehoard.ui.navigation.GameRoute
 import com.wyrmwhelp.idlehoard.ui.theme.WyrmWhelpIdleHoardTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -38,27 +37,29 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * The game screen is always mounted underneath everything else — menu
+ * sections are cards that slide up over it (see [SectionOverlayCard]) rather
+ * than separate destinations you navigate away to, so the game is never
+ * actually left.
+ */
 @Composable
 private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
-    val navController = rememberNavController()
+    var openSection by rememberSaveable { mutableStateOf<String?>(null) }
+
+    BackHandler(enabled = openSection != null) { openSection = null }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        NavHost(navController = navController, startDestination = GameRoute) {
-            composable<GameRoute> {
-                GameScreen(viewModel = gameViewModel, modifier = Modifier.fillMaxSize())
-            }
-            composable<ComingSoonRoute> { backStackEntry ->
-                val route: ComingSoonRoute = backStackEntry.toRoute()
-                ComingSoonScreen(title = route.title, modifier = Modifier.fillMaxSize())
-            }
-        }
+        GameScreen(viewModel = gameViewModel, modifier = Modifier.fillMaxSize())
 
         FloatingMenu(
-            onItemSelected = { label ->
-                navController.navigate(ComingSoonRoute(title = label)) {
-                    launchSingleTop = true
-                }
-            },
+            onItemSelected = { label -> openSection = label },
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        SectionOverlayCard(
+            title = openSection,
+            onDismiss = { openSection = null },
             modifier = Modifier.fillMaxSize(),
         )
     }
