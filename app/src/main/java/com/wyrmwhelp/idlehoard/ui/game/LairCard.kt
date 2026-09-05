@@ -20,9 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -67,6 +64,11 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * The Steward button that used to sit next to Claim is gone — hiring a
  * Steward now lives solely in the Stewards menu section (not built yet), not
  * on every card. `onHireSteward`/`hasSteward` are no longer read here.
+ *
+ * [coinBurstTrigger] is hoisted up to `LairRow` (not local `remember` state
+ * here) so the creature avatar next to this card — a separate container —
+ * can fire the same burst as tapping the card itself; both go through the
+ * same counter.
  */
 @Composable
 fun LairCard(
@@ -75,6 +77,7 @@ fun LairCard(
     goldPieces: Double,
     buyQuantity: BuyQuantity,
     globalMultiplier: Double,
+    coinBurstTrigger: Int,
     onClaim: () -> Unit,
     onPlunder: () -> Unit,
     modifier: Modifier = Modifier,
@@ -104,11 +107,6 @@ fun LairCard(
         label = "lairFill",
     )
     val rarity = rarityColor(lair.tier)
-    // Bumped on every manual plunder tap (not on a Steward's automatic
-    // collection, which never runs through this click handler) to fire a
-    // fresh CoinBurstOverlay — see that file for why it's a counter, not a
-    // boolean.
-    var coinBurstTrigger by remember { mutableIntStateOf(0) }
 
     Box(
         modifier = modifier
@@ -124,10 +122,7 @@ fun LairCard(
             .border(1.5.dp, rarity.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
             .clickable(
                 enabled = owned.isReadyToCollect,
-                onClick = {
-                    coinBurstTrigger++
-                    onPlunder()
-                },
+                onClick = onPlunder,
             ),
     ) {
         if (owned.count > 0) {
@@ -212,7 +207,7 @@ fun LairCard(
  * purple → orange → gold), so the lair list reads as a visible power curve at
  * a glance instead of a wall of identical cards.
  */
-private fun rarityColor(tier: Int): Color = when {
+internal fun rarityColor(tier: Int): Color = when {
     tier <= 2 -> Color(0xFF4CAF50)
     tier <= 5 -> Color(0xFF2196F3)
     tier <= 8 -> Color(0xFF9C27B0)

@@ -65,7 +65,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
             ) {
                 items(viewModel.lairs, key = { it.id }) { lair ->
                     val owned = state.ownedLair(lair.id)
-                    LairCard(
+                    LairRow(
                         lair = lair,
                         owned = owned,
                         goldPieces = state.goldPieces,

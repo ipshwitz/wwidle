@@ -78,9 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.10.2** (`LairCard` restyled to match the cozy-
-     fantasy chrome, Steward button removed from the card — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.11.0** (circular creature avatar next to each lair
+     card — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -197,6 +196,25 @@ These apply to every change made in this repo, however small:
     of 10,000; `MAX` is `CreatureLair.maxAffordableUnits` (can resolve to 0,
     in which case both `LairCard` and `claimLair` `coerceAtLeast(1)` so a
     cost preview still shows and the button still correctly disables).
+  - **`LairRow`** (`ui/game/LairRow.kt`) — wraps each lair list item as two
+    separate containers sharing a `Row`: a circular `CreatureAvatar` on the
+    left, `LairCard` on the right (`GameScreen`'s `LazyColumn` calls
+    `LairRow`, not `LairCard`, directly). `Modifier.height(IntrinsicSize.Min)`
+    on the `Row` plus `fillMaxHeight().aspectRatio(1f)` on the avatar makes
+    the avatar a perfect circle that automatically matches the card's own
+    content-driven height — no magic numbers kept in sync between the two.
+    `CreatureAvatar` is a placeholder (no monster portrait art exists yet, no
+    files dropped into `/assets` for this): a rarity-tinted radial-gradient
+    disc with a carved border and the monster's first letter in serif type —
+    not unique per creature (a few tiers share an initial) but the rarity
+    color band and the full name in the card right next to it already
+    disambiguate, and this is explicitly a stand-in, not a real icon system.
+    Tapping the avatar plunders the lair exactly like tapping the card: both
+    share one hoisted `plunder` lambda (bumps `coinBurstTrigger`, then calls
+    `onPlunder`) owned by `LairRow`, passed into `LairCard` as a plain `Int`
+    parameter instead of `LairCard` keeping that counter as local `remember`
+    state — needed so both tap targets fire the same `CoinBurstOverlay`
+    (which still only renders over the card, not the avatar).
   - `LairCard` styling: no Material `Card` — a custom `Box` sized via
     `Modifier.height(IntrinsicSize.Min)` so a second, fractionally-widthed Box
     can render *behind* the text/buttons as a left-to-right fill representing
@@ -228,11 +246,12 @@ These apply to every change made in this repo, however small:
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
     the stated art style — no sprite asset) fired only on a manual plunder
-    tap, not a Steward's automatic collection, since it's triggered from
-    inside `LairCard`'s own `clickable` (an incrementing `coinBurstTrigger`
-    int in local `remember` state, bumped right before calling `onPlunder`) —
-    a Steward's auto-collect runs inside `GameEngine`'s tick loop and never
-    touches that click handler. Uses a counter rather than a boolean so a
+    tap (from either the card or its avatar — see `LairRow` above), not a
+    Steward's automatic collection, since both tap targets go through the
+    same hoisted `coinBurstTrigger` counter (owned by `LairRow`, incremented
+    right before calling `onPlunder`) — a Steward's auto-collect runs inside
+    `GameEngine`'s tick loop and never touches either click handler. Uses a
+    counter rather than a boolean so a
     second plunder mid-animation restarts the effect (`key(trigger)` tears
     down and relaunches the old one) instead of being a no-op. Rendered as
     the last child in `LairCard`'s `Box` (`Modifier.matchParentSize()`, no
@@ -512,6 +531,11 @@ we'll pin these down as we build each system.
 - Avatar system — `GameHeader` has a `MedallionEmblem` slot (a carved
   gold-ringed medallion with an engraved shield silhouette, not yet an actual
   avatar) but no real avatar images or selection UI exist yet
+- Creature portrait art — `LairRow`'s `CreatureAvatar` (the circle next to
+  each lair card) is a rarity-tinted placeholder disc with the monster's
+  first initial, not real art; no monster portraits have been dropped into
+  `/assets` yet. Swap `CreatureAvatar`'s drawing for real per-monster images
+  once they exist
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested

@@ -3,6 +3,27 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.11.0] - 2026-09-05 10:26 AM EDT
+
+- Added a circular creature avatar next to each lair card, as its own
+  container sharing a row with the card rather than living inside it.
+  Tapping the avatar plunders the lair exactly like tapping the card.
+- No monster portrait art exists yet (nothing's been dropped into `/assets`
+  for this), so the avatar is a placeholder: a rarity-tinted radial-gradient
+  disc with a carved border and the monster's first letter — the color band
+  and the full name in the card next to it still make each lair identifiable
+  even though a few tiers share an initial.
+- The avatar is sized to exactly match its card's height automatically
+  (`IntrinsicSize.Min` on the row + `aspectRatio(1f)` on the avatar), so
+  there's no fixed size to keep in sync as card content changes.
+- The coin-burst-on-plunder counter moved from `LairCard`'s local state up to
+  the new `LairRow` that owns both the avatar and the card, so tapping
+  either one fires the same burst.
+- Verified on the emulator: avatars render correctly sized and colored per
+  tier, dim when their lair isn't ready to collect, and tapping one plunders
+  the lair exactly like tapping the card (confirmed in an isolated test —
+  gold increases by exactly one cycle's income, ownership count unchanged).
+
 ## [0.10.2] - 2026-09-05 10:15 AM EDT
 
 - Removed the Steward button from every `LairCard`. Hiring a Steward will
