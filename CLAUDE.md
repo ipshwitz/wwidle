@@ -33,10 +33,17 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   `drawable-nodpi/menu_*.png`, the wooden-sign art for those `FloatingMenu`
   items (each image already has its label baked in — no separate text overlay
   needed). Settings has no art yet and still falls back to a plain labeled
-  surface. **Before copying any new menu/icon art into `drawable-nodpi/`,
-  verify it actually has a transparent background** (check corner pixel alpha
-  — `file` reporting "RGBA" only means an alpha channel exists, not that it's
-  used; `open-chest.png`'s first export was RGBA but fully opaque).
+  surface. `woodenwall-1.png` → `drawable-nodpi/woodenwall_1.png`, a tavern-
+  interior background used by `SectionOverlayCard` (via `AppBackground`,
+  which now takes an `imageRes` param instead of always using `main_bg`) —
+  no transparency needed for this one, it's an opaque full-bleed backdrop
+  like `main_bg.png`, not an icon. **Before copying any new *icon* art (things
+  meant to sit on top of other content) into `drawable-nodpi/`, verify it
+  actually has a transparent background** (check corner pixel alpha — `file`
+  reporting "RGBA" only means an alpha channel exists, not that it's used;
+  `open-chest.png`'s first export was RGBA but fully opaque). Full-bleed
+  backdrops like `main_bg.png`/`woodenwall_1.png` are the exception — they're
+  meant to be opaque.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -55,7 +62,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.7.1** (sign headers on overlay cards — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.7.2** (wooden-wall card background — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -154,14 +161,18 @@ These apply to every change made in this repo, however small:
     and the sign sits at the very top of the surrounding `Box` (not inside the
     `Surface`), so its top half reads as outside the card over the scrim and
     its bottom half overlaps the card surface. Settings (no art yet) falls
-    back to a plain bold title with no overlap/inset. Every section currently
-    shows "Coming soon…" below the header; give
-    a section real content later by branching on `title` inside it (or
-    splitting it out) rather than reintroducing routes.
+    back to a plain bold title with no overlap/inset. The card's own
+    background (inside the `Surface`, i.e. below the sign's overlap point) is
+    `AppBackground` with `imageRes = R.drawable.woodenwall_1` — a tavern
+    interior, distinct from `GameScreen`'s landscape — behind the same 50%-
+    white overlay. Every section currently shows "Coming soon…" below the
+    header; give a section real content later by branching on `title` inside
+    it (or splitting it out) rather than reintroducing routes.
   - **`AppBackground`** (`ui/common/AppBackground.kt`) — the shared
-    background-art-plus-50%-white-overlay treatment. Currently only
-    `GameScreen` uses it (nothing else is a full top-level screen anymore),
-    but kept as its own composable for whatever the next full screen is.
+    background-art-plus-50%-white-overlay treatment, parameterized by
+    `imageRes` (defaults to `main_bg`, `GameScreen`'s landscape). Also used by
+    `SectionOverlayCard` with `woodenwall_1` — keep it parameterized rather
+    than hardcoding a single image if a third surface needs this treatment.
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt.
 - **Data:**

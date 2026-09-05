@@ -13,15 +13,21 @@ import androidx.compose.ui.res.painterResource
 import com.wyrmwhelp.idlehoard.R
 
 /**
- * The app's shared backdrop — the fantasy landscape art behind a 50%-opacity
- * white overlay (so it stays atmospheric without competing with content) —
- * used by every top-level screen for visual consistency.
+ * A backdrop image behind a 50%-opacity white overlay (so it stays
+ * atmospheric without competing with content) — the app's shared visual
+ * treatment for any full-bleed background. Defaults to the fantasy landscape
+ * art used by `GameScreen`; pass a different [imageRes] for other surfaces
+ * (e.g. `SectionOverlayCard` uses the wooden-wall art instead).
  */
 @Composable
-fun AppBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+fun AppBackground(
+    modifier: Modifier = Modifier,
+    imageRes: Int = R.drawable.main_bg,
+    content: @Composable BoxScope.() -> Unit,
+) {
     Box(modifier = modifier.fillMaxSize()) {
         Image(
-            painter = painterResource(R.drawable.main_bg),
+            painter = painterResource(imageRes),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,

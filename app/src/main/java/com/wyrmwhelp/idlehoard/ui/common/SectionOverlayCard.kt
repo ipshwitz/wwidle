@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.ui.menu.SIGN_ASPECT_RATIO
 import com.wyrmwhelp.idlehoard.ui.menu.floatingMenuItems
 
@@ -64,6 +65,9 @@ private val SIGN_HEADER_HEIGHT = 135.dp
  * (taller) surrounding box, so its top half reads as "outside" the card over
  * the scrim and its bottom half overlaps the card surface. Sections without
  * art yet (e.g. Settings) fall back to a plain bold title with no overlap.
+ * The card itself uses [AppBackground] with the wooden-wall art (a tavern
+ * interior) instead of `GameScreen`'s landscape, behind the same 50%-white
+ * overlay treatment.
  */
 @Composable
 fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
@@ -102,35 +106,36 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
             Box(modifier = Modifier.fillMaxSize()) {
                 Surface(
                     shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 8.dp,
+                    color = Color.Transparent,
                     shadowElevation = 8.dp,
                     modifier = Modifier
                         .padding(top = if (headerImageRes != null) SIGN_HEADER_HEIGHT / 2 else 0.dp)
                         .fillMaxSize(),
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(
-                                top = if (headerImageRes != null) 24.dp else 56.dp,
-                                start = 16.dp,
-                                end = 16.dp,
-                            ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        if (headerImageRes == null) {
+                    AppBackground(imageRes = R.drawable.woodenwall_1) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(
+                                    top = if (headerImageRes != null) 24.dp else 56.dp,
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                ),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            if (headerImageRes == null) {
+                                Text(
+                                    text = lastTitle.orEmpty(),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Spacer(Modifier.height(16.dp))
+                            }
                             Text(
-                                text = lastTitle.orEmpty(),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
+                                text = "Coming soon…",
+                                style = MaterialTheme.typography.bodyLarge,
                             )
-                            Spacer(Modifier.height(16.dp))
                         }
-                        Text(
-                            text = "Coming soon…",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
                     }
                 }
 

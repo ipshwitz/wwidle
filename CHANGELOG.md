@@ -3,6 +3,20 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.7.2] - 2026-09-04 10:36 PM EDT
+
+- Every `SectionOverlayCard` now uses `woodenwall-1.png` (a tavern interior —
+  shields, axes, torch, banner, mugs) as its background, behind the same
+  50%-opacity white overlay used on the main game screen, instead of a flat
+  Material surface color.
+- Generalized `AppBackground` to take an `imageRes` parameter (defaults to
+  `main_bg`, `GameScreen`'s landscape) instead of always using the landscape
+  art, so `SectionOverlayCard` could reuse the same background-plus-overlay
+  composable with a different image rather than duplicating the pattern.
+- Verified visually on the emulator: the tavern wall renders correctly at
+  50% opacity within the card's rounded shape, and the sign header still
+  straddles the top edge on top of it as before.
+
 ## [0.7.1] - 2026-09-04 10:26 PM EDT
 
 - Each `SectionOverlayCard` now headers with the same wooden-sign art shown
