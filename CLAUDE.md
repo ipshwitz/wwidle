@@ -75,8 +75,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.9.0** (new `GameHeader` — avatar slot, gold/sec,
-     Platinum, buy-quantity selector — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.9.1** (`GameHeader` restyled to match the cozy-
+     fantasy chrome — wooden banner, medallion, glowing gold text — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -126,17 +127,47 @@ These apply to every change made in this repo, however small:
     Custom `Row`, not a Material `TopAppBar` — needs its own
     `Modifier.statusBarsPadding()` since it lost the insets handling
     `TopAppBar` provided for free (missing this let the header render
-    underneath the status bar icons the first time). Three sections
-    left-to-right: an `AvatarPlaceholder` (plain circle with a "?", stand-in
-    for "a handful of pre-created avatar images they can choose from" — not
-    built yet), a `Column` stacking total Gold Pieces / gold-per-second /
-    Platinum Pieces (labeled "pp" — "Premium Coins" in the user's own
-    description, but kept the existing 5E-flavored `platinumPieces` name
-    rather than introduce a second label for the same currency), and a
-    `BuyQuantitySelector` on the right. Gold-per-second is computed inline in
-    `GameScreen` (`sum of incomePerCycle(count) / baseProductionSeconds`
-    across owned lairs) — a theoretical rate independent of Steward status,
-    matching how idle games typically show this stat.
+    underneath the status bar icons the first time). Takes one
+    `GameHeaderState` data class (bundles `goldPieces`/`goldPerSecond`/
+    `platinumPieces`/`buyQuantity`) plus an `onCycleBuyQuantity` callback —
+    no `GameViewModel` reference inside the composable; `GameScreen` collects
+    the flows and assembles the state object. Styled to match the app's
+    cozy-fantasy chrome (wooden signs, parchment, carved edges) instead of
+    flat Material colors, entirely via Compose drawing — gradients,
+    `CutCornerShape`, `TextStyle.shadow`, and `Canvas`/`drawBehind` only
+    where a built-in shape/modifier couldn't do it (the medallion's ring and
+    shield, the banner's grain lines and carved bottom edge) — no new image
+    assets, consistent with the stated "Canvas for animation, no sprite
+    pack" art style. Colors live in a separate `GameHeaderColors` data class
+    (`colors` param, defaults to `GameHeaderColors.Default`) so the whole
+    look can be retinted without touching drawing code; it's a standalone
+    palette, not wired into `ui/theme/Color.kt`/`Theme.kt` (those are still
+    the untouched default M3 template). Three sections left-to-right:
+    - `MedallionEmblem` — gold sweep-gradient ring + embossed wood disc +
+      engraved shield-`Path` silhouette, standing in for the not-yet-built
+      avatar system ("a handful of pre-created avatar images they can choose
+      from").
+    - A `Column`: the total-gold `GlowingGoldText` (two stacked `Text`s — a
+      dark offset copy for an engraved look, a bright gold copy with a wide
+      colored shadow standing in for a glow, since `TextStyle.shadow` only
+      takes one shadow) next to the existing `closed_chest` art for a touch
+      of flavor, then a `ParchmentStrip` (cream gradient box) holding
+      gold-per-second and Platinum Pieces (labeled "pp" — "Premium Coins" in
+      the user's own description, but kept the existing 5E-flavored
+      `platinumPieces` name rather than introduce a second label for the
+      same currency). `FontFamily.Serif` approximates "fantasy-style"
+      lettering — there's no bundled display font to use instead yet.
+    - `WoodenQuantityButton` — the buy-quantity selector, restyled with
+      `CutCornerShape` (matching the angled corners on `FloatingMenu`'s
+      wooden signs) and a wood gradient instead of a plain white `Surface`.
+    A hand-drawn dragon/wyrm silhouette in the banner background (mentioned
+    as optional in the request) was skipped — no dragon art asset exists,
+    and a few `Path` calls wouldn't read as one convincingly the way the
+    shield silhouette does for a simple heraldic shape.
+    Gold-per-second is computed inline in `GameScreen` (`sum of
+    incomePerCycle(count) / baseProductionSeconds` across owned lairs) — a
+    theoretical rate independent of Steward status, matching how idle games
+    typically show this stat.
   - **`BuyQuantity`** (`ui/game/BuyQuantity.kt`) — the `X1`/`X10`/`X100`/
     `NEXT`/`MAX` enum cycled by tapping `GameHeader`'s small selector box
     (`.next()` wraps around). **UI-only for now** — nothing reads

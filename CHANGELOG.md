@@ -3,6 +3,38 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.9.1] - 2026-09-05 12:00 AM EDT
+
+- Restyled `GameHeader` to match the rest of the game's cozy-fantasy look
+  (wooden signs, parchment, carved edges) instead of plain Material colors —
+  no new image assets, all done with Compose gradients, shapes, and drawing:
+  - The avatar placeholder is now a `MedallionEmblem`: a gold sweep-gradient
+    ring around an embossed wood disc with an engraved shield silhouette
+    (drawn via `Path`, not an image).
+  - The total gold amount uses a serif, extra-bold `GlowingGoldText` — a
+    dark "engraved" copy layered under a bright gold copy with a soft
+    colored glow — next to the existing chest art for a touch of flavor.
+  - Gold-per-second and Platinum Pieces now sit on a cream `ParchmentStrip`
+    beneath the gold total instead of plain small text.
+  - The buy-quantity button is now a `WoodenQuantityButton`: `CutCornerShape`
+    (matching the angled corners on `FloatingMenu`'s wooden signs), a wood
+    gradient, and a gold bevel highlight, instead of a plain white box.
+  - The whole header sits on a `woodenBanner` — a wood-tone gradient with
+    faint grain streaks and a carved shadow-and-gold-highlight line along
+    the bottom edge — spanning the full width including behind the status
+    bar, so it reads as one continuous plank across the top of the screen.
+  - Skipped the optional dragon/wyrm silhouette flavor — no dragon art asset
+    exists, and a hand-drawn `Path` silhouette wouldn't read as one
+    convincingly the way the shield does for a simpler heraldic shape.
+- Introduced `GameHeaderState` (bundles the four display values) and
+  `GameHeaderColors` (the wood/gold/parchment palette, swappable via a
+  `colors` param) so the header stays themeable and its parameter list
+  doesn't sprawl. `GameHeader` itself still takes no `GameViewModel`
+  reference — `GameScreen` collects the flows and assembles the state.
+- Verified visually and functionally on the emulator: the new look renders
+  correctly, the quantity button still cycles through all five states, and
+  gold/coin-burst/plunder all still update live in the restyled header.
+
 ## [0.9.0] - 2026-09-04 11:48 PM EDT
 
 - Replaced the plain "X gp" title bar with a new `GameHeader`: an avatar

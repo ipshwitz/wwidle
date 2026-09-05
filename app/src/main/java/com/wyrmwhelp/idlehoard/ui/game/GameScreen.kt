@@ -35,10 +35,12 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
             containerColor = Color.Transparent,
             topBar = {
                 GameHeader(
-                    goldPieces = state.goldPieces,
-                    goldPerSecond = goldPerSecond,
-                    platinumPieces = state.platinumPieces,
-                    buyQuantity = buyQuantity,
+                    state = GameHeaderState(
+                        goldPieces = state.goldPieces,
+                        goldPerSecond = goldPerSecond,
+                        platinumPieces = state.platinumPieces,
+                        buyQuantity = buyQuantity,
+                    ),
                     onCycleBuyQuantity = viewModel::cycleBuyQuantity,
                 )
             },
