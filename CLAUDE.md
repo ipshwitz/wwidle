@@ -26,11 +26,9 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   `GameScreen`'s background (behind a 50%-opacity white overlay so the art
   doesn't fight with the lair list for attention); `closed-chest.png` /
   `open-chest.png` → `drawable-nodpi/closed_chest.png` / `open_chest.png`,
-  `FloatingMenu`'s FAB art for its collapsed/expanded states. Note:
-  `closed-chest.png` has a real transparent background; `open-chest.png` is
-  fully opaque with a near-white background (no alpha channel) — if a future
-  export of it needs to blend into the FAB rather than show that near-white
-  square, it'll need re-exporting with real transparency.
+  `FloatingMenu`'s FAB art for its collapsed/expanded states — both have real
+  transparent backgrounds now (open-chest.png's initial export didn't; it was
+  re-exported and re-copied).
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -49,7 +47,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.6.1** (chest-icon menu toggle — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.6.2** (transparent open-chest art — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.

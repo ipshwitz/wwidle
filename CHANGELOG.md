@@ -3,6 +3,15 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.6.2] - 2026-09-04 09:37 PM EDT
+
+- Re-synced `drawable-nodpi/open_chest.png` with the now-transparent
+  `assets/open-chest.png` (resaved with a real alpha channel). The FAB's
+  open-chest state now blends into the button the same way the closed-chest
+  state already did, instead of showing a near-white square.
+- Verified visually on the emulator — both collapsed and expanded FAB states
+  now render consistently.
+
 ## [0.6.1] - 2026-09-04 09:31 PM EDT
 
 - Replaced the floating menu's generic hamburger/X icon with real art:
