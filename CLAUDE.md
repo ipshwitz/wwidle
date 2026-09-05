@@ -78,8 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.11.0** (circular creature avatar next to each lair
-     card — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.12.0** (Stewards screen implemented — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -110,6 +110,19 @@ These apply to every change made in this repo, however small:
   size), fall back to `adb shell uiautomator dump` (pull with
   `adb pull //sdcard/window_dump.xml <path>`, double leading slash to dodge
   Git Bash path mangling) to verify UI text/state instead.
+- **`adb shell input tap` can queue up and deliver taps long after the
+  issuing command returns**, especially after a rapid loop of many taps
+  (e.g. a bash `for` loop grinding gold). A tap fired from a stale queue
+  lands on whatever the UI happens to show *at delivery time*, not what was
+  on screen when the tap was issued — this produced several apparently
+  "impossible" state jumps during testing (gold/ownership changing more
+  than a single tap should cause, taps seemingly hitting elements that
+  weren't at those coordinates) that all turned out to be delayed delivery,
+  not app bugs. After any large tap loop, `sleep` generously (5–10s+) and
+  re-check state before trusting it or issuing more taps; when a result
+  looks inexplicable mid-test, the fastest way to tell real bug from queue
+  lag is a fully isolated repro — fresh `pm clear` + relaunch, one single
+  deliberate tap, one screenshot.
 
 ## Tech stack & architecture
 
@@ -239,10 +252,8 @@ These apply to every change made in this repo, however small:
     motion. Keep the two in sync if either changes. The Claim button is now
     the shared `WoodenButton` instead of a Material `Button`. **The Steward
     button is gone** — hiring a Steward now lives solely in the Stewards
-    menu section (not built yet, currently "Coming soon…"), not on every
-    card; `LairCard` no longer takes `onHireSteward`, and there's currently
-    no UI path to `GameViewModel.hireSteward`/`GameEngine.hireSteward` at all
-    until that screen exists (see Open Questions).
+    menu section (see `StewardsContent` below), not on every card;
+    `LairCard` no longer takes `onHireSteward`.
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
     the stated art style — no sprite asset) fired only on a manual plunder
@@ -394,6 +405,21 @@ These apply to every change made in this repo, however small:
     placeholder instead of a wall of untouched rows. Pure display — takes
     `lairs`/`state` passed in by `WyrmWhelpApp` (which already holds the
     `GameViewModel` reference) rather than taking a ViewModel itself.
+  - **`StewardsContent`** (`ui/stewards/StewardsContent.kt`) — the Stewards
+    section's real content: an intro card explaining what a Steward does,
+    then one row per *owned* lair (a lair with zero units doesn't get a row —
+    hiring a Steward for nothing owned isn't a real action) showing either a
+    "Steward Hired" badge or a `WoodenButton` to hire one for
+    `CreatureLair.stewardCostGp`. This is the reference styling for a
+    fantasy-chrome section screen — parchment `ParchmentCard`s (a plain `Box`
+    with a gradient background, like `LairCard`'s own base, not a Material
+    `Surface`) and a shared `WoodenButton`, unlike `UnlocksContent` which
+    still uses the older plain Material `Surface` look from before the
+    cozy-fantasy restyle (candidate for the same treatment later). Forwards
+    hires through `onHireSteward: (String) -> Unit` rather than taking a
+    `GameViewModel` itself — `WyrmWhelpApp` wires it straight to
+    `gameViewModel::hireSteward`, the domain method that already existed
+    (and was already tested) from when the button lived on `LairCard`.
 - **Data:**
   - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
     (single-row table for currencies/meta) + `OwnedLairEntity` (one row per
@@ -508,14 +534,6 @@ we'll pin these down as we build each system.
 
 ## Open questions / not yet decided
 
-- Stewards screen — hiring a Steward used to be a button on every `LairCard`;
-  that button was removed (the user wants it to "rest solely under the
-  Stewards menu item") but the Stewards section is still just "Coming
-  soon…", so there's currently **no UI path to hire a Steward at all**.
-  `GameViewModel.hireSteward`/`GameEngine.hireSteward` are untouched and
-  ready to be called from whatever the Stewards screen ends up being —
-  building that screen (and deciding what it shows beyond a hire button —
-  per-lair list? bulk-hire?) is the follow-up work
 - Whelp/Wyrm collectible system mechanics (how it interacts with lairs)
 - Full currency list (gold + premium currency name, any specialty currencies) —
   Gold Pieces and Platinum Pieces are wired into `GameState`, but Platinum has

@@ -3,6 +3,32 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.12.0] - 2026-09-05 11:09 AM EDT
+
+- Implemented the Stewards screen for real (was "Coming soon…" since the
+  Steward-hire button was removed from `LairCard`) — this is the only way to
+  hire a Steward now. Shows an intro card explaining what a Steward does,
+  then one row per *owned* lair: a "Steward Hired" badge if it already has
+  one, or a button to hire one for that lair's own cost. Lairs with zero
+  units owned don't get a row.
+- Styled with the same cozy-fantasy chrome as the redesigned `LairCard` —
+  translucent parchment cards and the shared `WoodenButton` — rather than
+  the plainer Material look `UnlocksContent` still has (a candidate for the
+  same treatment later).
+- No domain changes: `GameEngine.hireSteward`/`GameViewModel.hireSteward`
+  already existed and were already unit-tested from when the button lived
+  on `LairCard`; this was purely wiring a real screen up to them.
+- Verified on the emulator: hiring a Steward correctly deducts its cost and
+  flips the row to "Steward Hired"; afterward the lair's card no longer
+  needs manual taps — its fill animates continuously and gold keeps
+  climbing on its own, exactly like the existing auto-collect behavior
+  already covered by `GameEngineTest`.
+- Documented a real environment quirk hit repeatedly while testing this:
+  `adb shell input tap` can queue up and deliver taps well after the issuing
+  command returns, landing on whatever the UI shows *at delivery time* — see
+  CLAUDE.md's Build Environment Notes for how to tell that apart from an
+  actual bug next time.
+
 ## [0.11.0] - 2026-09-05 10:26 AM EDT
 
 - Added a circular creature avatar next to each lair card, as its own

@@ -20,6 +20,7 @@ import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
+import com.wyrmwhelp.idlehoard.ui.stewards.StewardsContent
 import com.wyrmwhelp.idlehoard.ui.theme.WyrmWhelpIdleHoardTheme
 import com.wyrmwhelp.idlehoard.ui.unlocks.UnlocksContent
 import dagger.hilt.android.AndroidEntryPoint
@@ -65,10 +66,18 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
             title = openSection,
             onDismiss = { openSection = null },
             modifier = Modifier.fillMaxSize(),
-            content = if (openSection == "Unlocks") {
-                { UnlocksContent(lairs = gameViewModel.lairs, state = gameState) }
-            } else {
-                { ComingSoonPlaceholder() }
+            content = when (openSection) {
+                "Unlocks" -> { { UnlocksContent(lairs = gameViewModel.lairs, state = gameState) } }
+                "Stewards" -> {
+                    {
+                        StewardsContent(
+                            lairs = gameViewModel.lairs,
+                            state = gameState,
+                            onHireSteward = gameViewModel::hireSteward,
+                        )
+                    }
+                }
+                else -> { { ComingSoonPlaceholder() } }
             },
         )
     }
