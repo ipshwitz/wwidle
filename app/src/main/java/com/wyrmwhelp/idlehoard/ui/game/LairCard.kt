@@ -43,12 +43,18 @@ fun LairCard(
     lair: CreatureLair,
     owned: OwnedLair,
     goldPieces: Double,
+    buyQuantity: BuyQuantity,
+    globalMultiplier: Double,
     onClaim: () -> Unit,
     onHireSteward: () -> Unit,
     onPlunder: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val claimCost = lair.costForNextUnit(owned.count)
+    // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
+    // affordable — falling back to a 1-unit preview keeps the button showing
+    // a real cost (and staying correctly disabled) instead of a "x0" label.
+    val claimQuantity = buyQuantity.resolve(lair, owned.count, goldPieces).coerceAtLeast(1)
+    val claimCost = lair.costForUnits(owned.count, claimQuantity)
     val canClaim = goldPieces >= claimCost
     val canHireSteward = owned.count > 0 && !owned.hasSteward && goldPieces >= lair.stewardCostGp
     val progress = if (lair.baseProductionSeconds <= 0.0) {
@@ -117,7 +123,7 @@ fun LairCard(
                 )
                 if (owned.count > 0) {
                     Text(
-                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count))} gp/cycle",
+                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalMultiplier))} gp/cycle",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -134,9 +140,10 @@ fun LairCard(
                 ) {
                     Text(
                         text = if (owned.count == 0) {
-                            "Claim — ${GoldFormat.format(claimCost)} gp"
+                            val prefix = if (claimQuantity == 1) "Claim" else "Claim x$claimQuantity"
+                            "$prefix — ${GoldFormat.format(claimCost)} gp"
                         } else {
-                            "+1 — ${GoldFormat.format(claimCost)} gp"
+                            "+$claimQuantity — ${GoldFormat.format(claimCost)} gp"
                         },
                         style = MaterialTheme.typography.labelMedium,
                     )

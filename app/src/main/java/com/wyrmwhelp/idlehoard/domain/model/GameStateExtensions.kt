@@ -17,6 +17,18 @@ fun GameState.estimatedNetWorth(): Double {
 }
 
 /**
+ * The "Everything" milestone bonus: the same compounding schedule as
+ * [CreatureLair.individualMilestoneMultiplier], but keyed on the *lowest*
+ * owned count across every lair in [catalog] — every lair has to reach a
+ * rung before the global bonus for it kicks in, not just whichever lair is
+ * furthest ahead.
+ */
+fun GameState.globalMilestoneMultiplier(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Double {
+    if (catalog.isEmpty()) return 1.0
+    return milestoneMultiplierFor(catalog.minOf { ownedLair(it.id).count })
+}
+
+/**
  * Picks the more-progressed of a local and a cloud save (higher [totalMolts]
  * wins outright — a Molt resets the economy, so raw net worth isn't
  * comparable across different prestige counts; net worth breaks ties within

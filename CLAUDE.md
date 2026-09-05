@@ -56,7 +56,10 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   reporting "RGBA" only means an alpha channel exists, not that it's used;
   `open-chest.png`'s first export was RGBA but fully opaque). Full-bleed
   backdrops like `main_bg.png`/`woodenwall_1.png` are the exception — they're
-  meant to be opaque.
+  meant to be opaque. `coin.png` → `drawable-nodpi/coin.png`, an ornate gold
+  coin (rope-braid rim, griffin-head emblem) — real transparent background,
+  used by `GameHeader` next to the gold total in place of the `closed_chest`
+  placeholder it launched with.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -75,9 +78,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.9.1** (`GameHeader` restyled to match the cozy-
-     fantasy chrome — wooden banner, medallion, glowing gold text — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.10.0** (bulk-purchase quantities, ownership
+     milestones, and the Unlocks screen — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -118,8 +120,9 @@ These apply to every change made in this repo, however small:
   - `GameViewModel` — implemented (`ui/game/GameViewModel.kt`): wraps
     `GameEngine`, starts its tick loop and settles offline earnings once on
     creation, exposes claim/hire-Steward/plunder actions plus a `buyQuantity:
-    StateFlow<BuyQuantity>` (see `GameHeader` bullet below — UI-only, not
-    persisted, resets to `X1` each launch). `GameScreen`/`LairCard`/
+    StateFlow<BuyQuantity>` (see `BuyQuantity` bullet below for how it drives
+    `claimLair` — the selection itself isn't persisted, resetting to `X1`
+    each launch). `GameScreen`/`LairCard`/
     `WelcomeBackDialog`/`GameHeader` (`ui/game/`) are the first real screen,
     wired up in `MainActivity` via `by viewModels()`.
   - **`GameHeader`** (`ui/game/GameHeader.kt`) — the game screen's top bar,
@@ -150,8 +153,9 @@ These apply to every change made in this repo, however small:
     - A `Column`: the total-gold `GlowingGoldText` (two stacked `Text`s — a
       dark offset copy for an engraved look, a bright gold copy with a wide
       colored shadow standing in for a glow, since `TextStyle.shadow` only
-      takes one shadow) next to the existing `closed_chest` art for a touch
-      of flavor, then a `ParchmentStrip` (cream gradient box) holding
+      takes one shadow) next to `coin.png` (a small ornate gold coin, swapped
+      in for the initial `closed_chest` placeholder once real coin art
+      existed) for a touch of flavor, then a `ParchmentStrip` (cream gradient box) holding
       gold-per-second and Platinum Pieces (labeled "pp" — "Premium Coins" in
       the user's own description, but kept the existing 5E-flavored
       `platinumPieces` name rather than introduce a second label for the
@@ -170,11 +174,16 @@ These apply to every change made in this repo, however small:
     typically show this stat.
   - **`BuyQuantity`** (`ui/game/BuyQuantity.kt`) — the `X1`/`X10`/`X100`/
     `NEXT`/`MAX` enum cycled by tapping `GameHeader`'s small selector box
-    (`.next()` wraps around). **UI-only for now** — nothing reads
-    `GameViewModel.buyQuantity` to actually buy more than one unit; wiring it
-    into `claimLair` needs bulk-purchase cost math and a decision on what
-    "Next" means (next milestone? next round number?) that hasn't been made
-    yet. See Open Questions.
+    (`.next()` wraps around). Fully wired up: `BuyQuantity.resolve(lair,
+    unitsOwned, availableGp)` is the single source of truth for both what
+    `LairCard` previews (its Claim button's quantity/cost) and what
+    `GameViewModel.claimLair` actually purchases, so the two can't drift
+    apart. `X10`/`X100` are fixed; `NEXT` targets this lair's next
+    [MILESTONE_STEPS] rung (owning 21 buys 4, reaching 25) — past the last
+    defined rung (10,000) it falls back to rounding up to the next multiple
+    of 10,000; `MAX` is `CreatureLair.maxAffordableUnits` (can resolve to 0,
+    in which case both `LairCard` and `claimLair` `coerceAtLeast(1)` so a
+    cost preview still shows and the button still correctly disables).
   - `LairCard` styling: no Material `Card` — a custom `Box` sized via
     `Modifier.height(IntrinsicSize.Min)` so a second, fractionally-widthed Box
     can render *behind* the text/buttons as a left-to-right fill representing
@@ -259,9 +268,14 @@ These apply to every change made in this repo, however small:
     background (inside the `Surface`, i.e. below the sign's overlap point) is
     `AppBackground` with `imageRes = R.drawable.woodenwall_1` — a tavern
     interior, distinct from `GameScreen`'s landscape — behind the same 50%-
-    white overlay. Every section currently shows "Coming soon…" below the
-    header; give a section real content later by branching on `title` inside
-    it (or splitting it out) rather than reintroducing routes.
+    white overlay. Takes an optional `content: @Composable ColumnScope.() ->
+    Unit` (default `ComingSoonPlaceholder()`, the "Coming soon…" text every
+    section showed before any of them had real content) — `WyrmWhelpApp`
+    passes `UnlocksContent` for the Unlocks section (see below) and leaves
+    every other section on the default. Still branches on `title` (matching
+    the string a caller passes, e.g. `"Unlocks"`) rather than anything more
+    structured — fine for one real section; revisit if a second one needs
+    this.
   - **`AppBackground`** (`ui/common/AppBackground.kt`) — the shared
     background-art-plus-50%-white-overlay treatment, parameterized by
     `imageRes` (defaults to `main_bg`, `GameScreen`'s landscape). Also used by
@@ -287,7 +301,47 @@ These apply to every change made in this repo, however small:
     section) and the header moved to top-start, neither hack was needed
     anymore.
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
-  math. `@Singleton` via Hilt.
+  math. `@Singleton` via Hilt. `purchaseLairs(lairId, quantity)` buys several
+  units atomically in one `_state.update` (either the full
+  `CreatureLair.costForUnits` bulk cost is affordable and all of them are
+  bought, or none are — never a partial buy); `purchaseLair(lairId)` is now a
+  one-line wrapper around it (`purchaseLairs(lairId, 1) > 0`) kept for the
+  existing call sites/tests. `costForUnits`/`maxAffordableUnits` on
+  `CreatureLair` are closed-form (geometric-series sum and its inverse), not
+  loops — a loop for `maxAffordableUnits` could need an unbounded number of
+  iterations for a slow-growth lair once gold reaches the kind of totals
+  `GoldFormat`'s letter suffixes exist for.
+  - **Milestones** (`domain/model/Milestone.kt`) — `MILESTONE_STEPS` is the
+    shared ownership-count ladder (25/50/100/200/300/400 each ×2, then 500
+    ×4, 1,000 ×5, 5,000 ×6, 10,000 ×7), applied two ways, both compounding
+    every rung reached into one running multiplier
+    (`milestoneMultiplierFor`):
+    - **Individual** — `CreatureLair.individualMilestoneMultiplier(unitsOwned)`,
+      keyed on that one lair's own owned count (100 Kobold Warrens is its
+      own 8x, independent of every other lair).
+    - **"Everything"** — `GameState.globalMilestoneMultiplier(catalog)`
+      (`domain/model/GameStateExtensions.kt`), keyed on the *lowest* owned
+      count across every lair in `catalog` — every lair has to reach a rung
+      before the bonus for it applies to all of them, not just whichever
+      lair is furthest ahead.
+    Both multipliers feed into `CreatureLair.incomePerCycle(unitsOwned,
+    globalMultiplier = 1.0)` (`baseIncomeGp * unitsOwned *
+    individualMilestoneMultiplier(unitsOwned) * globalMultiplier`) — every
+    caller that credits or previews income (`GameEngine.advance`/
+    `advanceLair`/`plunderLair`, `LairCard`'s "gp/cycle" text, `GameScreen`'s
+    gold-per-second sum) computes the global multiplier once via
+    `state.globalMilestoneMultiplier(...)` and threads it through; callers
+    that don't pass one (existing tests, mainly) get the no-bonus default of
+    1.0. `nextMilestoneThreshold(unitsOwned)` (smallest rung still ahead, or
+    null past 10,000) is what `BuyQuantity.NEXT` targets and what the
+    Unlocks screen shows as "next at".
+  - **`UnlocksContent`** (`ui/unlocks/UnlocksContent.kt`) — the Unlocks
+    section's real content (see `SectionOverlayCard` above): an "Everything"
+    status card (current global multiplier, and which lair is currently
+    holding it back) followed by one row per lair showing its own multiplier
+    and how many more units to its next rung. Pure display — takes
+    `lairs`/`state` passed in by `WyrmWhelpApp` (which already holds the
+    `GameViewModel` reference) rather than taking a ViewModel itself.
 - **Data:**
   - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
     (single-row table for currencies/meta) + `OwnedLairEntity` (one row per
@@ -414,19 +468,16 @@ we'll pin these down as we build each system.
   is still a raw `Double` underneath, though, which will need revisiting once
   the economy grows past what a `Double` represents precisely — the suffix
   scheme fixes the *display* problem, not the underlying precision one
-- Bulk-purchase quantity — `GameHeader`'s `BuyQuantity` selector
-  (`x1`/`x10`/`x100`/`Next`/`Max`) exists and cycles correctly, but isn't
-  wired into `claimLair` yet: needs bulk-purchase cost math (sum of a
-  geometric series, not just `costForNextUnit` repeated) and a decision on
-  what "Next" buys (next milestone? next round number of units?)
-- Avatar system — `GameHeader` has an `AvatarPlaceholder` slot (plain circle)
-  but no actual avatar images or selection UI exist yet
+- Avatar system — `GameHeader` has a `MedallionEmblem` slot (a carved
+  gold-ringed medallion with an engraved shield silhouette, not yet an actual
+  avatar) but no real avatar images or selection UI exist yet
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested
-- Upgrade system (AdCap-style income multipliers per lair at ownership
-  milestones) — not implemented; each lair's income currently scales linearly
-  with units owned only
+- Manual upgrade shop (spending gold on a chosen boost) — not implemented.
+  The *automatic* ownership-milestone multipliers this was originally
+  tracking are done (see `domain/model/Milestone.kt`, above) — this is only
+  about a separate, player-chosen upgrade purchase on top of those
 - Leaderboard scope (global hoard value? fastest Level Up? per-lair records?)
 - Target device scope (phone-only vs. tablet/landscape support)
 - Cloud sync only happens once per app launch (right after anonymous sign-in);

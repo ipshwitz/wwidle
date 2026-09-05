@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -77,9 +78,20 @@ private val SIGN_HEADER_HEIGHT = SIGN_HEADER_WIDTH / SIGN_ASPECT_RATIO
  * top of its own breathing room (`SIGN_HEADER_HEIGHT / 2 + 20.dp`, not a
  * flat guess) — using less than the actual overlap renders content partly
  * hidden underneath the sign, which is the bug this class previously had.
+ *
+ * [content] defaults to the "Coming soon…" placeholder every section used to
+ * show unconditionally; a caller with something real to display (so far,
+ * just Unlocks — see `MainActivity`'s `WyrmWhelpApp`) passes its own content
+ * instead. Runs inside the same padded `Column` so it still clears the sign
+ * header the same way everything else here does.
  */
 @Composable
-fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+fun SectionOverlayCard(
+    title: String?,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit = { ComingSoonPlaceholder() },
+) {
     var lastTitle by remember { mutableStateOf(title) }
     if (title != null) lastTitle = title
     val headerImageRes = floatingMenuItems.firstOrNull { it.label == lastTitle }?.imageRes
@@ -150,10 +162,7 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
                                 )
                                 Spacer(Modifier.height(16.dp))
                             }
-                            Text(
-                                text = "Coming soon…",
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
+                            content()
                         }
                     }
                 }
@@ -184,4 +193,10 @@ fun SectionOverlayCard(title: String?, onDismiss: () -> Unit, modifier: Modifier
             }
         }
     }
+}
+
+/** The default body for a section with no real content yet — see [SectionOverlayCard]'s [content] param. */
+@Composable
+fun ComingSoonPlaceholder() {
+    Text(text = "Coming soon…", style = MaterialTheme.typography.bodyLarge)
 }

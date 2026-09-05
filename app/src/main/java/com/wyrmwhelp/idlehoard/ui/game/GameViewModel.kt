@@ -43,8 +43,8 @@ class GameViewModel @Inject constructor(
     private val _welcomeBackEarnings = MutableStateFlow<OfflineEarnings?>(null)
     val welcomeBackEarnings: StateFlow<OfflineEarnings?> = _welcomeBackEarnings.asStateFlow()
 
-    // UI-only selection, not persisted — see BuyQuantity's doc for why it
-    // doesn't affect purchase amounts yet.
+    // Not persisted — resets to X1 each launch, same as most idle games'
+    // buy-quantity selector.
     private val _buyQuantity = MutableStateFlow(BuyQuantity.X1)
     val buyQuantity: StateFlow<BuyQuantity> = _buyQuantity.asStateFlow()
 
@@ -98,7 +98,11 @@ class GameViewModel @Inject constructor(
     }
 
     fun claimLair(lairId: String) {
-        gameEngine.purchaseLair(lairId)
+        val lair = CreatureLairCatalog.get(lairId)
+        val current = gameEngine.state.value
+        val owned = current.ownedLair(lairId)
+        val quantity = _buyQuantity.value.resolve(lair, owned.count, current.goldPieces).coerceAtLeast(1)
+        gameEngine.purchaseLairs(lairId, quantity)
     }
 
     fun hireSteward(lairId: String) {

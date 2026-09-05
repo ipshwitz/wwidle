@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.AppBackground
 
 @Composable
@@ -21,12 +22,22 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val welcomeBack by viewModel.welcomeBackEarnings.collectAsStateWithLifecycle()
     val buyQuantity by viewModel.buyQuantity.collectAsStateWithLifecycle()
 
+    // The "Everything" milestone bonus — same compounding schedule as each
+    // lair's own bonus, but keyed on the lowest owned count across all of
+    // them. Computed once per recomposition and threaded through, since
+    // it's the same number for every lair this tick.
+    val globalMultiplier = state.globalMilestoneMultiplier(viewModel.lairs)
+
     // Theoretical total income rate across owned lairs, independent of
     // whether each has a Steward — matches how idle games typically show a
     // "per sec" stat regardless of manual-tap vs. auto-collect status.
     val goldPerSecond = viewModel.lairs.sumOf { lair ->
         val owned = state.ownedLair(lair.id)
-        if (owned.count > 0) lair.incomePerCycle(owned.count) / lair.baseProductionSeconds else 0.0
+        if (owned.count > 0) {
+            lair.incomePerCycle(owned.count, globalMultiplier) / lair.baseProductionSeconds
+        } else {
+            0.0
+        }
     }
 
     AppBackground(modifier = modifier) {
@@ -58,6 +69,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         lair = lair,
                         owned = owned,
                         goldPieces = state.goldPieces,
+                        buyQuantity = buyQuantity,
+                        globalMultiplier = globalMultiplier,
                         onClaim = { viewModel.claimLair(lair.id) },
                         onHireSteward = { viewModel.hireSteward(lair.id) },
                         onPlunder = { viewModel.plunderLair(lair.id) },

@@ -39,6 +39,32 @@ class GameEngineTest {
     }
 
     @Test
+    fun `purchasing multiple units at once deducts the bulk cost and adds them all`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        val bulkCost = lair.costForUnits(0, 5)
+        engine.loadState(GameState(goldPieces = bulkCost, lairs = emptyMap()))
+
+        val purchased = engine.purchaseLairs("kobold_warren", 5)
+
+        assertEquals(5, purchased)
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+        assertEquals(5, engine.state.value.ownedLair("kobold_warren").count)
+    }
+
+    @Test
+    fun `bulk purchase is all-or-nothing when short even one unit's cost`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        val bulkCost = lair.costForUnits(0, 5)
+        engine.loadState(GameState(goldPieces = bulkCost - 0.01, lairs = emptyMap()))
+
+        val purchased = engine.purchaseLairs("kobold_warren", 5)
+
+        assertEquals(0, purchased)
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").count)
+        assertEquals(bulkCost - 0.01, engine.state.value.goldPieces, 0.0001)
+    }
+
+    @Test
     fun `purchase fails when gold is insufficient`() {
         engine.loadState(GameState(goldPieces = 0.0, lairs = emptyMap()))
 

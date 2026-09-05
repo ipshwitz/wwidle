@@ -14,11 +14,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
 import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
 import com.wyrmwhelp.idlehoard.ui.theme.WyrmWhelpIdleHoardTheme
+import com.wyrmwhelp.idlehoard.ui.unlocks.UnlocksContent
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -46,6 +49,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
+    val gameState by gameViewModel.gameState.collectAsStateWithLifecycle()
 
     BackHandler(enabled = openSection != null) { openSection = null }
 
@@ -61,6 +65,11 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
             title = openSection,
             onDismiss = { openSection = null },
             modifier = Modifier.fillMaxSize(),
+            content = if (openSection == "Unlocks") {
+                { UnlocksContent(lairs = gameViewModel.lairs, state = gameState) }
+            } else {
+                { ComingSoonPlaceholder() }
+            },
         )
     }
 }

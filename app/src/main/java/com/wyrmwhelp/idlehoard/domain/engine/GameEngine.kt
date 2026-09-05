@@ -3,6 +3,7 @@ package com.wyrmwhelp.idlehoard.domain.engine
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.globalMilestoneMultiplier
 import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
@@ -81,19 +82,29 @@ class GameEngine @Inject constructor() {
      * Attempts to claim the next unit of [lairId]. Returns true if the Gold Pieces
      * were spent and the unit was claimed, false if the player couldn't afford it.
      */
-    fun purchaseLair(lairId: String): Boolean {
+    fun purchaseLair(lairId: String): Boolean = purchaseLairs(lairId, quantity = 1) > 0
+
+    /**
+     * Attempts to claim [quantity] more units of [lairId] at once, atomically —
+     * either the full bulk cost (see [CreatureLair.costForUnits]) is affordable
+     * and all of them are bought in one state update, or none are (never a
+     * partial buy that leaves the player short mid-purchase). Returns the
+     * number actually purchased: either [quantity] or 0.
+     */
+    fun purchaseLairs(lairId: String, quantity: Int): Int {
+        if (quantity <= 0) return 0
         val lair = CreatureLairCatalog.get(lairId)
-        var purchased = false
+        var purchased = 0
         _state.update { current ->
             val owned = current.ownedLair(lairId)
-            val cost = lair.costForNextUnit(owned.count)
+            val cost = lair.costForUnits(owned.count, quantity)
             if (current.goldPieces < cost) {
                 current
             } else {
-                purchased = true
+                purchased = quantity
                 current.copy(
                     goldPieces = current.goldPieces - cost,
-                    lairs = current.lairs + (lairId to owned.copy(count = owned.count + 1)),
+                    lairs = current.lairs + (lairId to owned.copy(count = owned.count + quantity)),
                 )
             }
         }
@@ -137,8 +148,9 @@ class GameEngine @Inject constructor() {
             } else {
                 val lair = CreatureLairCatalog.get(lairId)
                 collected = true
+                val globalMultiplier = current.globalMilestoneMultiplier(CreatureLairCatalog.lairs)
                 current.copy(
-                    goldPieces = current.goldPieces + lair.incomePerCycle(owned.count),
+                    goldPieces = current.goldPieces + lair.incomePerCycle(owned.count, globalMultiplier),
                     lairs = current.lairs + (
                         lairId to owned.copy(cycleProgressSeconds = 0.0, isReadyToCollect = false)
                         ),
@@ -178,9 +190,10 @@ class GameEngine @Inject constructor() {
     /** Pure production step: advances every owned lair and tallies Gold Pieces earned. */
     private fun advance(state: GameState, deltaSeconds: Double): GameState {
         if (deltaSeconds <= 0.0 || state.lairs.isEmpty()) return state
+        val globalMultiplier = state.globalMilestoneMultiplier(CreatureLairCatalog.lairs)
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
-            val (next, earned) = advanceLair(lairId, owned, deltaSeconds)
+            val (next, earned) = advanceLair(lairId, owned, deltaSeconds, globalMultiplier)
             goldEarned += earned
             next
         }
@@ -195,11 +208,14 @@ class GameEngine @Inject constructor() {
      * complete cycles as fit in [deltaSeconds], auto-collecting each. Unmanaged
      * lairs progress toward one completed cycle and then sit full, waiting for
      * [plunderLair] — a second cycle never silently completes underneath the player.
+     * [globalMultiplier] is computed once per [advance] call (same value for
+     * every lair that tick), not per lair.
      */
     private fun advanceLair(
         lairId: String,
         owned: OwnedLair,
         deltaSeconds: Double,
+        globalMultiplier: Double,
     ): Pair<OwnedLair, Double> {
         if (owned.count <= 0) return owned to 0.0
         if (owned.isReadyToCollect && !owned.hasSteward) return owned to 0.0
@@ -222,7 +238,7 @@ class GameEngine @Inject constructor() {
         var earned = 0.0
         while (remaining >= lair.baseProductionSeconds) {
             remaining -= lair.baseProductionSeconds
-            earned += lair.incomePerCycle(owned.count)
+            earned += lair.incomePerCycle(owned.count, globalMultiplier)
         }
         return owned.copy(cycleProgressSeconds = remaining) to earned
     }

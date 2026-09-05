@@ -3,6 +3,32 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.10.0] - 2026-09-05 12:45 AM EDT
+
+- Wired the header's buy-quantity selector into actual purchases: `x1`/`x10`/
+  `x100` buy exactly that many units at once (atomically — either the whole
+  bulk cost is affordable and all of them are bought, or none are), `Max`
+  buys the most a lair can afford right now, and `Next` buys up to that
+  lair's next ownership milestone.
+- Added ownership milestones: every lair doubles its own production at 25,
+  50, 100, 200, 300, and 400 owned, then gets a flat x4/x5/x6/x7 boost at
+  500/1,000/5,000/10,000 — all compounding with every earlier rung already
+  reached.
+- Added an "Everything" milestone: the same ladder again, but keyed on
+  whichever lair owns the *fewest* units — every lair has to catch up before
+  this bonus applies, and it applies to every lair's production at once.
+- Built the Unlocks section for real (was a "Coming soon…" placeholder): an
+  "Everything" status card (current bonus, which lair is holding it back)
+  followed by every lair's own bonus and how many units to its next
+  milestone.
+- Swapped the small coin icon next to the header's gold total from the
+  placeholder chest art to `coin.png`, a proper ornate gold coin.
+- Verified on the emulator: bulk purchases deduct the right bulk cost and
+  add all the units at once; a lair's `gp/cycle` and the header's `gp/sec`
+  update correctly the moment it crosses a milestone; the Unlocks screen
+  scrolls through all 14 lairs and reflects live milestone progress; `Next`
+  correctly targets each lair's own next milestone.
+
 ## [0.9.1] - 2026-09-05 12:00 AM EDT
 
 - Restyled `GameHeader` to match the rest of the game's cozy-fantasy look

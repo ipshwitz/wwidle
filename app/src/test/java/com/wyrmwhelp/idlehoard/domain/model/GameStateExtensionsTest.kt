@@ -43,4 +43,46 @@ class GameStateExtensionsTest {
         // Same net worth either way — neither should "win" over the other.
         assertEquals(goldOnly.estimatedNetWorth(), withLairs.estimatedNetWorth(), 0.0001)
     }
+
+    @Test
+    fun `globalMilestoneMultiplier is held back by whichever lair owns the least`() {
+        val lairs = listOf(testLair("a"), testLair("b"))
+        val state = GameState(
+            lairs = mapOf(
+                "a" to OwnedLair(lairId = "a", count = 100),
+                "b" to OwnedLair(lairId = "b", count = 10),
+            ),
+        )
+
+        // "b" hasn't reached the first (25) rung yet, so no bonus applies
+        // no matter how far ahead "a" is.
+        assertEquals(1.0, state.globalMilestoneMultiplier(lairs), 0.0001)
+    }
+
+    @Test
+    fun `globalMilestoneMultiplier advances once every lair has caught up`() {
+        val lairs = listOf(testLair("a"), testLair("b"))
+        val state = GameState(
+            lairs = mapOf(
+                "a" to OwnedLair(lairId = "a", count = 100),
+                "b" to OwnedLair(lairId = "b", count = 25),
+            ),
+        )
+
+        assertEquals(2.0, state.globalMilestoneMultiplier(lairs), 0.0001)
+    }
+
+    private fun testLair(id: String) = CreatureLair(
+        id = id,
+        name = id,
+        monster = "Test",
+        challengeRating = "1",
+        flavorText = "",
+        tier = 0,
+        baseCostGp = 10.0,
+        costGrowthRate = 1.1,
+        baseIncomeGp = 1.0,
+        baseProductionSeconds = 1.0,
+        stewardCostGp = 100.0,
+    )
 }

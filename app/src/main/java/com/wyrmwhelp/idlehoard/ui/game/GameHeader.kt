@@ -128,9 +128,9 @@ fun GameHeader(
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Image(
-                    painter = painterResource(R.drawable.closed_chest),
+                    painter = painterResource(R.drawable.coin),
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(22.dp),
                 )
                 GlowingGoldText(text = "${GoldFormat.format(state.goldPieces)} gp", colors = colors)
             }
