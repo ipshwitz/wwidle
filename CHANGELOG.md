@@ -3,6 +3,31 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.9.0] - 2026-09-04 11:48 PM EDT
+
+- Replaced the plain "X gp" title bar with a new `GameHeader`: an avatar
+  placeholder on the left (a plain circle for now — the real pre-created
+  avatar picker isn't built yet), total Gold Pieces / gold-per-second /
+  Platinum Pieces stacked in the middle, and a bulk-purchase quantity
+  selector on the right.
+- Added the quantity selector as a small tappable box cycling
+  x1 → x10 → x100 → Next → Max → back to x1 (`BuyQuantity` enum, `ui/game/
+  BuyQuantity.kt`). It's wired up and cycles correctly, but purely as a UI
+  selection for now — nothing yet uses it to actually buy more than one unit
+  at a time (needs bulk-purchase cost math, a separate task).
+- Extended `GoldFormat`'s large-number suffixes: after the named short-scale
+  list (K/M/B/T/Qa/Qi/Sx/Sp/Oc/No/Dc) runs out, it now continues indefinitely
+  with letter suffixes (A, B, ... Z, AA, AB, ...), so the display never falls
+  back to a raw digit string no matter how large the economy grows.
+- Added gold-per-second display: sum of each owned lair's income rate
+  (`incomePerCycle / baseProductionSeconds`), independent of Steward status.
+- Fixed the header rendering underneath the status bar icons on first pass —
+  a plain `Row` doesn't get the automatic inset handling `TopAppBar` provided
+  for free, so it needs its own `Modifier.statusBarsPadding()`.
+- Verified visually and functionally on the emulator: header no longer
+  overlaps the status bar, the quantity selector cycles correctly through
+  all five states, and gold/plunder still update live in the header.
+
 ## [0.8.0] - 2026-09-04 11:27 PM EDT
 
 - Added a gold coin burst effect: tapping a ready lair card to manually

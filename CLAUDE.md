@@ -75,8 +75,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.8.0** (gold coin burst on manual lair plunder — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.9.0** (new `GameHeader` — avatar slot, gold/sec,
+     Platinum, buy-quantity selector — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -116,9 +116,34 @@ These apply to every change made in this repo, however small:
   `StateFlow` to the UI. `@HiltViewModel` throughout.
   - `GameViewModel` — implemented (`ui/game/GameViewModel.kt`): wraps
     `GameEngine`, starts its tick loop and settles offline earnings once on
-    creation, exposes claim/hire-Steward/plunder actions. `GameScreen`/
-    `LairCard`/`WelcomeBackDialog` (`ui/game/`) are the first real screen,
+    creation, exposes claim/hire-Steward/plunder actions plus a `buyQuantity:
+    StateFlow<BuyQuantity>` (see `GameHeader` bullet below — UI-only, not
+    persisted, resets to `X1` each launch). `GameScreen`/`LairCard`/
+    `WelcomeBackDialog`/`GameHeader` (`ui/game/`) are the first real screen,
     wired up in `MainActivity` via `by viewModels()`.
+  - **`GameHeader`** (`ui/game/GameHeader.kt`) — the game screen's top bar,
+    replacing a plain `CenterAlignedTopAppBar` that only showed "X gp".
+    Custom `Row`, not a Material `TopAppBar` — needs its own
+    `Modifier.statusBarsPadding()` since it lost the insets handling
+    `TopAppBar` provided for free (missing this let the header render
+    underneath the status bar icons the first time). Three sections
+    left-to-right: an `AvatarPlaceholder` (plain circle with a "?", stand-in
+    for "a handful of pre-created avatar images they can choose from" — not
+    built yet), a `Column` stacking total Gold Pieces / gold-per-second /
+    Platinum Pieces (labeled "pp" — "Premium Coins" in the user's own
+    description, but kept the existing 5E-flavored `platinumPieces` name
+    rather than introduce a second label for the same currency), and a
+    `BuyQuantitySelector` on the right. Gold-per-second is computed inline in
+    `GameScreen` (`sum of incomePerCycle(count) / baseProductionSeconds`
+    across owned lairs) — a theoretical rate independent of Steward status,
+    matching how idle games typically show this stat.
+  - **`BuyQuantity`** (`ui/game/BuyQuantity.kt`) — the `X1`/`X10`/`X100`/
+    `NEXT`/`MAX` enum cycled by tapping `GameHeader`'s small selector box
+    (`.next()` wraps around). **UI-only for now** — nothing reads
+    `GameViewModel.buyQuantity` to actually buy more than one unit; wiring it
+    into `claimLair` needs bulk-purchase cost math and a decision on what
+    "Next" means (next milestone? next round number?) that hasn't been made
+    yet. See Open Questions.
   - `LairCard` styling: no Material `Card` — a custom `Box` sized via
     `Modifier.height(IntrinsicSize.Min)` so a second, fractionally-widthed Box
     can render *behind* the text/buttons as a left-to-right fill representing
@@ -351,9 +376,20 @@ we'll pin these down as we build each system.
   Gold Pieces and Platinum Pieces are wired into `GameState`, but Platinum has
   no spend sink yet (IAP/shop not built)
 - Large-number formatting convention — first-pass answer landed in
-  `ui/format/GoldFormat.kt` (K/M/B/T/Qa/... suffixes); `GameState.goldPieces`
-  is still a raw `Double` underneath, which will need revisiting once the
-  economy grows past what a `Double` represents precisely
+  `ui/format/GoldFormat.kt`: K/M/B/T/Qa/.../Dc named short-scale suffixes,
+  then A/B/.../Z/AA/AB/... (bijective base-26, same scheme as spreadsheet
+  columns) indefinitely beyond that, so display never falls back to a raw
+  digit string no matter how large the economy grows. `GameState.goldPieces`
+  is still a raw `Double` underneath, though, which will need revisiting once
+  the economy grows past what a `Double` represents precisely — the suffix
+  scheme fixes the *display* problem, not the underlying precision one
+- Bulk-purchase quantity — `GameHeader`'s `BuyQuantity` selector
+  (`x1`/`x10`/`x100`/`Next`/`Max`) exists and cycles correctly, but isn't
+  wired into `claimLair` yet: needs bulk-purchase cost math (sum of a
+  geometric series, not just `costForNextUnit` repeated) and a decision on
+  what "Next" buys (next milestone? next round number of units?)
+- Avatar system — `GameHeader` has an `AvatarPlaceholder` slot (plain circle)
+  but no actual avatar images or selection UI exist yet
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested

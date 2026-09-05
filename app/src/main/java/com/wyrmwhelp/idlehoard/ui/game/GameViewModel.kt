@@ -43,6 +43,15 @@ class GameViewModel @Inject constructor(
     private val _welcomeBackEarnings = MutableStateFlow<OfflineEarnings?>(null)
     val welcomeBackEarnings: StateFlow<OfflineEarnings?> = _welcomeBackEarnings.asStateFlow()
 
+    // UI-only selection, not persisted — see BuyQuantity's doc for why it
+    // doesn't affect purchase amounts yet.
+    private val _buyQuantity = MutableStateFlow(BuyQuantity.X1)
+    val buyQuantity: StateFlow<BuyQuantity> = _buyQuantity.asStateFlow()
+
+    fun cycleBuyQuantity() {
+        _buyQuantity.value = _buyQuantity.value.next()
+    }
+
     init {
         viewModelScope.launch {
             val local = gameRepository.loadGameState()
