@@ -23,6 +23,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -66,6 +69,11 @@ fun LairCard(
         label = "lairFill",
     )
     val rarity = rarityColor(lair.tier)
+    // Bumped on every manual plunder tap (not on a Steward's automatic
+    // collection, which never runs through this click handler) to fire a
+    // fresh CoinBurstOverlay — see that file for why it's a counter, not a
+    // boolean.
+    var coinBurstTrigger by remember { mutableIntStateOf(0) }
 
     Box(
         modifier = modifier
@@ -74,7 +82,13 @@ fun LairCard(
             .clip(RoundedCornerShape(10.dp))
             .background(rarity.copy(alpha = if (owned.count > 0) 0.35f else 0.20f))
             .border(1.dp, rarity.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-            .clickable(enabled = owned.isReadyToCollect, onClick = onPlunder),
+            .clickable(
+                enabled = owned.isReadyToCollect,
+                onClick = {
+                    coinBurstTrigger++
+                    onPlunder()
+                },
+            ),
     ) {
         if (owned.count > 0) {
             Box(
@@ -141,6 +155,8 @@ fun LairCard(
                 }
             }
         }
+
+        CoinBurstOverlay(trigger = coinBurstTrigger, modifier = Modifier.matchParentSize())
     }
 }
 

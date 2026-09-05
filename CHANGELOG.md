@@ -3,6 +3,22 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.8.0] - 2026-09-04 11:27 PM EDT
+
+- Added a gold coin burst effect: tapping a ready lair card to manually
+  plunder it now bursts a dozen small gold coins radially outward from the
+  card's center, with a bit of gravity arc and a quick fade — pure `Canvas`
+  drawing, no sprite asset, matching the project's stated vector/flat art
+  style.
+- Fires only on a manual tap, never on a Steward's automatic collection —
+  the burst is triggered from inside the card's own click handler, which a
+  Steward's auto-collect (running in `GameEngine`'s tick loop) never touches.
+- New `CoinBurstOverlay` composable (`ui/game/CoinBurst.kt`), layered over
+  `LairCard`'s content with no pointer input so it never blocks taps.
+- Verified visually on the emulator across several frames of the animation:
+  coins spread out and fade smoothly, and tapping still correctly plunders
+  the lair.
+
 ## [0.7.7] - 2026-09-04 11:17 PM EDT
 
 - Widened the gap between stacked `FloatingMenu` items by 25% (4dp → 5dp).

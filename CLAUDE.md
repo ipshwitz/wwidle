@@ -75,8 +75,7 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.7.7** (wider menu item spacing, section-card header
-     moved to top-start opposite the close button — see
+   - Current version: **0.8.0** (gold coin burst on manual lair plunder — see
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -133,6 +132,21 @@ These apply to every change made in this repo, however small:
     pushes a new value every tick, which reads as visible steps without this;
     animating linearly across that same window turns it back into continuous
     motion. Keep the two in sync if either changes.
+  - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
+    of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
+    the stated art style — no sprite asset) fired only on a manual plunder
+    tap, not a Steward's automatic collection, since it's triggered from
+    inside `LairCard`'s own `clickable` (an incrementing `coinBurstTrigger`
+    int in local `remember` state, bumped right before calling `onPlunder`) —
+    a Steward's auto-collect runs inside `GameEngine`'s tick loop and never
+    touches that click handler. Uses a counter rather than a boolean so a
+    second plunder mid-animation restarts the effect (`key(trigger)` tears
+    down and relaunches the old one) instead of being a no-op. Rendered as
+    the last child in `LairCard`'s `Box` (`Modifier.matchParentSize()`, no
+    pointer input) so it draws over the card's content without blocking taps
+    on it. Clips to the card's own rounded-rect bounds like everything else
+    in that `Box` — coins bursting past the edge just get clipped there,
+    which reads fine at this card size and duration (~650ms).
   - `AuthViewModel` — Supabase auth
   - `SettingsViewModel` — user preferences
   - `ConsentViewModel` — privacy/ad consent
