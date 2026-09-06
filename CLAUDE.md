@@ -92,8 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.22.2** (Steward-managed lair avatars now render
-     fully opaque instead of dimmed — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.22.3** (the buy button's unaffordable state now
+     dims its own rarity color instead of switching to brick-red — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -364,11 +365,11 @@ These apply to every change made in this repo, however small:
     - **Bottom row**: a `BuyButton` (private composable in this file — not
       the shared `WoodenButton`, which is a single-line pill shape and
       doesn't fit a two-line stacked label) takes most of the width — a
-      gold gradient (`palette.goldBright`/`goldDeep`) when affordable, a
-      muted brick-red (`unaffordableLight`/`unaffordableDark`, deliberately
-      not a stock bright red — it would clash with the warm palette
-      everywhere else) when not, two centered lines (quantity, then
-      price). A fixed-width (`OWNED_BOX_WIDTH`, 56.dp) `OwnedBox` panel to
+      gold gradient (`palette.goldBright`/`goldDeep`) when affordable
+      (superseded by a per-tier rarity gradient in v0.22.1, then a dimmed
+      version of that same gradient when unaffordable in v0.22.3 — see
+      those bullets), two centered lines (quantity, then price). A
+      fixed-width (`OWNED_BOX_WIDTH`, 56.dp) `OwnedBox` panel to
       its right replaces the old "Owned: N" text line — a recessed
       `palette.woodDark`-tinted panel with the count and an "owned" label.
     The outer `Box` keeps a translucent parchment gradient base
@@ -402,10 +403,8 @@ These apply to every change made in this repo, however small:
       algorithmically from `rarityColor`, since an automatic lighten/darken
       can drift far enough to stop reading as the same hue at the
       extremes) — so gold only appears on an actually-legendary lair now.
-      The unaffordable state is untouched (still the flat
-      `unaffordableLight`/`unaffordableDark` brick tone regardless of
-      tier — red reads as "can't afford" more clearly than a desaturated
-      per-tier color would).
+      The unaffordable state was a flat brick-red at this point (superseded
+      in v0.22.3 — see that bullet).
     - A solid `RARITY_STRIPE_WIDTH` (6.dp) stripe in the flat `rarityColor`
       runs down the card's left edge, and the whole card background gets a
       faint (`alpha = 0.16f`) rarity wash layered over the parchment
@@ -416,6 +415,19 @@ These apply to every change made in this repo, however small:
       to a neutral `Color.Black.copy(alpha = 0.35f)` — a colored border
       alongside a colored stripe read as cluttered in the mockup
       comparison, and the stripe/wash already carry that signal.
+  - **Unaffordable-state color fix (v0.22.3)** — the flat brick-red
+    unaffordable color from v0.22.1 turned out to have its own problem once
+    live: with plenty of gold in hand and only the highest tiers still out
+    of reach, the muted red buttons looked more clickable than the game's
+    normal affordable buttons, not less — red reads as an alert/call-to-action
+    color, the opposite of "disabled." `unaffordableLight`/`unaffordableDark`
+    are gone; `BuyButton` now always renders its own `rarityGradient(tier)`
+    and fades the whole button to `UNAFFORDABLE_ALPHA` (0.45f, applied via
+    `Modifier.alpha`) when `!affordable`, matching `WoodenButton`'s existing
+    disabled treatment elsewhere in the app rather than inventing a second
+    "disabled" language. Verified live across all five tiers on the
+    emulator — affordable buttons stay vivid, unaffordable ones fade to a
+    muted version of the same rarity color instead of switching to red.
   - **Progress-bar smoothing (v0.21.2)** — `LairCard`'s fill fraction used to
     be derived per-composable from raw `OwnedLair.cycleProgressSeconds` /
     `CreatureLair.effectiveProductionSeconds`, animated via

@@ -3,6 +3,19 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.22.3] - 2026-09-05 10:15 PM EDT
+
+- Replaced the buy button's flat brick-red "can't afford this" color with a
+  dimmed version of the lair's own rarity color instead. Red read as an
+  alert/warning and, worse, looked *more* clickable than the normal
+  affordable state, not less.
+- The unaffordable state now just fades the button (45% alpha, matching
+  `WoodenButton`'s own disabled treatment elsewhere in the app) rather than
+  switching to a different color — "disabled" reads the same way across
+  every button in the game now.
+- Verified live across all five rarity tiers: affordable buttons stay
+  vivid, unaffordable ones fade to a muted version of the same color.
+
 ## [0.22.2] - 2026-09-05 10:08 PM EDT
 
 - Fixed Steward-managed lair avatars showing semi-transparent even though

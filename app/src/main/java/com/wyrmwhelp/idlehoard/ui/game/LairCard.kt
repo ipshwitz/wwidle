@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -81,12 +82,15 @@ private val OWNED_BOX_WIDTH = 56.dp
 private val RARITY_STRIPE_WIDTH = 6.dp
 
 /**
- * A muted brick-red standing in for "can't afford this" on the buy button —
- * deliberately not a stock bright red, which would clash with the warm
- * wood/parchment/gold palette everywhere else in this chrome.
+ * How much a [BuyButton] fades when its lair isn't affordable — matches
+ * `WoodenButton`'s own disabled alpha (0.45f) so every button in the app
+ * reads "disabled" the same way. Replaced a flat brick-red unaffordable
+ * color in v0.22.3: red reads as an alert/warning and, worse, as
+ * *more* clickable than the affordable state, not less — dimming the
+ * lair's own rarity color instead keeps "disabled" legible without
+ * borrowing an alert color that doesn't mean anything else in this UI.
  */
-private val unaffordableLight = Color(0xFFA8564A)
-private val unaffordableDark = Color(0xFF6E332B)
+private const val UNAFFORDABLE_ALPHA = 0.45f
 
 /**
  * One lair in the list. Redesigned in v0.22.0 from a single card whose whole
@@ -104,11 +108,10 @@ private val unaffordableDark = Color(0xFF6E332B)
  *   (previously a separate line elsewhere in the card). An unclaimed lair
  *   (`owned.count == 0`) shows the track empty with a "Claim to begin"
  *   prompt instead of a real fraction.
- * - **Bottom row**: the [BuyButton] (this lair's own [rarityGradient] when
- *   affordable, the muted [unaffordableLight]/[unaffordableDark] brick tone
- *   when not — see the rarity-visibility note below) takes most of the
- *   width; a fixed-width [OwnedBox] panel to its right replaces the old
- *   "Owned: N" text line.
+ * - **Bottom row**: the [BuyButton] (this lair's own [rarityGradient],
+ *   faded by [UNAFFORDABLE_ALPHA] when not affordable — see the
+ *   rarity-visibility note below) takes most of the width; a fixed-width
+ *   [OwnedBox] panel to its right replaces the old "Owned: N" text line.
  *
  * **Rarity visibility (v0.22.1)** — the very first version of this redesign
  * paired a *gold* affordable-button color with the border as the only other
@@ -309,13 +312,12 @@ fun LairCard(
                     },
                     price = "${GoldFormat.format(claimCost)} gp",
                     affordable = canClaim,
-                    affordableGradient = rarityGradient(lair.tier),
+                    gradient = rarityGradient(lair.tier),
                     // Gold-tier's own gradient is already light — dark ink text
                     // reads better on it than the white used for every other
                     // (darker) rarity gradient.
-                    affordableTextColor = if (lair.tier > 11) palette.ink else Color.White,
+                    textColor = if (lair.tier > 11) palette.ink else Color.White,
                     onClick = onClaim,
-                    palette = palette,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
                 OwnedBox(
@@ -331,32 +333,27 @@ fun LairCard(
 }
 
 /**
- * The bottom-left buy action — [affordableGradient] (this lair's own
- * [rarityGradient] as of v0.22.1, previously always gold) when [affordable],
- * the muted brick tone when not, with a two-line label (quantity on top,
- * price below) instead of the single-line `WoodenButton` pill this replaced.
- * Kept private to this file since nothing else needs a button shaped quite
- * like this one.
+ * The bottom-left buy action — this lair's own [rarityGradient] (v0.22.1),
+ * faded by [UNAFFORDABLE_ALPHA] when [affordable] is false (v0.22.3,
+ * replacing a distinct brick-red color — see that constant's doc) — with a
+ * two-line label (quantity on top, price below) instead of the single-line
+ * `WoodenButton` pill this replaced. Kept private to this file since nothing
+ * else needs a button shaped quite like this one.
  */
 @Composable
 private fun BuyButton(
     text: String,
     price: String,
     affordable: Boolean,
-    affordableGradient: List<Color>,
-    affordableTextColor: Color,
+    gradient: List<Color>,
+    textColor: Color,
     onClick: () -> Unit,
-    palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
-    val textColor = if (affordable) affordableTextColor else palette.parchment
     Column(
         modifier = modifier
-            .background(
-                Brush.verticalGradient(
-                    if (affordable) affordableGradient else listOf(unaffordableLight, unaffordableDark),
-                ),
-            )
+            .alpha(if (affordable) 1f else UNAFFORDABLE_ALPHA)
+            .background(Brush.verticalGradient(gradient))
             .clickable(enabled = affordable, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
