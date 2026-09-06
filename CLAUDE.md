@@ -92,9 +92,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.28.1** (Time Skip copy now spells out the two
-     longest tiers as "1 day"/"1 week" instead of "24h"/"168h" — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.28.2** (Settings now shows the app version at
+     the bottom — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -585,9 +584,13 @@ These apply to every change made in this repo, however small:
     completion doesn't bump `completedLoads` at all, so the burst is skipped
     entirely; the gold is still credited either way.
   - **`SettingsContent`** (`ui/settings/SettingsContent.kt`) — the Settings
-    section's real content: an Account card (sign up/in/out) and a Cloud
+    section's real content: an Account card (sign up/in/out), a Cloud
     Sync card (automatic-every-5-minutes note, last-synced time, manual
-    "Sync Now"). No separate `AuthViewModel`/`SettingsViewModel` exists —
+    "Sync Now"), and (v0.28.2) a plain centered version footer reading
+    `BuildConfig.VERSION_NAME` directly — the one thing on this screen
+    that isn't ViewModel state, since it's a compile-time constant, so
+    it's not threaded in as a parameter like everything else here.
+    No separate `AuthViewModel`/`SettingsViewModel` exists —
     this account/sync state all lives directly on `GameViewModel` (see its
     class doc), since signing in or out directly changes which cloud row
     the save syncs to; splitting that across two ViewModels would just mean

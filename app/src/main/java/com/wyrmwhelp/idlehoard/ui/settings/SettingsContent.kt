@@ -32,7 +32,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.wyrmwhelp.idlehoard.BuildConfig
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import java.time.Duration
@@ -40,15 +42,21 @@ import java.time.Instant
 
 /**
  * The "Settings" section's real content: an account card (sign up/in/out,
- * gating IAP visibility elsewhere — see `ShopContent`'s `isSignedIn` param)
- * and a cloud-sync card (automatic-every-5-minutes note, last-synced time,
- * manual "Sync Now"). Pure display plus callbacks — reads ViewModel state
- * passed in by `MainActivity`'s `WyrmWhelpApp` and forwards actions through
- * [onSignUp]/[onSignIn]/[onSignOut]/[onSyncNow] rather than taking
- * `GameViewModel` itself, same pattern as `StewardsContent`/`ShopContent`.
+ * gating IAP visibility elsewhere — see `ShopContent`'s `isSignedIn` param),
+ * a cloud-sync card (automatic-every-5-minutes note, last-synced time,
+ * manual "Sync Now"), and a version footer. Pure display plus callbacks —
+ * reads ViewModel state passed in by `MainActivity`'s `WyrmWhelpApp` and
+ * forwards actions through [onSignUp]/[onSignIn]/[onSignOut]/[onSyncNow]
+ * rather than taking `GameViewModel` itself, same pattern as
+ * `StewardsContent`/`ShopContent`.
  *
  * There's no separate `AuthViewModel` — this account/sync state all lives on
  * `GameViewModel` (see its class doc for why).
+ *
+ * The version footer reads [BuildConfig.VERSION_NAME] directly rather than
+ * being threaded in as a parameter — unlike everything else on this screen
+ * it's a compile-time constant, not live ViewModel state, so there's
+ * nothing for `GameViewModel`/`MainActivity` to own or pass down.
  */
 @Composable
 fun SettingsContent(
@@ -98,6 +106,7 @@ fun SettingsContent(
                 palette = palette,
             )
         }
+        item { VersionFooter(palette = palette) }
     }
 }
 
@@ -419,4 +428,18 @@ private fun relativeSyncTime(instant: Instant): String {
         seconds < 86_400 -> "${seconds / 3_600} hr ago"
         else -> "${seconds / 86_400} day(s) ago"
     }
+}
+
+/** Unboxed, muted footer text — lower visual weight than the account/sync cards above since it isn't actionable. */
+@Composable
+private fun VersionFooter(palette: FantasyPalette, modifier: Modifier = Modifier) {
+    Text(
+        text = "Wyrm & Whelp: Idle Hoard v${BuildConfig.VERSION_NAME}",
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        textAlign = TextAlign.Center,
+        style = MaterialTheme.typography.bodySmall,
+        color = palette.ink.copy(alpha = 0.5f),
+    )
 }

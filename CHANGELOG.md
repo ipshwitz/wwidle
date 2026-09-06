@@ -3,6 +3,10 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.28.2] - 2026-09-06 10:45 PM EDT
+
+- Added the game's version number to the bottom of the Settings screen.
+
 ## [0.28.1] - 2026-09-06 10:30 PM EDT
 
 - Changed the two longest Time Skip labels to plain language — "1 day"
