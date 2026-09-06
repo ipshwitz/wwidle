@@ -1,6 +1,5 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -31,12 +30,22 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
+
+/**
+ * Fixed duration for the fill bar's [animateFloatAsState] — deliberately
+ * *not* tied to `GameEngine.TICK_INTERVAL_MS` (33ms) the way it originally
+ * was. Tracking the tick rate exactly meant the bar re-synced to a fresh
+ * target almost immediately every tick, so a fast-resetting target (a
+ * heavily Speed-boosted lair) produced visible bounce instead of being
+ * smoothed out. 150ms is long enough to absorb that without feeling
+ * sluggish on an ordinary-speed lair's own reset.
+ */
+private const val PROGRESS_ANIMATION_DURATION_MS = 150
 
 /**
  * One lair in the list. Styled to match the app's cozy-fantasy chrome
@@ -51,12 +60,11 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  *   tinted rectangle — but stays sheer enough to keep `GameScreen`'s
  *   background art showing through, same as the card always has.
  * - A faint rarity tint over the whole card, then a stronger rarity-gradient
- *   fill for the claimed fraction (`cycleProgressSeconds / effectiveProductionSeconds`,
- *   100% = the cycle a tap started is about to complete and auto-collect)
- *   with a bright "leading edge" line marking exactly how far the fill has
- *   come — drawn via `drawBehind` on the fill `Box` itself at its own right
- *   edge, so it always tracks the animated fraction without any extra
- *   position math.
+ *   fill for the claimed fraction ([progress] — 100% = the cycle a tap
+ *   started is about to complete and auto-collect) with a bright "leading
+ *   edge" line marking exactly how far the fill has come — drawn via
+ *   `drawBehind` on the fill `Box` itself at its own right edge, so it
+ *   always tracks the animated fraction without any extra position math.
  * - `FontFamily.Serif` for the name (matching `GameHeader`'s lettering) with
  *   a subtle emboss shadow.
  * - The Claim action is a shared `WoodenButton` instead of a Material
@@ -71,6 +79,19 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * can fire the same burst as tapping the card itself; both go through the
  * same counter, and `LairRow` is what actually decides when to bump it now
  * (on `OwnedLair.completedLoads` changing, not on the tap — see that file).
+ *
+ * [progress] is read straight from `GameEngine.lairProgress` (via
+ * `GameViewModel`/`GameScreen`/`LairRow`) instead of being derived here from
+ * raw `OwnedLair.cycleProgressSeconds`/`effectiveProductionSeconds` the way
+ * it used to be — a heavily Speed-boosted lair can complete one or more full
+ * cycles inside a single engine tick, and deriving the fraction per
+ * composable from a value that can wrap around between samples read as the
+ * fill bar "bouncing" instead of animating. The engine now does that
+ * derivation once per tick and reports a flat 1f (a continuously solid bar)
+ * once a lair's cycle gets too fast to sample meaningfully — see
+ * `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS`. The animation's own tween
+ * duration is a fixed 150ms, deliberately decoupled from the engine's tick
+ * rate, so rapid resets get smoothed rather than tracked frame-for-frame.
  */
 @Composable
 fun LairCard(
@@ -79,13 +100,12 @@ fun LairCard(
     goldPieces: Double,
     buyQuantity: BuyQuantity,
     globalIncomeMultiplier: Double,
-    globalSpeedMultiplier: Double,
+    progress: Float,
     coinBurstTrigger: Int,
     onClaim: () -> Unit,
     onStartLoad: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
-    speedBoostMultiplier: Double = 1.0,
     profitBoostMultiplier: Double = 1.0,
 ) {
     // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
@@ -94,25 +114,9 @@ fun LairCard(
     val claimQuantity = buyQuantity.resolve(lair, owned.count, goldPieces).coerceAtLeast(1)
     val claimCost = lair.costForUnits(owned.count, claimQuantity)
     val canClaim = goldPieces >= claimCost
-    val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedBoostMultiplier, globalSpeedMultiplier)
-    // Naturally reads 0% while idle (cycleProgressSeconds stays pinned at 0
-    // until a tap starts the cycle — see GameEngine.advanceLair) with no
-    // special-casing needed: there's no separate "ready, waiting" plateau
-    // anymore, since completion auto-collects and resets in the same step.
-    val fillFraction = if (productionSeconds <= 0.0) {
-        0f
-    } else {
-        (owned.cycleProgressSeconds / productionSeconds).toFloat().coerceIn(0f, 1f)
-    }
-    // GameEngine only pushes a new fillFraction every TICK_INTERVAL_MS, which
-    // would otherwise render as visible steps — animating linearly across
-    // that same window turns it back into continuous motion.
     val animatedFillFraction by animateFloatAsState(
-        targetValue = fillFraction,
-        animationSpec = tween(
-            durationMillis = GameEngine.TICK_INTERVAL_MS.toInt(),
-            easing = LinearEasing,
-        ),
+        targetValue = progress,
+        animationSpec = tween(durationMillis = PROGRESS_ANIMATION_DURATION_MS),
         label = "lairFill",
     )
     val rarity = rarityColor(lair.tier)

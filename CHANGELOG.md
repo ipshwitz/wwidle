@@ -3,6 +3,33 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.21.2] - 2026-09-05 8:00 PM EDT
+
+- Fixed the lair progress-fill bar bouncing/glitching at high Speed
+  multipliers instead of animating smoothly. Cause: the bar's fraction was
+  derived per-card from raw cycle-progress data, animated with a tween
+  duration tied to the engine's 33ms tick rate — once a lair's cycle got
+  fast enough to complete inside a single tick, that value stopped meaning
+  anything sampled at that rate, and no amount of easing could smooth out
+  a signal that had already lost information at the source.
+- Rearchitected using a pattern proven in another project: the engine now
+  computes each lair's fill fraction once per tick into its own
+  `lairProgress` map (a separate `StateFlow`), and reports a flat "100%
+  full" once a lair's cycle drops below about 99ms rather than a jittery
+  partial value — a heavily Speed-boosted lair now reads as a clean solid
+  bar, which is the honest picture once it's completing cycles far faster
+  than anyone could watch one fill. The UI's fill animation also now uses
+  a fixed 150ms tween, deliberately decoupled from the tick rate, so quick
+  resets get smoothed rather than tracked instantly.
+- Verified on the emulator: a lair pushed to an extreme Speed multiplier
+  (sub-40ms cycles) now renders as a clean, undivided solid-tinted card
+  with no seam or flicker, while moderate-speed lairs still show a
+  smoothly, monotonically advancing partial fill across consecutive
+  frames rather than jumping around.
+- New unit tests cover `lairProgress` for an idle lair, a partially loaded
+  one, one that just completed, a Steward-managed lair mid-cycle, and the
+  solid-at-extreme-speed clamp.
+
 ## [0.21.1] - 2026-09-05 7:30 PM EDT
 
 - Milestone rungs now split into two real bonus types instead of all

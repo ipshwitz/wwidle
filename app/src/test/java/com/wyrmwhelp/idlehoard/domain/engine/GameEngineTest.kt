@@ -98,6 +98,75 @@ class GameEngineTest {
     }
 
     @Test
+    fun `lairProgress reports 0 for an idle unmanaged lair regardless of how long it ticks`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
+        engine.purchaseLair("kobold_warren")
+
+        engine.tick(lair.baseProductionSeconds * 5)
+
+        assertEquals(0f, engine.lairProgress.value["kobold_warren"])
+    }
+
+    @Test
+    fun `lairProgress tracks partial progress through a started load`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
+        engine.purchaseLair("kobold_warren")
+        engine.startLairLoad("kobold_warren")
+
+        engine.tick(lair.baseProductionSeconds / 2.0)
+
+        assertEquals(0.5f, engine.lairProgress.value.getValue("kobold_warren"), 0.01f)
+    }
+
+    @Test
+    fun `lairProgress resets to 0 the moment a started load completes`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))
+        engine.purchaseLair("kobold_warren")
+        engine.startLairLoad("kobold_warren")
+
+        engine.tick(lair.baseProductionSeconds)
+
+        assertEquals(0f, engine.lairProgress.value["kobold_warren"])
+    }
+
+    @Test
+    fun `lairProgress reports a flat 1f once a lair's cycle is too fast to sample meaningfully`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        // 1.05^84 ~= 60.85x, pushing kobold_warren's 0.6s base cycle under
+        // GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS (3 ticks, ~99ms).
+        val speedLevel = 84
+        engine.loadState(
+            GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), speedBoostLevel = speedLevel),
+        )
+        engine.purchaseLair("kobold_warren")
+        engine.startLairLoad("kobold_warren")
+
+        // A tiny tick: nowhere near enough to finish even one lightning-fast
+        // cycle, but the progress bar should already read solid rather than
+        // some jittery fractional remainder.
+        engine.tick(0.0001)
+
+        assertEquals(1f, engine.lairProgress.value["kobold_warren"])
+    }
+
+    @Test
+    fun `lairProgress also tracks a Steward-managed lair's current cycle`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(goldPieces = lair.baseCostGp + lair.stewardCostGp, lairs = emptyMap()),
+        )
+        engine.purchaseLair("kobold_warren")
+        engine.hireSteward("kobold_warren")
+
+        engine.tick(lair.baseProductionSeconds / 2.0)
+
+        assertEquals(0.5f, engine.lairProgress.value.getValue("kobold_warren"), 0.01f)
+    }
+
+    @Test
     fun `starting a lair's load and letting it finish auto-collects and marks a completion`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
         engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))

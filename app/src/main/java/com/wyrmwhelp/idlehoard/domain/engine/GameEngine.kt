@@ -56,6 +56,17 @@ class GameEngine @Inject constructor() {
     private val _state = MutableStateFlow(GameState())
     val state: StateFlow<GameState> = _state
 
+    /**
+     * Each owned lair's current cycle-fill fraction (0f–1f), recomputed once
+     * per [tick] and published separately from [state] — see [computeLairProgress]
+     * for why this needs to exist as its own map rather than each `LairCard`
+     * deriving it from raw [OwnedLair.cycleProgressSeconds]/`effectiveProductionSeconds`
+     * itself (that per-composable derivation is what used to visibly stutter
+     * at high Speed multipliers).
+     */
+    private val _lairProgress = MutableStateFlow<Map<String, Float>>(emptyMap())
+    val lairProgress: StateFlow<Map<String, Float>> = _lairProgress
+
     /** Replaces the current state wholesale, e.g. right after a save is loaded. */
     fun loadState(newState: GameState) {
         _state.value = newState
@@ -85,6 +96,44 @@ class GameEngine @Inject constructor() {
     fun tick(deltaSeconds: Double) {
         if (deltaSeconds <= 0.0) return
         _state.update { advance(it, deltaSeconds) }
+        _lairProgress.value = computeLairProgress(_state.value)
+    }
+
+    /**
+     * The fill fraction (0f–1f) each owned lair's `LairCard` should animate
+     * toward right now. Idle unmanaged lairs (owned but not `isLoading`) are
+     * pinned at 0f. Once a lair's own [CreatureLair.effectiveProductionSeconds]
+     * drops under [PROGRESS_SOLID_THRESHOLD_SECONDS] — meaning it can complete
+     * one or more full cycles inside a single [TICK_INTERVAL_MS] tick — the
+     * raw `cycleProgressSeconds / productionSeconds` ratio stops meaning
+     * anything: it's a modulo remainder being sampled at a coarser rate than
+     * it changes, which is exactly what read as the fill bar "bouncing up and
+     * down at random spots" instead of animating smoothly. Below that
+     * threshold this reports a flat 1f instead — a heavily Speed-boosted lair
+     * reads as a continuously solid bar, which is the truthful picture (it's
+     * completing cycles far faster than a human can watch one fill) rather
+     * than an aliased, jittery one.
+     */
+    private fun computeLairProgress(state: GameState): Map<String, Float> {
+        if (state.lairs.isEmpty()) return emptyMap()
+        val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
+        val progress = mutableMapOf<String, Float>()
+        for ((lairId, owned) in state.lairs) {
+            if (owned.count <= 0) continue
+            if (!owned.hasSteward && !owned.isLoading) {
+                progress[lairId] = 0f
+                continue
+            }
+            val lair = CreatureLairCatalog.get(lairId)
+            val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
+            progress[lairId] = when {
+                productionSeconds < PROGRESS_SOLID_THRESHOLD_SECONDS -> 1f
+                productionSeconds <= 0.0 -> 0f
+                else -> (owned.cycleProgressSeconds / productionSeconds).toFloat().coerceIn(0f, 1f)
+            }
+        }
+        return progress
     }
 
     /**
@@ -432,9 +481,8 @@ class GameEngine @Inject constructor() {
         const val MIN_CONFETTI_PRODUCTION_SECONDS = 0.01
 
         /**
-         * How often [start] advances production. Public so the UI can match its
-         * progress-fill animation duration to this and avoid visibly stepping
-         * between updates — see `LairCard`.
+         * How often [start] advances production, and how often [lairProgress]
+         * publishes a fresh fill fraction for the UI to animate toward.
          *
          * Deliberately short: a tick's `deltaSeconds` is measured from the
          * *previous* tick regardless of when a cycle reset (a completed load
@@ -445,8 +493,33 @@ class GameEngine @Inject constructor() {
          * making repeated taps look like they were corrupting the animation.
          * At 33ms the same overshoot is ~5.5% of even that fastest cycle (and
          * under 2% for every longer one) — small enough to read as a clean
-         * start.
+         * start. `LairCard`'s own fill animation duration is a fixed 150ms,
+         * deliberately *not* tied to this constant — see
+         * [PROGRESS_SOLID_THRESHOLD_SECONDS] for why coupling the two broke
+         * down once a lair's cycle got fast enough to complete inside a
+         * single tick.
          */
         const val TICK_INTERVAL_MS = 33L
+
+        /**
+         * Below this, a lair's own [CreatureLair.effectiveProductionSeconds]
+         * is comparable to or shorter than [TICK_INTERVAL_MS] itself, so
+         * [computeLairProgress]'s `cycleProgressSeconds / productionSeconds`
+         * ratio is sampling a value that can wrap around one or more times
+         * *between* ticks — a modulo remainder aliased against too coarse a
+         * sampling rate, not a smooth ramp. That's what previously showed up
+         * as the fill bar "bouncing up and down starting and stopping at
+         * random spots" on a heavily Speed-boosted lair, however short the UI
+         * animation's own tween duration was made — no amount of client-side
+         * smoothing fixes a signal that's already aliased at the source.
+         * [computeLairProgress] reports a flat 1f instead once production
+         * drops below this — a continuously solid bar, which is the
+         * *truthful* picture once cycles complete far faster than a human can
+         * watch one fill. Set to 3x [TICK_INTERVAL_MS] rather than 1x for
+         * headroom against real coroutine scheduling jitter (`delay(33)`
+         * reliably firing a little late under load) nudging an
+         * already-borderline lair across the line tick to tick.
+         */
+        const val PROGRESS_SOLID_THRESHOLD_SECONDS = TICK_INTERVAL_MS * 3 / 1000.0
     }
 }

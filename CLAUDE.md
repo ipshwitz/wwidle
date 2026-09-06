@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.21.1** (milestone rungs now split into Speed vs
-     Income bonuses, correctly labeled everywhere they're shown — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.21.2** (fixed the lair progress-fill bar bouncing
+     at high Speed multipliers — engine-computed progress map, decoupled
+     150ms tween — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -312,33 +312,69 @@ These apply to every change made in this repo, however small:
   - `LairCard` styling: no Material `Card` — a custom `Box` sized via
     `Modifier.height(IntrinsicSize.Min)` so a second, fractionally-widthed Box
     can render *behind* the text/buttons as a left-to-right fill representing
-    `cycleProgressSeconds / effectiveProductionSeconds` (100% = the cycle a
-    tap started is about to complete and auto-collect). Restyled to match
-    `GameHeader`'s cozy-fantasy chrome (was flat rarity-
-    colored blocks with a Material `Button`/`OutlinedButton` pair, which read
-    as "boring" against the rest of the game): a translucent parchment
-    gradient base (`FantasyPalette.parchmentShade`/`parchment`, alpha 0.55 —
-    sheer enough that `GameScreen`'s background art still shows through, same
-    as before) plus a faint per-tier "rarity" tint (`rarityColor(tier)`, the
-    same 5-band green→blue→purple→orange→gold ramp as always) over the whole
-    card, with a stronger rarity gradient for the claimed-fraction fill and a
-    bright 2px line at the fill's own trailing edge (drawn via `drawBehind`
-    *on the fill `Box` itself*, at its own right edge — since that edge
-    already sits exactly at the animated fraction, no extra position math
-    needed). `FontFamily.Serif` for the name (matching `GameHeader`), italic
-    muted text for monster/CR, bold `goldDeep`-colored text for the income
-    line. The fill's target value is wrapped in `animateFloatAsState` (linear
-    easing, duration = `GameEngine.TICK_INTERVAL_MS`) — `GameEngine` only
-    pushes a new value every tick, which reads as visible steps without this;
-    animating linearly across that same window turns it back into continuous
-    motion. Keep the two in sync if either changes. The Claim button is now
-    the shared `WoodenButton` instead of a Material `Button`. **The Steward
-    button is gone** — hiring a Steward now lives solely in the Stewards
-    menu section (see `StewardsContent` below), not on every card;
-    `LairCard` no longer takes `onHireSteward`. The card's `clickable`
-    (`enabled = owned.count > 0 && !owned.hasSteward && !owned.isLoading`,
-    `onClick = onStartLoad`) is what actually starts the cycle now, not a
-    collection.
+    [progress] (100% = the cycle a tap started is about to complete and
+    auto-collect). Restyled to match `GameHeader`'s cozy-fantasy chrome (was
+    flat rarity-colored blocks with a Material `Button`/`OutlinedButton`
+    pair, which read as "boring" against the rest of the game): a
+    translucent parchment gradient base (`FantasyPalette.parchmentShade`/`parchment`,
+    alpha 0.55 — sheer enough that `GameScreen`'s background art still shows
+    through, same as before) plus a faint per-tier "rarity" tint
+    (`rarityColor(tier)`, the same 5-band green→blue→purple→orange→gold ramp
+    as always) over the whole card, with a stronger rarity gradient for the
+    claimed-fraction fill and a bright 2px line at the fill's own trailing
+    edge (drawn via `drawBehind` *on the fill `Box` itself*, at its own right
+    edge — since that edge already sits exactly at the animated fraction, no
+    extra position math needed; the line is only drawn while the fraction is
+    strictly between 0 and 1, so a fully solid card reads as a clean
+    undivided tint with no seam). `FontFamily.Serif` for the name (matching
+    `GameHeader`), italic muted text for monster/CR, bold `goldDeep`-colored
+    text for the income line. The Claim button is now the shared
+    `WoodenButton` instead of a Material `Button`. **The Steward button is
+    gone** — hiring a Steward now lives solely in the Stewards menu section
+    (see `StewardsContent` below), not on every card; `LairCard` no longer
+    takes `onHireSteward`. The card's `clickable` (`enabled = owned.count >
+    0 && !owned.hasSteward && !owned.isLoading`, `onClick = onStartLoad`) is
+    what actually starts the cycle now, not a collection.
+  - **Progress-bar smoothing (v0.21.2)** — `LairCard`'s fill fraction used to
+    be derived per-composable from raw `OwnedLair.cycleProgressSeconds` /
+    `CreatureLair.effectiveProductionSeconds`, animated via
+    `animateFloatAsState` with its tween duration tied to
+    `GameEngine.TICK_INTERVAL_MS` (33ms) so it wouldn't visibly step between
+    ticks. That broke down once milestone/Speed-Boost stacking pushed a
+    lair's cycle time down near or below the tick interval itself: a
+    Steward-managed lair's `advanceLair` loop can complete several cycles
+    inside one tick, leaving only a `remaining` modulo-remainder to display,
+    and sampling that remainder once every 33ms — with a 33ms tween chasing
+    it just as fast — read as the fill bar "bouncing up and down starting
+    and stopping at random spots" instead of animating, because the target
+    itself was aliased against too coarse a sampling rate; no client-side
+    easing curve fixes a signal that's already lost information at the
+    source. Fixed by moving the fraction calculation into the engine itself,
+    matching a smoothing pattern already proven in another project (map of
+    per-item progress recomputed once per tick, exposed as its own
+    `StateFlow`, `animateFloatAsState` in the UI on a *fixed*, tick-rate-independent
+    tween):
+    - `GameEngine.lairProgress: StateFlow<Map<String, Float>>` — recomputed
+      in `tick()` via a new private `computeLairProgress(state)`, once per
+      tick, right after `advance()` updates `state`. An idle unmanaged lair
+      (owned, not `isLoading`) is pinned at `0f`. Below
+      `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS` (3× `TICK_INTERVAL_MS`,
+      ~99ms — the point past which a lair's own `effectiveProductionSeconds`
+      can complete inside a single tick, so the raw ratio stops being
+      meaningful) it reports a flat `1f` instead of the raw ratio — a
+      continuously solid bar, which is the *truthful* picture once cycles
+      complete far faster than a human can watch one fill, not an aliased,
+      jittery one. `GameViewModel.lairProgress` exposes it straight through;
+      `GameScreen` collects it and passes `lairProgress[lair.id] ?: 0f` down
+      through `LairRow` to `LairCard`'s new `progress: Float` param (`LairCard`
+      no longer takes `speedBoostMultiplier`/`globalSpeedMultiplier` — it
+      doesn't need to derive anything itself anymore).
+    - `LairCard`'s `animateFloatAsState` now uses a **fixed 150ms tween**
+      (`PROGRESS_ANIMATION_DURATION_MS`), deliberately *not* tied to
+      `TICK_INTERVAL_MS` the way it used to be — tracking the tick rate
+      exactly meant the animation re-synced to a fresh target almost
+      immediately every tick, so a fast-resetting target produced visible
+      bounce instead of being smoothed over several ticks.
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
     the stated art style — no sprite asset) fired only when a manually

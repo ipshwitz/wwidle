@@ -58,6 +58,11 @@ import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
  * composable just watches that counter via [LaunchedEffect] and bumps
  * [coinBurstTrigger] whenever it changes, so the burst always fires at
  * completion regardless of how long the load actually took.
+ *
+ * [progress] comes from `GameEngine.lairProgress` (via `GameViewModel`/
+ * `GameScreen`) and is passed straight through to [LairCard] — see that
+ * file's doc for why the fill fraction is computed engine-side now instead
+ * of derived here from raw cycle-progress fields.
  */
 @Composable
 fun LairRow(
@@ -66,12 +71,11 @@ fun LairRow(
     goldPieces: Double,
     buyQuantity: BuyQuantity,
     globalIncomeMultiplier: Double,
-    globalSpeedMultiplier: Double,
+    progress: Float,
     onClaim: () -> Unit,
     onStartLoad: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
-    speedBoostMultiplier: Double = 1.0,
     profitBoostMultiplier: Double = 1.0,
 ) {
     var coinBurstTrigger by remember { mutableIntStateOf(0) }
@@ -108,13 +112,12 @@ fun LairRow(
             goldPieces = goldPieces,
             buyQuantity = buyQuantity,
             globalIncomeMultiplier = globalIncomeMultiplier,
-            globalSpeedMultiplier = globalSpeedMultiplier,
+            progress = progress,
             coinBurstTrigger = coinBurstTrigger,
             onClaim = onClaim,
             onStartLoad = onStartLoad,
             modifier = Modifier.weight(1f),
             palette = palette,
-            speedBoostMultiplier = speedBoostMultiplier,
             profitBoostMultiplier = profitBoostMultiplier,
         )
     }

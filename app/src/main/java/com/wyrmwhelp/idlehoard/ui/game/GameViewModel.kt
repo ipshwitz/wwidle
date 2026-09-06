@@ -57,6 +57,9 @@ class GameViewModel @Inject constructor(
 
     val gameState: StateFlow<GameState> = gameEngine.state
 
+    /** Each owned lair's current fill fraction — see `GameEngine.lairProgress` for why this is separate from [gameState]. */
+    val lairProgress: StateFlow<Map<String, Float>> = gameEngine.lairProgress
+
     val lairs: List<CreatureLair> = CreatureLairCatalog.lairs
 
     private val _welcomeBackEarnings = MutableStateFlow<OfflineEarnings?>(null)

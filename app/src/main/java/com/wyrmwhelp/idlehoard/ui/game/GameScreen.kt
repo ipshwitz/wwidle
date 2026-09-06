@@ -29,6 +29,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val adUnavailableMessage by viewModel.adUnavailableMessage.collectAsStateWithLifecycle()
     val buyQuantity by viewModel.buyQuantity.collectAsStateWithLifecycle()
     val milestoneAnnouncement by viewModel.milestoneAnnouncement.collectAsStateWithLifecycle()
+    val lairProgress by viewModel.lairProgress.collectAsStateWithLifecycle()
 
     // The "Everything" milestone bonuses — same compounding schedule as each
     // lair's own bonus, but keyed on the lowest owned count across all of
@@ -86,10 +87,9 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         goldPieces = state.goldPieces,
                         buyQuantity = buyQuantity,
                         globalIncomeMultiplier = globalIncomeMultiplier,
-                        globalSpeedMultiplier = globalSpeedMultiplier,
+                        progress = lairProgress[lair.id] ?: 0f,
                         onClaim = { viewModel.claimLair(lair.id) },
                         onStartLoad = { viewModel.startLairLoad(lair.id) },
-                        speedBoostMultiplier = speedMultiplier,
                         profitBoostMultiplier = profitMultiplier,
                     )
                 }
