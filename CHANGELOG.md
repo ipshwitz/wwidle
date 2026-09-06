@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.23.3] - 2026-09-06 11:55 AM EDT
+
+- Narrowed the 50-Gem minimum added in 0.23.2 to only apply to the very
+  first Level Up. Every Level Up after that goes back to the plain
+  lifetime-earnings gate from 0.23.1 with no minimum batch size — once
+  you've cleared that first real milestone, a smaller top-up payout is
+  fine.
+
 ## [0.23.2] - 2026-09-06 11:23 AM EDT
 
 - Added a real minimum to Level Up: previously the very first Level Up

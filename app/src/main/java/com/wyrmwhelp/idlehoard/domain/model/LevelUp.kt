@@ -30,19 +30,20 @@ import kotlin.math.sqrt
  * again" gate this is meant to provide, without a separately-tracked
  * threshold to keep in sync with the reward itself.
  *
- * On top of that stock/flow gate, [MIN_GEMS_PER_LEVEL_UP] sets a floor on
- * the *batch size* itself: even the very first Level Up (where the gap
- * above [GameState.totalGemsEarned] is the whole target, since it starts
- * at 0) is blocked until that gap would be worth at least 50 Gems — a
- * one-off, barely-worth-it Level Up for 1 or 2 Gems isn't the point of a
- * prestige mechanic. Once the gap clears that floor, the *entire* gap is
- * granted, not just the minimum — this only gates whether the action is
- * allowed at all, it doesn't cap the payout.
+ * On top of that stock/flow gate, [MIN_GEMS_PER_FIRST_LEVEL_UP] sets a
+ * floor on the very *first* Level Up specifically ([GameState.totalLevelUps]
+ * `== 0`): it's blocked until the gap would be worth at least 50 Gems, so
+ * the player's first prestige is a real milestone rather than a one-off,
+ * barely-worth-it reset for 1 or 2 Gems. Every Level Up after that first
+ * one goes back to the plain stock/flow rule above with no minimum batch
+ * size — once the player has already cleared that first bar, a smaller
+ * top-up gap is fine. Whenever the gap does clear whatever bar applies,
+ * the *entire* gap is granted, never just the minimum.
  */
 private const val GEM_FORMULA_COEFFICIENT = 150.0
 private const val LIFETIME_EARNINGS_DIVISOR = 1_000_000_000_000_000.0 // 10^15
 private const val GEM_INCOME_BONUS_PER_GEM = 0.02
-private const val MIN_GEMS_PER_LEVEL_UP = 50L
+private const val MIN_GEMS_PER_FIRST_LEVEL_UP = 50L
 
 /**
  * Gems a Level Up would earn right now — the target total Gems implied by
@@ -50,16 +51,18 @@ private const val MIN_GEMS_PER_LEVEL_UP = 50L
  * earned (never negative — a target that's fallen behind `totalGemsEarned`
  * is impossible in practice since both only ever grow, but not a case
  * worth crashing over, so it simply grants nothing rather than subtracting
- * Gems), floored to a whole number, and finally gated by
- * [MIN_GEMS_PER_LEVEL_UP] — a gap smaller than that reports 0 rather than
- * a token amount. 0 means "can't Level Up yet"; `GameEngine.performLevelUp`
+ * Gems), floored to a whole number. If this would be the player's very
+ * first Level Up ([GameState.totalLevelUps] `== 0`), the gap is also
+ * gated by [MIN_GEMS_PER_FIRST_LEVEL_UP] — smaller than that reports 0
+ * rather than a token first prestige; every Level Up after the first has
+ * no such minimum. 0 means "can't Level Up yet"; `GameEngine.performLevelUp`
  * and the Level Up screen both treat that as blocking the action entirely,
  * not performing a reset for nothing.
  */
 fun GameState.gemsEarnedFromLevelUp(): Long {
     val targetTotalGems = floor(GEM_FORMULA_COEFFICIENT * sqrt(lifetimeGoldEarned / LIFETIME_EARNINGS_DIVISOR)).toLong()
     val gap = (targetTotalGems - totalGemsEarned).coerceAtLeast(0L)
-    return if (gap >= MIN_GEMS_PER_LEVEL_UP) gap else 0L
+    return if (totalLevelUps == 0 && gap < MIN_GEMS_PER_FIRST_LEVEL_UP) 0L else gap
 }
 
 /**
