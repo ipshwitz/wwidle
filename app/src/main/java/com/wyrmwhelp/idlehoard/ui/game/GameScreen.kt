@@ -88,6 +88,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         buyQuantity = buyQuantity,
                         globalIncomeMultiplier = globalIncomeMultiplier,
                         progress = lairProgress[lair.id] ?: 0f,
+                        productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier),
                         onClaim = { viewModel.claimLair(lair.id) },
                         onStartLoad = { viewModel.startLairLoad(lair.id) },
                         profitBoostMultiplier = profitMultiplier,

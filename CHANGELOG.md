@@ -3,6 +3,20 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.21.5] - 2026-09-05 8:48 PM EDT
+
+- Each lair card now shows its actual current cycle time next to its
+  income — "218 gp / 38ms" instead of just "218 gp/cycle" — so it's
+  visible exactly how fast a lair is collecting, from milliseconds (a
+  heavily Speed-boosted lair) up through minutes and hours for a slow,
+  unboosted one.
+- New `ui/format/CycleTimeFormat.kt` handles the full range: whole
+  milliseconds under 1 second, "12s"/"1.5s" under a minute, then
+  minutes/hours/days for anything longer.
+- Verified on the emulator across the full owned range: "218 gp / 38ms",
+  "3.60K gp / 750ms", "27.00K gp / 1.5s", "15.55M gp / 48s", "22.39M gp /
+  6m 24s", "89.58M gp / 25m 36s".
+
 ## [0.21.4] - 2026-09-05 8:25 PM EDT
 
 - Tuned the progress-fill bar further based on feedback that it still

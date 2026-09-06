@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.21.4** (progress-fill bar tuned to actually reach
-     full before resetting, and the solid-bar cutoff moved much later —
-     see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.21.5** (each lair card now shows its actual cycle
+     time next to its income, e.g. "218 gp / 38ms" — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -328,7 +328,15 @@ These apply to every change made in this repo, however small:
     strictly between 0 and 1, so a fully solid card reads as a clean
     undivided tint with no seam). `FontFamily.Serif` for the name (matching
     `GameHeader`), italic muted text for monster/CR, bold `goldDeep`-colored
-    text for the income line. The Claim button is now the shared
+    income line reading `"${gp} gp / ${cycle time}"` (v0.21.5, via
+    `ui/format/CycleTimeFormat.kt` — new, since neither `GoldFormat` nor the
+    existing `DurationFormat` cooldown formatter, whole-minutes-only, covers
+    the ms-to-multi-day range a lair's actual cycle time can span) instead
+    of the old flat "gp/cycle" label — [productionSeconds], the same value
+    `GameScreen` already computes for its gold-per-second sum and the
+    (removed) `speedBoostMultiplier`/`globalSpeedMultiplier` params used to
+    derive, is now passed down through `LairRow` as its own prop just for
+    this display. The Claim button is now the shared
     `WoodenButton` instead of a Material `Button`. **The Steward button is
     gone** — hiring a Steward now lives solely in the Stewards menu section
     (see `StewardsContent` below), not on every card; `LairCard` no longer
@@ -747,7 +755,7 @@ These apply to every change made in this repo, however small:
     `effectiveProductionSeconds` needs `unitsOwned` now, unlike before
     v0.21.1. Every caller that credits or previews income/speed
     (`GameEngine.advance`/`advanceLair`/`grantInstantProduction`, `LairCard`'s
-    "gp/cycle" text and progress-bar fill, `GameScreen`'s gold-per-second
+    "gp / cycle time" text and progress-bar fill, `GameScreen`'s gold-per-second
     sum) computes both global multipliers once per tick/recomposition and
     threads them through separately; callers that don't pass them (existing
     tests, mainly) get the no-bonus default of 1.0 for each.

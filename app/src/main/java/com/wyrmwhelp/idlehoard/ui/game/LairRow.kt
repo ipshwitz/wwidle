@@ -62,7 +62,10 @@ import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
  * [progress] comes from `GameEngine.lairProgress` (via `GameViewModel`/
  * `GameScreen`) and is passed straight through to [LairCard] — see that
  * file's doc for why the fill fraction is computed engine-side now instead
- * of derived here from raw cycle-progress fields.
+ * of derived here from raw cycle-progress fields. [productionSeconds] is
+ * this lair's current actual cycle time (`GameScreen` computes it the same
+ * way it computes `goldPerSecond`) — also just passed straight through, for
+ * `LairCard`'s "gp / cycle time" line.
  */
 @Composable
 fun LairRow(
@@ -72,6 +75,7 @@ fun LairRow(
     buyQuantity: BuyQuantity,
     globalIncomeMultiplier: Double,
     progress: Float,
+    productionSeconds: Double,
     onClaim: () -> Unit,
     onStartLoad: () -> Unit,
     modifier: Modifier = Modifier,
@@ -113,6 +117,7 @@ fun LairRow(
             buyQuantity = buyQuantity,
             globalIncomeMultiplier = globalIncomeMultiplier,
             progress = progress,
+            productionSeconds = productionSeconds,
             coinBurstTrigger = coinBurstTrigger,
             onClaim = onClaim,
             onStartLoad = onStartLoad,

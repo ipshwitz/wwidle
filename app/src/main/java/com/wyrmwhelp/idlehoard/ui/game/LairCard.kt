@@ -38,6 +38,7 @@ import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
+import com.wyrmwhelp.idlehoard.ui.format.CycleTimeFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 /**
@@ -122,6 +123,12 @@ private const val PROGRESS_ANIMATION_DURATION_MS = 60
  * resetting again. A remembered `previousProgress` (per card, since this is
  * `remember`ed inside the composable) tracks last recomposition's raw value
  * so the reset can `snap()` instead.
+ *
+ * [productionSeconds] is this lair's current actual cycle time (after Speed
+ * Boost and milestone stacking) — shown next to the income line as
+ * `"${gp} gp / ${cycle time}"` via [CycleTimeFormat] instead of the old flat
+ * "gp/cycle" label, so the player can actually see how fast a lair is
+ * collecting rather than just its per-cycle payout.
  */
 @Composable
 fun LairCard(
@@ -131,6 +138,7 @@ fun LairCard(
     buyQuantity: BuyQuantity,
     globalIncomeMultiplier: Double,
     progress: Float,
+    productionSeconds: Double,
     coinBurstTrigger: Int,
     onClaim: () -> Unit,
     onStartLoad: () -> Unit,
@@ -221,7 +229,7 @@ fun LairCard(
                 )
                 if (owned.count > 0) {
                     Text(
-                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier))} gp/cycle",
+                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier))} gp / ${CycleTimeFormat.format(productionSeconds)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = palette.goldDeep,
                         fontWeight = FontWeight.Bold,
