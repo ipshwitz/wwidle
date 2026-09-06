@@ -2,6 +2,7 @@ package com.wyrmwhelp.idlehoard.ui.game
 
 import android.app.Activity
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -10,12 +11,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
+import com.wyrmwhelp.idlehoard.domain.model.availableSpeedBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
@@ -34,6 +37,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val milestoneAnnouncement by viewModel.milestoneAnnouncement.collectAsStateWithLifecycle()
     val lairProgress by viewModel.lairProgress.collectAsStateWithLifecycle()
     val levelUpReward by viewModel.levelUpReward.collectAsStateWithLifecycle()
+    val speedBoostAdMessage by viewModel.speedBoostAdMessage.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     // The "Everything" milestone bonuses — same compounding schedule as each
     // lair's own bonus, but keyed on the lowest owned count across all of
@@ -65,55 +70,68 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
         }
     }
 
-    AppBackground(modifier = modifier) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = Color.Transparent,
-            topBar = {
-                GameHeader(
-                    state = GameHeaderState(
-                        goldPieces = state.goldPieces,
-                        goldPerSecond = goldPerSecond,
-                        platinumPieces = state.platinumPieces,
-                        gems = state.gems,
-                        buyQuantity = buyQuantity,
-                    ),
-                    onCycleBuyQuantity = viewModel::cycleBuyQuantity,
-                )
-            },
-        ) { innerPadding ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(viewModel.lairs, key = { it.id }) { lair ->
-                    val owned = state.ownedLair(lair.id)
-                    val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
-                    val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
-                    LairRow(
-                        lair = lair,
-                        owned = owned,
-                        goldPieces = state.goldPieces,
-                        buyQuantity = buyQuantity,
-                        globalIncomeMultiplier = globalIncomeMultiplier,
-                        progress = lairProgress[lair.id] ?: 0f,
-                        productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier),
-                        onClaim = { viewModel.claimLair(lair.id) },
-                        onStartLoad = { viewModel.startLairLoad(lair.id) },
-                        profitBoostMultiplier = profitMultiplier,
-                        gemBonusMultiplier = gemMultiplier,
-                        upgradeProfitMultiplier = upgradeProfitMultiplier,
+    Box(modifier = modifier.fillMaxSize()) {
+        AppBackground(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = Color.Transparent,
+                topBar = {
+                    GameHeader(
+                        state = GameHeaderState(
+                            goldPieces = state.goldPieces,
+                            goldPerSecond = goldPerSecond,
+                            platinumPieces = state.platinumPieces,
+                            gems = state.gems,
+                            buyQuantity = buyQuantity,
+                        ),
+                        onCycleBuyQuantity = viewModel::cycleBuyQuantity,
                     )
+                },
+            ) { innerPadding ->
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(viewModel.lairs, key = { it.id }) { lair ->
+                        val owned = state.ownedLair(lair.id)
+                        val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
+                        val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
+                        LairRow(
+                            lair = lair,
+                            owned = owned,
+                            goldPieces = state.goldPieces,
+                            buyQuantity = buyQuantity,
+                            globalIncomeMultiplier = globalIncomeMultiplier,
+                            progress = lairProgress[lair.id] ?: 0f,
+                            productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier),
+                            onClaim = { viewModel.claimLair(lair.id) },
+                            onStartLoad = { viewModel.startLairLoad(lair.id) },
+                            profitBoostMultiplier = profitMultiplier,
+                            gemBonusMultiplier = gemMultiplier,
+                            upgradeProfitMultiplier = upgradeProfitMultiplier,
+                        )
+                    }
                 }
             }
         }
+
+        QuickSpeedBoostAdButton(
+            availableSlots = state.availableSpeedBoostAdSlots(),
+            message = speedBoostAdMessage,
+            onWatchAd = {
+                (context as? Activity)?.let { viewModel.watchAdForSpeedBoost(it) }
+            },
+            onDismissMessage = viewModel::dismissSpeedBoostAdMessage,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 16.dp),
+        )
     }
 
     welcomeBack?.let { earnings ->
-        val context = LocalContext.current
         WelcomeBackDialog(
             earnings = earnings,
             isDoubled = isOfflineEarningsDoubled,

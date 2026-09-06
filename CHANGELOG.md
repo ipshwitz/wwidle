@@ -3,6 +3,15 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.30.0] - 2026-09-06 6:40 PM EDT
+
+- Added a quick-access button in the bottom-right corner of the main game
+  screen for the same free Speed-boost ad watch that's in the Shop's
+  Temporary tab — no need to open the Shop menu to find it. Shows a small
+  badge with how many of the 4 daily watches are still available, and
+  fades when none are left. Watching from here counts against the same
+  daily watches as watching from the Shop.
+
 ## [0.29.0] - 2026-09-06 6:05 PM EDT
 
 - Added a free way to get a Speed boost in the Shop's Temporary tab: watch

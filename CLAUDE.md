@@ -92,9 +92,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.29.0** (added a free ad-watch Speed boost to the
-     Shop's Temporary tab — see the "Shop's ad-watch Speed boost" bullet
-     under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.30.0** (added a quick-access button for the same
+     ad-watch Speed boost directly on the main game screen — see the
+     "Quick-access Speed boost button" bullet under Tech stack and
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -784,6 +785,47 @@ These apply to every change made in this repo, however small:
     (Supabase, a plain `List<Long>` — jsonb needs no encoding trick) with
     an empty-list default so an older cloud save without this field still
     decodes.
+  - **Quick-access Speed boost button (v0.30.0)** — a second entry point
+    into the exact same ad reward above, this time fixed in the main
+    `GameScreen`'s bottom-right corner instead of tucked inside the Shop
+    menu, per explicit request: players shouldn't have to "hunt" for the
+    ad-watch reward. `ui/game/QuickSpeedBoostAdButton.kt`'s
+    `QuickSpeedBoostAdButton` calls the identical
+    `GameViewModel.watchAdForSpeedBoost`/`speedBoostAdMessage`/
+    `dismissSpeedBoostAdMessage` `ShopContent`'s row already used — there's
+    no separate cooldown or state for this button, and watching from here
+    counts against the same four daily slots as watching from the Shop.
+    Visually it's a small carved gold-ringed medallion (the same
+    Canvas-drawn sweep-gradient ring/embossed-disc language as
+    `GameHeader`'s `MedallionEmblem`) with a hand-drawn play-triangle glyph
+    standing in for a "watch video" icon — no ad-specific art asset exists,
+    and the project's style is Canvas drawing over a new sprite for
+    something this small. A small gold `SlotBadge` overlapping the rim
+    shows how many of the four daily slots are still free (hidden once
+    all four are on cooldown, at which point the medallion itself just
+    dims to `0.55f` alpha rather than disappearing) — confirmed design
+    (asked the user to disambiguate before building): "small icon button
+    with a badge," Speed-boost-only rather than a combined
+    Speed-and-Platinum popup, since the Speed boost is "the one most
+    relevant to active play." The button stays tappable even at 0 slots so
+    a tap still surfaces the "come back in Xh Ym" cooldown `message` via a
+    small dismissible parchment `MessageBubble` above it (same "✕" dismiss
+    affordance as `ShopContent`'s `PlatinumAdMessageCard`, duplicated
+    rather than shared per the project's established per-file-duplication
+    convention for small UI helpers) instead of silently doing nothing.
+    `GameScreen.kt` was restructured to wrap its `AppBackground`/`Scaffold`
+    content in an outer `Box` so this button (and the message bubble that
+    floats above it) can be aligned `BottomEnd` as a sibling overlay,
+    matching how `FloatingMenu`/`SectionOverlayCard` already float over
+    the game in `MainActivity` — it doesn't need any new contentPadding
+    reservation on the lair `LazyColumn` since it sits within the same
+    bottom band the list already reserves for `FloatingMenu`'s own toggle.
+    Verified live on-device: watching from this button decremented the
+    same slot badge the Shop shows (2 → 1), the "2x Speed active for 4h!"
+    message appeared, and stacked correctly with an already-active Speed
+    boost from a prior watch — Kobold Warren's live cycle time visibly
+    halved again (150ms → 75ms) on the main screen itself, confirming both
+    entry points feed the exact same `ActiveTemporaryBoost` state.
   - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0, price/PP
     curve revised twice since — v0.27.1, then v0.27.2)**
     (`billing/BillingManager.kt`) — Google Play Billing, replacing the
