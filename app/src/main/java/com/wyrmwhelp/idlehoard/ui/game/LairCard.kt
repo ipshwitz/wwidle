@@ -46,10 +46,24 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * was. Tracking the tick rate exactly meant the bar re-synced to a fresh
  * target almost immediately every tick, so a fast-resetting target (a
  * heavily Speed-boosted lair) produced visible bounce instead of being
- * smoothed out. 150ms is long enough to absorb that without feeling
- * sluggish on an ordinary-speed lair's own reset.
+ * smoothed out.
+ *
+ * Started at 150ms, which fixed the bounce but overcorrected: a tween is
+ * always chasing a moving target, so it lags the raw value by roughly its
+ * own duration the whole time the bar is filling — with a 150ms lag and a
+ * production cycle only a few hundred milliseconds long (a middling
+ * Speed-boosted lair, not fast enough to hit
+ * `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS`), the animated value never
+ * caught up before the reset snapped it back down, so the bar visibly fell
+ * short of ever looking "full." 60ms (still ~2x [GameEngine.TICK_INTERVAL_MS],
+ * enough to smooth the per-tick quantization) cuts that lag enough for a
+ * cycle of a few hundred ms or longer to visibly reach close to full before
+ * resetting, without reintroducing the original bounce — the genuinely
+ * fast lairs that bounce used to affect are now caught by
+ * `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS` instead of relying on tween
+ * duration to hide it.
  */
-private const val PROGRESS_ANIMATION_DURATION_MS = 150
+private const val PROGRESS_ANIMATION_DURATION_MS = 60
 
 /**
  * One lair in the list. Styled to match the app's cozy-fantasy chrome
@@ -94,19 +108,20 @@ private const val PROGRESS_ANIMATION_DURATION_MS = 150
  * derivation once per tick and reports a flat 1f (a continuously solid bar)
  * once a lair's cycle gets too fast to sample meaningfully — see
  * `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS`. The animation's own tween
- * duration is a fixed 150ms, deliberately decoupled from the engine's tick
- * rate, so rapid resets get smoothed rather than tracked frame-for-frame —
- * *except* the reset itself: [progress] only ever increases within a cycle
- * and resets exactly once on completion (never any other kind of decrease),
- * so a lower [progress] than last recomposition is unambiguously "a new
- * cycle just started," not a value worth tweening smoothly down to. Tweening
- * it anyway made the bar visibly slide backward into its next cycle instead
- * of snapping to empty and refilling — and, since that backward slide ate
- * into the 150ms window, also cut the *next* forward tween short enough
- * that a moderately fast lair's bar rarely looked like it actually reached
- * full before resetting again. A remembered `previousProgress` (per card,
- * since this is `remember`ed inside the composable) tracks last
- * recomposition's raw value so the reset can `snap()` instead.
+ * duration ([PROGRESS_ANIMATION_DURATION_MS]) is fixed and deliberately
+ * decoupled from the engine's tick rate, so rapid resets get smoothed
+ * rather than tracked frame-for-frame — *except* the reset itself:
+ * [progress] only ever increases within a cycle and resets exactly once on
+ * completion (never any other kind of decrease), so a lower [progress] than
+ * last recomposition is unambiguously "a new cycle just started," not a
+ * value worth tweening smoothly down to. Tweening it anyway made the bar
+ * visibly slide backward into its next cycle instead of snapping to empty
+ * and refilling — and, since that backward slide ate into the tween's own
+ * window, also cut the *next* forward tween short enough that a moderately
+ * fast lair's bar rarely looked like it actually reached full before
+ * resetting again. A remembered `previousProgress` (per card, since this is
+ * `remember`ed inside the composable) tracks last recomposition's raw value
+ * so the reset can `snap()` instead.
  */
 @Composable
 fun LairCard(

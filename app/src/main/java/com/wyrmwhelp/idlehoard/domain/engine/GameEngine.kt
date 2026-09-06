@@ -493,8 +493,8 @@ class GameEngine @Inject constructor() {
          * making repeated taps look like they were corrupting the animation.
          * At 33ms the same overshoot is ~5.5% of even that fastest cycle (and
          * under 2% for every longer one) — small enough to read as a clean
-         * start. `LairCard`'s own fill animation duration is a fixed 150ms,
-         * deliberately *not* tied to this constant — see
+         * start. `LairCard`'s own fill animation duration is a fixed,
+         * separate constant, deliberately *not* tied to this one — see
          * [PROGRESS_SOLID_THRESHOLD_SECONDS] for why coupling the two broke
          * down once a lair's cycle got fast enough to complete inside a
          * single tick.
@@ -503,23 +503,34 @@ class GameEngine @Inject constructor() {
 
         /**
          * Below this, a lair's own [CreatureLair.effectiveProductionSeconds]
-         * is comparable to or shorter than [TICK_INTERVAL_MS] itself, so
-         * [computeLairProgress]'s `cycleProgressSeconds / productionSeconds`
-         * ratio is sampling a value that can wrap around one or more times
-         * *between* ticks — a modulo remainder aliased against too coarse a
-         * sampling rate, not a smooth ramp. That's what previously showed up
-         * as the fill bar "bouncing up and down starting and stopping at
-         * random spots" on a heavily Speed-boosted lair, however short the UI
-         * animation's own tween duration was made — no amount of client-side
-         * smoothing fixes a signal that's already aliased at the source.
-         * [computeLairProgress] reports a flat 1f instead once production
-         * drops below this — a continuously solid bar, which is the
-         * *truthful* picture once cycles complete far faster than a human can
-         * watch one fill. Set to 3x [TICK_INTERVAL_MS] rather than 1x for
-         * headroom against real coroutine scheduling jitter (`delay(33)`
-         * reliably firing a little late under load) nudging an
-         * already-borderline lair across the line tick to tick.
+         * is fast enough that [computeLairProgress]'s
+         * `cycleProgressSeconds / productionSeconds` ratio stops being a
+         * meaningful *fill level* to show — [computeLairProgress] reports a
+         * flat 1f instead, a continuously solid bar, which is the *truthful*
+         * picture once cycles complete far faster than a human can watch one
+         * fill.
+         *
+         * Deliberately the *same* value as [MIN_CONFETTI_PRODUCTION_SECONDS]
+         * rather than something derived from [TICK_INTERVAL_MS] (a first
+         * pass used 3x the tick interval, ~99ms) — that was calibrated to
+         * the tick rate's own sampling limits, but it went solid far too
+         * early: reaching just the 200-owned Speed milestone rung (16x) is
+         * already enough to cross 99ms for the early lairs, well before
+         * their own milestone ladder is anywhere near exhausted. The
+         * confetti threshold was already calibrated to "genuinely extreme,
+         * beyond ordinary milestone stacking" (its own doc: "reachable only
+         * after ~84+ Speed Boost levels") — reusing it here means the bar
+         * only goes solid around the same point the coin-burst effect
+         * already stops bothering to fire, both expressing the same "too
+         * fast to visually register a single cycle" idea. A lair maxing out
+         * its own individual Speed milestones alone (400 owned, 64x) sits
+         * right at this line rather than well past it — some lairs will
+         * still show a real, very fast (and, below [TICK_INTERVAL_MS], not
+         * perfectly smooth) animation rather than going solid until
+         * additional stacking (the global "Everything" Speed bonus, or a
+         * purchased Speed Boost) pushes them further — an accepted
+         * trade-off for not freezing the bar prematurely.
          */
-        const val PROGRESS_SOLID_THRESHOLD_SECONDS = TICK_INTERVAL_MS * 3 / 1000.0
+        const val PROGRESS_SOLID_THRESHOLD_SECONDS = MIN_CONFETTI_PRODUCTION_SECONDS
     }
 }

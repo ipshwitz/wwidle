@@ -3,6 +3,26 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.21.4] - 2026-09-05 8:25 PM EDT
+
+- Tuned the progress-fill bar further based on feedback that it still
+  snapped back around 80–90% instead of visibly reaching the end, and that
+  the "solid" cutoff for very fast lairs kicked in too early (around the
+  200-owned Speed milestone).
+- Shortened the fill animation from 150ms to 60ms — a tween always lags its
+  target by roughly its own duration, and 150ms was long enough that a
+  cycle only a few hundred milliseconds long would reset again before the
+  bar ever visually caught up to full.
+- Moved the "just show it solid" cutoff from ~99ms down to 10ms (the same
+  threshold the coin-burst effect already uses) — a lair that's maxed its
+  own individual Speed milestones (400 owned, 64x) now sits right at that
+  line instead of well past it, so most lairs keep showing a real, very
+  fast animation instead of freezing solid as early as the 200 rung.
+- Verified on the emulator: a lair previously solid at ~200 owned now
+  shows a real fill climbing past 90% before resetting, and moderately
+  fast lairs that used to snap back around 80–90% now visually read as
+  consistently near-full between samples.
+
 ## [0.21.3] - 2026-09-05 8:11 PM EDT
 
 - Fixed the progress-fill bar not starting cleanly from empty or reliably

@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.21.3** (progress-fill bar now snaps instantly on
-     cycle reset instead of tweening backward into the next cycle — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.21.4** (progress-fill bar tuned to actually reach
+     full before resetting, and the solid-bar cutoff moved much later —
+     see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -358,40 +358,69 @@ These apply to every change made in this repo, however small:
       in `tick()` via a new private `computeLairProgress(state)`, once per
       tick, right after `advance()` updates `state`. An idle unmanaged lair
       (owned, not `isLoading`) is pinned at `0f`. Below
-      `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS` (3× `TICK_INTERVAL_MS`,
-      ~99ms — the point past which a lair's own `effectiveProductionSeconds`
-      can complete inside a single tick, so the raw ratio stops being
-      meaningful) it reports a flat `1f` instead of the raw ratio — a
-      continuously solid bar, which is the *truthful* picture once cycles
-      complete far faster than a human can watch one fill, not an aliased,
-      jittery one. `GameViewModel.lairProgress` exposes it straight through;
+      `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS` — the point past which a
+      lair's own `effectiveProductionSeconds` can complete inside a single
+      tick, so the raw ratio stops being meaningful — it reports a flat `1f`
+      instead of the raw ratio, a continuously solid bar, the *truthful*
+      picture once cycles complete far faster than a human can watch one
+      fill. `GameViewModel.lairProgress` exposes it straight through;
       `GameScreen` collects it and passes `lairProgress[lair.id] ?: 0f` down
       through `LairRow` to `LairCard`'s new `progress: Float` param (`LairCard`
       no longer takes `speedBoostMultiplier`/`globalSpeedMultiplier` — it
       doesn't need to derive anything itself anymore).
-    - `LairCard`'s `animateFloatAsState` now uses a **fixed 150ms tween**
+    - `LairCard`'s `animateFloatAsState` now uses a **fixed tween**
       (`PROGRESS_ANIMATION_DURATION_MS`), deliberately *not* tied to
       `TICK_INTERVAL_MS` the way it used to be — tracking the tick rate
       exactly meant the animation re-synced to a fresh target almost
       immediately every tick, so a fast-resetting target produced visible
       bounce instead of being smoothed over several ticks.
-    - **Snap-on-reset (v0.21.3)** — the 150ms tween fixed the bounce but
-      introduced a new, subtler issue: since [progress] only ever increases
-      within a cycle and drops exactly once on completion, tweening *that*
-      drop the same smooth way made the bar visibly slide backward into its
-      next cycle instead of resetting cleanly — and since that backward
-      slide ate into the 150ms window, it also cut the next forward tween
-      short enough that a moderately fast lair's bar rarely looked like it
-      actually reached full before resetting again. `LairCard` now
-      `remember`s the previous recomposition's raw `progress` value per
-      card; any *decrease* (never a natural part of the ramp — there's no
-      other way `progress` goes down) swaps the `animationSpec` to `snap()`
-      for that one frame instead of `tween(...)`, so the bar jumps instantly
-      to empty and the next fill starts clean. Confirmed via a burst of
-      screenshots on a Steward-managed lair: fill visibly climbed
-      65%→90%→95% across consecutive frames, then the very next sample
-      showed it already restarted at a fresh low value with no
-      intermediate slide-back frames — a snap, not a tween.
+    - **Snap-on-reset (v0.21.3)** — the first-pass 150ms tween fixed the
+      bounce but introduced a new, subtler issue: since [progress] only ever
+      increases within a cycle and drops exactly once on completion,
+      tweening *that* drop the same smooth way made the bar visibly slide
+      backward into its next cycle instead of resetting cleanly — and since
+      that backward slide ate into the tween's own window, it also cut the
+      next forward tween short enough that a moderately fast lair's bar
+      rarely looked like it actually reached full before resetting again.
+      `LairCard` now `remember`s the previous recomposition's raw `progress`
+      value per card; any *decrease* (never a natural part of the ramp —
+      there's no other way `progress` goes down) swaps the `animationSpec`
+      to `snap()` for that one frame instead of `tween(...)`, so the bar
+      jumps instantly to empty and the next fill starts clean.
+    - **Tuning pass (v0.21.4)**, after the snap-on-reset fix still left two
+      complaints: some lairs' bars still snapped back around 80–90% instead
+      of visibly reaching the end, and the solid cutoff kicked in too early
+      (around the 200-owned Speed milestone, not much past the first rung)
+      for the player's taste. Two independent constant changes:
+      - `PROGRESS_ANIMATION_DURATION_MS`: 150ms → **60ms**. A tween always
+        lags its target by roughly its own duration while continuously
+        chasing it — with 150ms and a production cycle only a few hundred
+        ms long, that lag alone was enough that the animated value never
+        caught up before the next reset snapped it back down. 60ms (still
+        ~2x `TICK_INTERVAL_MS`, enough to smooth per-tick quantization)
+        shrinks that lag enough for cycles of a few hundred ms or longer to
+        visibly reach close to full before resetting.
+      - `PROGRESS_SOLID_THRESHOLD_SECONDS`: `3x TICK_INTERVAL_MS` (~99ms) →
+        **`MIN_CONFETTI_PRODUCTION_SECONDS`** (10ms, the same constant the
+        coin-burst effect already uses to decide "too fast to bother
+        animating"). 99ms was calibrated purely to the tick rate's own
+        sampling limits, but that meant lairs went solid as early as the
+        200-owned Speed milestone (16x) — nowhere near their own milestone
+        ladder being exhausted. 10ms lines the cutoff up with a value
+        already deliberately calibrated to "genuinely extreme, beyond
+        ordinary milestone stacking" — a lair maxing its own individual
+        Speed milestones alone (400 owned, 64x) sits right at this line
+        rather than well past it, so most lairs keep showing a real
+        (if very fast, and below `TICK_INTERVAL_MS`, not perfectly smooth)
+        animation until additional stacking (the global "Everything" Speed
+        bonus, or a purchased Speed Boost) pushes them further — an
+        accepted trade-off over freezing the bar prematurely.
+      Confirmed via bursts of screenshots: a lair previously solid at
+      ~200 owned (37.5ms cycle) now shows a real fill climbing past 90%
+      before resetting; moderately-fast Steward-managed lairs that used to
+      snap back around 80–90% now visually read as consistently
+      near-full/solid between samples, since the shorter tween lets them
+      actually reach close to 100% each cycle.
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
     the stated art style — no sprite asset) fired only when a manually
