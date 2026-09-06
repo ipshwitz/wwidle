@@ -3,6 +3,22 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.22.2] - 2026-09-05 10:08 PM EDT
+
+- Fixed Steward-managed lair avatars showing semi-transparent even though
+  they're actively producing on their own. The avatar's dimming was driven
+  by the same `enabled` flag that gates tap-ability, and a Steward-managed
+  lair is never tappable (there's nothing to tap — the Steward already
+  handles it), so it was permanently dimmed regardless of how much it was
+  earning.
+- Split "tappable" and "visually bright" into two separate signals in
+  `LairRow`: a lair is now bright whenever it's owned and either has a
+  Steward or isn't mid-cycle — only an owned, Steward-less lair mid-load
+  still dims, unchanged from before.
+- Verified live: hired Stewards on Kobold Warren, Giant Rat Burrow, and
+  Bugbear Warcamp (portrait-art avatars) and confirmed all three now
+  render fully opaque instead of dimmed.
+
 ## [0.22.1] - 2026-09-05 9:49 PM EDT
 
 - Fixed the new lair card layout being dominated by gold: the buy button's

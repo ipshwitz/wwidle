@@ -92,9 +92,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.22.1** (buy button and a left accent stripe now
-     carry each lair's rarity color instead of a universal gold — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.22.2** (Steward-managed lair avatars now render
+     fully opaque instead of dimmed — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -287,8 +286,15 @@ These apply to every change made in this repo, however small:
     Tapping the avatar starts the lair's production cycle exactly like
     tapping the card (see the redesigned gold-collection flow below): both
     share one hoisted `onStartLoad` action, and `canStartLoad` (`owned.count
-    > 0 && !owned.hasSteward && !owned.isLoading`) gates both tap targets and
-    dims the avatar identically to the card's own disabled state. Owns the
+    > 0 && !owned.hasSteward && !owned.isLoading`) gates both tap targets.
+    **Tap-ability and visual dimming are two separate signals as of
+    v0.22.2** — they used to be the same `canStartLoad` boolean, which meant
+    a Steward-managed lair (never tappable, since there's nothing to tap —
+    the Steward already collects it) was permanently rendered at 0.55 alpha
+    even while actively producing. `isBright` (`owned.count > 0 &&
+    (owned.hasSteward || !owned.isLoading)`) is the separate signal
+    `CreatureAvatar`'s `alpha` now actually reads; only an owned,
+    Steward-less lair mid-load still dims, same as before. Owns the
     `coinBurstTrigger` counter passed into `LairCard` as a plain `Int`
     parameter instead of `LairCard` keeping that counter as local `remember`
     state — needed so both tap targets fire the same `CoinBurstOverlay`

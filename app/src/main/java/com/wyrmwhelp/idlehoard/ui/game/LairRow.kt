@@ -94,6 +94,11 @@ fun LairRow(
     // Tappable only when this lair is owned, has no Steward (which runs on
     // its own — tapping it does nothing), and isn't already mid-cycle.
     val canStartLoad = owned.count > 0 && !owned.hasSteward && !owned.isLoading
+    // Full brightness once owned, *including* while Steward-managed — a
+    // hired Steward means this lair is continuously earning on its own, not
+    // idle, so it shouldn't read as dimmed/disabled the way "not tappable
+    // right now" implies for the other two dim cases (unowned, mid-load).
+    val isBright = owned.count > 0 && (owned.hasSteward || !owned.isLoading)
 
     Row(
         modifier = modifier
@@ -104,6 +109,7 @@ fun LairRow(
         CreatureAvatar(
             lair = lair,
             enabled = canStartLoad,
+            bright = isBright,
             onClick = onStartLoad,
             palette = palette,
             modifier = Modifier
@@ -150,21 +156,24 @@ private fun lairPortraitRes(lairId: String): Int? = when (lairId) {
  * carved border and the monster's first letter in serif type. The
  * placeholder isn't unique per monster (a few tiers share an initial) but
  * the rarity color band and the full name right next to it in `LairCard`
- * already disambiguate. Both variants dim identically whenever the avatar
- * isn't tappable (owned but Steward-managed, or already mid-cycle) and
- * share the exact tap target contract as the card: `enabled` mirrors
- * `LairRow`'s `canStartLoad`, `onClick` is the same hoisted `onStartLoad`
- * action.
+ * already disambiguate. Both variants dim identically whenever [bright] is
+ * false — unowned, or owned but mid-cycle without a Steward — while a
+ * Steward-managed lair stays fully opaque even though it's never tappable,
+ * since it's continuously producing rather than idle (see `LairRow`'s
+ * `isBright`). `enabled` is tap-ability only (mirrors `LairRow`'s
+ * `canStartLoad`) and no longer drives opacity; `onClick` is the same
+ * hoisted `onStartLoad` action.
  */
 @Composable
 private fun CreatureAvatar(
     lair: CreatureLair,
     enabled: Boolean,
+    bright: Boolean,
     onClick: () -> Unit,
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
-    val alpha = if (enabled) 1f else 0.55f
+    val alpha = if (bright) 1f else 0.55f
     val portraitRes = lairPortraitRes(lair.id)
 
     Box(
