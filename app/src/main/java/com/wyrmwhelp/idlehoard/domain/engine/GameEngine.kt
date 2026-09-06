@@ -491,15 +491,29 @@ class GameEngine @Inject constructor() {
          * next tick. At the old 200ms that was a third of Kobold Warren's 0.6s
          * cycle — visibly skipping the start of the fill and, for fast cycles,
          * making repeated taps look like they were corrupting the animation.
-         * At 33ms the same overshoot is ~5.5% of even that fastest cycle (and
-         * under 2% for every longer one) — small enough to read as a clean
-         * start. `LairCard`'s own fill animation duration is a fixed,
+         *
+         * Lowered from an original 33ms to 8ms (v0.21.6) for a second reason
+         * beyond overshoot: [lairProgress] can only be as smooth as how many
+         * *samples* fall within one cycle, and a lair whose
+         * `effectiveProductionSeconds` gets down near this interval — a
+         * Kobold Warren at 38ms was the case that prompted this, comfortably
+         * above [PROGRESS_SOLID_THRESHOLD_SECONDS] so it was still trying to
+         * animate rather than just showing solid — was only getting roughly
+         * one sample per cycle at 33ms. One sample can't distinguish "just
+         * started" from "about to finish," so the bar visibly jumped around
+         * rather than climbing. At 8ms the same 38ms cycle gets ~4-5 samples,
+         * enough to read as a real (if fast) climb. This doesn't fix the
+         * problem for arbitrarily fast cycles — there's always some speed
+         * fast enough to alias against whatever this constant is — it just
+         * moves the point where that stops mattering further out, matching
+         * where `LairCard`'s own animation and [PROGRESS_SOLID_THRESHOLD_SECONDS]
+         * are tuned for. `LairCard`'s own fill animation duration is a fixed,
          * separate constant, deliberately *not* tied to this one — see
          * [PROGRESS_SOLID_THRESHOLD_SECONDS] for why coupling the two broke
          * down once a lair's cycle got fast enough to complete inside a
          * single tick.
          */
-        const val TICK_INTERVAL_MS = 33L
+        const val TICK_INTERVAL_MS = 8L
 
         /**
          * Below this, a lair's own [CreatureLair.effectiveProductionSeconds]

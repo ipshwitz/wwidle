@@ -92,8 +92,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.21.5** (each lair card now shows its actual cycle
-     time next to its income, e.g. "218 gp / 38ms" — see
+   - Current version: **0.21.6** (progress-fill bar now samples finely
+     enough to stay smooth down to tens-of-milliseconds cycle times — see
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -429,6 +429,33 @@ These apply to every change made in this repo, however small:
       snap back around 80–90% now visually read as consistently
       near-full/solid between samples, since the shorter tween lets them
       actually reach close to 100% each cycle.
+    - **Tick-rate tuning (v0.21.6)** — v0.21.4's fixes still left a
+      remaining complaint: a lair right above `PROGRESS_SOLID_THRESHOLD_SECONDS`
+      (a Kobold Warren at 38ms — still comfortably above 10ms, so genuinely
+      animating rather than solid) visibly bounced instead of climbing
+      smoothly. Root cause was sampling resolution, not animation tuning:
+      `GameEngine.TICK_INTERVAL_MS` at 33ms meant a 38ms cycle only got
+      ~1.1 samples of `lairProgress` per cycle — one sample can't
+      distinguish "just started" from "about to finish," so the raw target
+      itself (not just its rendering) jumped around. Lowered
+      `TICK_INTERVAL_MS` to **8ms** (a 38ms cycle now gets ~4-5 samples)
+      and `LairCard.PROGRESS_ANIMATION_DURATION_MS` to **20ms** in lockstep
+      (short enough to still let a few-tens-of-ms cycle visibly climb most
+      of the way to full, long enough — ~2.5x the new tick interval — to
+      smooth the now much finer per-tick steps). This doesn't eliminate the
+      underlying limit — there's always some cycle time fast enough to
+      alias against whatever the tick rate is — it just pushes the point
+      where that stops mattering further out, from "just past the 200-owned
+      Speed milestone" to comfortably past it. A ~4x tick-rate increase
+      (33ms → 8ms) means the engine's tick loop and `computeLairProgress`
+      now run 4x as often; both are cheap arithmetic over the lair catalog
+      (~14 entries), so this is a deliberate trade of a small, likely
+      negligible CPU/battery cost for meaningfully smoother animation at
+      the speeds late-game milestone/Speed-Boost stacking actually reaches
+      — revisit if it ever shows up as a real battery concern. Confirmed via
+      a burst of screenshots: the previously-bouncing 38ms lair now holds a
+      stable, consistently near-full fill across consecutive frames instead
+      of jumping to random low values.
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
     the stated art style — no sprite asset) fired only when a manually

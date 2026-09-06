@@ -3,6 +3,27 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.21.6] - 2026-09-05 8:59 PM EDT
+
+- Fixed a Kobold Warren at a 38ms cycle time (fast, but not fast enough to
+  show a solid bar) visibly bouncing instead of climbing smoothly. The
+  cause wasn't animation tuning — it was sampling resolution: at the
+  previous 33ms tick rate, a 38ms cycle only got about one sample per
+  cycle, which can't distinguish "just started" from "about to finish."
+- Lowered the engine's tick interval from 33ms to 8ms (so a 38ms cycle
+  now gets 4-5 samples) and shortened the fill animation from 60ms to
+  20ms to match. This doesn't remove the underlying limit entirely — some
+  cycle time will always be fast enough to alias against any fixed tick
+  rate — but it pushes the point where that becomes visible much further
+  out, well past where ordinary milestone/Speed-Boost stacking currently
+  reaches.
+- The engine's tick loop and progress calculation now run about 4x as
+  often; both are cheap arithmetic over the ~14-lair catalog, so this is
+  a deliberate small CPU/battery trade for smoother animation.
+- Verified on the emulator: the previously-bouncing 38ms lair now holds a
+  stable, consistently near-full fill across consecutive frames instead
+  of jumping to random low values.
+
 ## [0.21.5] - 2026-09-05 8:48 PM EDT
 
 - Each lair card now shows its actual current cycle time next to its

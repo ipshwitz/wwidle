@@ -43,11 +43,10 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 /**
  * Fixed duration for the fill bar's [animateFloatAsState] — deliberately
- * *not* tied to `GameEngine.TICK_INTERVAL_MS` (33ms) the way it originally
- * was. Tracking the tick rate exactly meant the bar re-synced to a fresh
- * target almost immediately every tick, so a fast-resetting target (a
- * heavily Speed-boosted lair) produced visible bounce instead of being
- * smoothed out.
+ * *not* tied to `GameEngine.TICK_INTERVAL_MS` the way it originally was.
+ * Tracking the tick rate exactly meant the bar re-synced to a fresh target
+ * almost immediately every tick, so a fast-resetting target (a heavily
+ * Speed-boosted lair) produced visible bounce instead of being smoothed out.
  *
  * Started at 150ms, which fixed the bounce but overcorrected: a tween is
  * always chasing a moving target, so it lags the raw value by roughly its
@@ -56,15 +55,16 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * Speed-boosted lair, not fast enough to hit
  * `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS`), the animated value never
  * caught up before the reset snapped it back down, so the bar visibly fell
- * short of ever looking "full." 60ms (still ~2x [GameEngine.TICK_INTERVAL_MS],
- * enough to smooth the per-tick quantization) cuts that lag enough for a
- * cycle of a few hundred ms or longer to visibly reach close to full before
- * resetting, without reintroducing the original bounce — the genuinely
- * fast lairs that bounce used to affect are now caught by
- * `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS` instead of relying on tween
- * duration to hide it.
+ * short of ever looking "full." Dropped to 60ms, then to 20ms (v0.21.6,
+ * alongside `GameEngine.TICK_INTERVAL_MS` dropping from 33ms to 8ms for the
+ * same underlying reason — see that constant's doc) — short enough that
+ * even a lair whose cycle is only a few tens of milliseconds long (comfortably
+ * above `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS`, so it's still really
+ * animating rather than showing solid) can visibly climb most of the way to
+ * full before resetting, while still being long enough (~2.5x the lowered
+ * tick interval) to smooth the now much finer per-tick quantization steps.
  */
-private const val PROGRESS_ANIMATION_DURATION_MS = 60
+private const val PROGRESS_ANIMATION_DURATION_MS = 20
 
 /**
  * One lair in the list. Styled to match the app's cozy-fantasy chrome
