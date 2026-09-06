@@ -29,24 +29,37 @@ import kotlin.math.sqrt
  * time, which is exactly the "reach further before you can Level Up
  * again" gate this is meant to provide, without a separately-tracked
  * threshold to keep in sync with the reward itself.
+ *
+ * On top of that stock/flow gate, [MIN_GEMS_PER_LEVEL_UP] sets a floor on
+ * the *batch size* itself: even the very first Level Up (where the gap
+ * above [GameState.totalGemsEarned] is the whole target, since it starts
+ * at 0) is blocked until that gap would be worth at least 50 Gems — a
+ * one-off, barely-worth-it Level Up for 1 or 2 Gems isn't the point of a
+ * prestige mechanic. Once the gap clears that floor, the *entire* gap is
+ * granted, not just the minimum — this only gates whether the action is
+ * allowed at all, it doesn't cap the payout.
  */
 private const val GEM_FORMULA_COEFFICIENT = 150.0
 private const val LIFETIME_EARNINGS_DIVISOR = 1_000_000_000_000_000.0 // 10^15
 private const val GEM_INCOME_BONUS_PER_GEM = 0.02
+private const val MIN_GEMS_PER_LEVEL_UP = 50L
 
 /**
  * Gems a Level Up would earn right now — the target total Gems implied by
  * [GameState.lifetimeGoldEarned] minus [GameState.totalGemsEarned] already
- * earned, floored, never negative (a target that's fallen behind
- * `totalGemsEarned` — impossible in practice since both only ever grow,
- * but not a case worth crashing over — simply grants nothing rather than
- * subtracting Gems). 0 means "can't Level Up yet"; `GameEngine.performLevelUp`
+ * earned (never negative — a target that's fallen behind `totalGemsEarned`
+ * is impossible in practice since both only ever grow, but not a case
+ * worth crashing over, so it simply grants nothing rather than subtracting
+ * Gems), floored to a whole number, and finally gated by
+ * [MIN_GEMS_PER_LEVEL_UP] — a gap smaller than that reports 0 rather than
+ * a token amount. 0 means "can't Level Up yet"; `GameEngine.performLevelUp`
  * and the Level Up screen both treat that as blocking the action entirely,
  * not performing a reset for nothing.
  */
 fun GameState.gemsEarnedFromLevelUp(): Long {
     val targetTotalGems = floor(GEM_FORMULA_COEFFICIENT * sqrt(lifetimeGoldEarned / LIFETIME_EARNINGS_DIVISOR)).toLong()
-    return (targetTotalGems - totalGemsEarned).coerceAtLeast(0L)
+    val gap = (targetTotalGems - totalGemsEarned).coerceAtLeast(0L)
+    return if (gap >= MIN_GEMS_PER_LEVEL_UP) gap else 0L
 }
 
 /**

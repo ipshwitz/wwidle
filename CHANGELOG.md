@@ -3,6 +3,17 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.23.2] - 2026-09-06 11:23 AM EDT
+
+- Added a real minimum to Level Up: previously the very first Level Up
+  unlocked the moment lifetime earnings were worth even 1 Gem (around
+  44 billion lifetime Gold) — barely a milestone. Now the payout must be
+  worth at least 50 Gems before Level Up is allowed at all (around 111
+  trillion lifetime Gold for the first one), so it can't be triggered for
+  a token amount. Once that bar is cleared, the full payout is granted —
+  the minimum only gates whether the button is enabled, it doesn't cap
+  how many Gems you actually get.
+
 ## [0.23.1] - 2026-09-06 11:09 AM EDT
 
 - Fixed Level Up having no real cap: the previous formula computed Gems

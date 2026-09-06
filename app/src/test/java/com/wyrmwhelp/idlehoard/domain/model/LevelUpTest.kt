@@ -42,6 +42,27 @@ class LevelUpTest {
     }
 
     @Test
+    fun `gemsEarnedFromLevelUp blocks a gap smaller than the 50-gem minimum batch size`() {
+        // Target is 150 (same lifetime earnings as the 150-gem test above);
+        // having already earned 101 of them leaves a gap of only 49 — below
+        // the minimum, so this should report 0 rather than a token amount,
+        // even though the gap itself is genuinely positive.
+        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 101L)
+
+        assertEquals(0L, state.gemsEarnedFromLevelUp())
+    }
+
+    @Test
+    fun `the very first Level Up is blocked until lifetime earnings alone are worth at least 50 gems`() {
+        // 150 * sqrt(4.444e12 / 1e15) ~= 10 gems worth of lifetime earnings —
+        // comfortably below the 50-gem minimum, so even a completely fresh
+        // save (totalGemsEarned defaults to 0) can't Level Up yet.
+        val notEnoughYet = GameState(lifetimeGoldEarned = 4_444_444_444_444.0)
+
+        assertEquals(0L, notEnoughYet.gemsEarnedFromLevelUp())
+    }
+
+    @Test
     fun `gemsEarnedFromLevelUp is 0 (not negative) once totalGemsEarned has caught up to the target`() {
         // This is the actual "reach further before you can Level Up again"
         // gate: leveling up without any new lifetime earnings in between

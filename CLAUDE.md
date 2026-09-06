@@ -92,9 +92,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.23.1** (Level Up's Gem formula now gates on
-     lifetime earnings instead of current net worth, so it can't be
-     repeated for free — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.23.2** (Level Up now requires at least a 50-Gem
+     payout to unlock at all, not just 1 — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -989,7 +988,8 @@ These apply to every change made in this repo, however small:
     deduct Platinum, apply); `GameViewModel` has matching thin wrappers,
     same shape as `claimLair`/`hireSteward`.
   - **Level Up** (`domain/model/LevelUp.kt`, v0.23.0, gating reworked in
-    v0.23.1) — the prestige mechanic described under Core game design
+    v0.23.1, minimum-batch floor added in v0.23.2) — the prestige
+    mechanic described under Core game design
     below, finally implemented. `GameState.gemsEarnedFromLevelUp()` is
     AdVenture Capitalist's real Angel Investor formula, ported 1:1 (same
     convention as the tier-0–9 lair balance in `CreatureLairCatalog`):
@@ -1015,7 +1015,16 @@ These apply to every change made in this repo, however small:
     up twice with no new lifetime earnings in between now correctly
     grants exactly 0 the second time, which *is* the "reach further
     before you can Level Up again" gate, achieved without a second
-    threshold value to keep in sync with the reward. `gemIncomeMultiplier(gems:
+    threshold value to keep in sync with the reward.
+    **Minimum batch size (v0.23.2)** — on top of that stock/flow gate,
+    `MIN_GEMS_PER_LEVEL_UP` (50) blocks the action entirely unless the
+    computed gap is worth at least that many Gems, so even the very
+    first Level Up (an explicit user request — "set it so a minimum of
+    50 gems must be earned," since the un-gated formula let a brand-new
+    save Level Up for just 1 Gem at ~44 billion lifetime Gold) needs
+    real progress first, not a token amount. This only gates whether
+    Leveling up is *allowed* — once the gap clears 50, the entire gap is
+    granted, not capped at 50. `gemIncomeMultiplier(gems:
     Long)` (unchanged) is a flat +2% income bonus per Gem, *additive*
     rather than compounding (unlike the Platinum-bought Profit Boost), so
     it doesn't need its own escalating cost curve the way Boosts do. Both
