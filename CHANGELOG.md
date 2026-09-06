@@ -3,6 +3,15 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.29.0] - 2026-09-06 6:05 PM EDT
+
+- Added a free way to get a Speed boost in the Shop's Temporary tab: watch
+  an ad for a 2x Speed boost lasting 4 hours. It stacks with itself and
+  with any paid Speed boost — up to 4 watches can be active at once (16x
+  total), and each individual watch has its own 24-hour cooldown before it
+  can be used again (so all 4 don't come back at the same time if watched
+  back-to-back).
+
 ## [0.28.2] - 2026-09-06 10:45 PM EDT
 
 - Added the game's version number to the bottom of the Settings screen.

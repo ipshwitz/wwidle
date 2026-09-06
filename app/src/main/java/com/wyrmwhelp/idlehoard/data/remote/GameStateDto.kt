@@ -28,6 +28,7 @@ data class GameStateDto(
     @SerialName("permanent_gem_boost_5x_level") val permanentGemBoost5xLevel: Int = 0,
     @SerialName("active_temporary_boosts") val activeTemporaryBoosts: List<ActiveTemporaryBoostDto> = emptyList(),
     @SerialName("last_platinum_ad_watched_at_epoch_millis") val lastPlatinumAdWatchedAtEpochMillis: Long? = null,
+    @SerialName("speed_boost_ad_watch_timestamps_epoch_millis") val speedBoostAdWatchTimestampsEpochMillis: List<Long> = emptyList(),
 )
 
 /** JSON mirror of [com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost]. */

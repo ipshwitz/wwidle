@@ -8,6 +8,10 @@ import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_SPEED_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_COOLDOWN
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_COOLDOWN
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MAX_SLOTS
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.TEMPORARY_BOOST_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
@@ -624,6 +628,45 @@ class GameEngineTest {
     }
 
     @Test
+    fun `grantSpeedBoostAdReward starts a fresh 2x Speed boost and stamps a watch when never watched`() {
+        engine.loadState(GameState())
+        val now = Instant.now()
+
+        val granted = engine.grantSpeedBoostAdReward(now)
+
+        assertTrue(granted)
+        assertEquals(listOf(now), engine.state.value.speedBoostAdWatchTimestamps)
+        val active = engine.state.value.activeTemporaryBoosts.single()
+        assertEquals(TemporaryBoostCategory.SPEED, active.category)
+        assertEquals(SPEED_BOOST_AD_MULTIPLIER, active.multiplier, 0.0001)
+        assertEquals(now.plus(SPEED_BOOST_AD_DURATION), active.expiresAt)
+    }
+
+    @Test
+    fun `grantSpeedBoostAdReward can be granted up to four times before running out of slots`() {
+        engine.loadState(GameState())
+        val now = Instant.now()
+
+        repeat(SPEED_BOOST_AD_MAX_SLOTS) { assertTrue(engine.grantSpeedBoostAdReward(now)) }
+        val fifthGranted = engine.grantSpeedBoostAdReward(now)
+
+        assertFalse(fifthGranted)
+        assertEquals(SPEED_BOOST_AD_MAX_SLOTS, engine.state.value.speedBoostAdWatchTimestamps.size)
+        assertEquals(SPEED_BOOST_AD_MAX_SLOTS, engine.state.value.activeTemporaryBoosts.size)
+    }
+
+    @Test
+    fun `grantSpeedBoostAdReward succeeds again once one slot's own cooldown fully elapses`() {
+        val watchedAt = Instant.now()
+        engine.loadState(GameState(speedBoostAdWatchTimestamps = List(SPEED_BOOST_AD_MAX_SLOTS) { watchedAt }))
+        val nextWatch = watchedAt.plus(SPEED_BOOST_AD_COOLDOWN)
+
+        val granted = engine.grantSpeedBoostAdReward(nextWatch)
+
+        assertTrue(granted)
+    }
+
+    @Test
     fun `performLevelUp does nothing and earns no gems from a brand-new save`() {
         engine.loadState(GameState())
 
@@ -665,6 +708,7 @@ class GameEngineTest {
                 activeTemporaryBoosts = listOf(activeBoost),
                 offlineCapHours = 8.0,
                 lastPlatinumAdWatchedAt = watchedAt,
+                speedBoostAdWatchTimestamps = listOf(watchedAt),
             ),
         )
 
@@ -677,6 +721,7 @@ class GameEngineTest {
         assertEquals(listOf(activeBoost), engine.state.value.activeTemporaryBoosts)
         assertEquals(8.0, engine.state.value.offlineCapHours, 0.0001)
         assertEquals(watchedAt, engine.state.value.lastPlatinumAdWatchedAt)
+        assertEquals(listOf(watchedAt), engine.state.value.speedBoostAdWatchTimestamps)
         assertEquals(1_000_000_000_000_000.0, engine.state.value.lifetimeGoldEarned, 0.0001)
     }
 

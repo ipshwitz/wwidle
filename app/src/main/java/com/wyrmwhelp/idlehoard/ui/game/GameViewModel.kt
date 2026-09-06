@@ -15,9 +15,12 @@ import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.MilestoneAnnouncement
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
 import com.wyrmwhelp.idlehoard.domain.model.milestonesCrossed
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
+import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
@@ -452,6 +455,50 @@ class GameViewModel @Inject constructor(
 
     fun dismissPlatinumAdMessage() {
         _platinumAdMessage.value = null
+    }
+
+    // Result text from the last Shop Speed-boost ad-watch attempt — same
+    // one-message shape as _platinumAdMessage above.
+    private val _speedBoostAdMessage = MutableStateFlow<String?>(null)
+    val speedBoostAdMessage: StateFlow<String?> = _speedBoostAdMessage.asStateFlow()
+
+    /**
+     * The Shop's ad-watch Speed-boost button — grants a temporary 2x Speed
+     * boost (see `domain/model/AdRewards.kt`'s `SPEED_BOOST_AD_MULTIPLIER`/
+     * `SPEED_BOOST_AD_DURATION`) as long as one of the four independent
+     * daily slots is free, gated by [GameState.speedBoostAdWatchTimestamps]
+     * rather than anything ad-network-side, so the cooldowns survive across
+     * sessions. Checks up front (so a tap while all slots are busy never
+     * even asks `AdManager` for an ad) and again in
+     * [GameEngine.grantSpeedBoostAdReward] itself (so a race between two
+     * rapid taps can't double-grant), same shape as [watchAdForPlatinum].
+     */
+    fun watchAdForSpeedBoost(activity: Activity) {
+        val state = gameEngine.state.value
+        val cooldownRemaining = state.speedBoostAdCooldownRemaining()
+        if (!cooldownRemaining.isZero) {
+            _speedBoostAdMessage.value = "Come back in ${DurationFormat.format(cooldownRemaining)} for another slot."
+            return
+        }
+        _speedBoostAdMessage.value = null
+        adManager.showAd(
+            placement = RewardedPlacement.SHOP_SPEED_BOOST,
+            activity = activity,
+            onRewardEarned = {
+                _speedBoostAdMessage.value = if (gameEngine.grantSpeedBoostAdReward()) {
+                    "${GoldFormat.format(SPEED_BOOST_AD_MULTIPLIER)}x Speed active for ${DurationFormat.format(SPEED_BOOST_AD_DURATION)}!"
+                } else {
+                    "Come back later to watch again."
+                }
+            },
+            onUnavailable = {
+                _speedBoostAdMessage.value = "Ad isn't ready yet — try again in a moment."
+            },
+        )
+    }
+
+    fun dismissSpeedBoostAdMessage() {
+        _speedBoostAdMessage.value = null
     }
 
     /** Play Store's own formatted price per product id (e.g. "$4.99") — see `BillingManager.formattedPrices`. Empty until Play Billing resolves them. */

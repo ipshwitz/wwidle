@@ -43,6 +43,9 @@ import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_PURCHASE_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
 import com.wyrmwhelp.idlehoard.domain.model.PlatinumPurchaseOption
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MAX_SLOTS
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.TEMPORARY_BOOST_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
@@ -81,7 +84,13 @@ private enum class ShopTab(val label: String) {
  * 1.5x/2x/5x Profit, 1.5x/2x/5x Gem %, each independently repurchasable
  * and stacking with itself), "Temporary" (50x/100x Speed for 5 minutes,
  * 15x/25x Profit for 5-10 minutes, stacking multiplicatively with any
- * other still-running boost in the same category), and "Time Skips"
+ * other still-running boost in the same category — **plus (v0.29.0) a
+ * free ad-watch row at the top of this tab**, since its reward is also a
+ * temporary Speed boost: up to [SPEED_BOOST_AD_MAX_SLOTS] independent
+ * daily watches, each granting `SPEED_BOOST_AD_MULTIPLIER`x Speed for
+ * `SPEED_BOOST_AD_DURATION`, gated by [speedBoostAdCooldownRemaining]/
+ * [speedBoostAdAvailableSlots] rather than any PP cost — see
+ * `domain/model/AdRewards.kt`), and "Time Skips"
  * (one row per [TIME_SKIP_OPTIONS] tier) — each was previously just a
  * scrolled-past section in one long list; splitting them into tabs
  * keeps the Shop from being one very long scroll now that it sells five
@@ -102,6 +111,9 @@ fun ShopContent(
     platinumAdMessage: String?,
     platinumPurchasePrices: Map<String, String>,
     platinumPurchaseMessage: String?,
+    speedBoostAdAvailableSlots: Int,
+    speedBoostAdCooldownRemaining: Duration,
+    speedBoostAdMessage: String?,
     onBuyPermanentBoost: (PermanentBoostTier) -> Unit,
     onBuyTemporaryBoost: (TemporaryBoostOption) -> Unit,
     onBuyTimeSkip: (TimeSkipOption) -> Unit,
@@ -109,6 +121,8 @@ fun ShopContent(
     onDismissPlatinumAdMessage: () -> Unit,
     onBuyPlatinumPack: (String) -> Unit,
     onDismissPlatinumPurchaseMessage: () -> Unit,
+    onWatchSpeedBoostAd: () -> Unit,
+    onDismissSpeedBoostAdMessage: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -141,7 +155,12 @@ fun ShopContent(
                 ShopTab.TEMPORARY -> TemporaryBoostsTab(
                     platinumPieces = platinumPieces,
                     activeTemporaryBoosts = activeTemporaryBoosts,
+                    speedBoostAdAvailableSlots = speedBoostAdAvailableSlots,
+                    speedBoostAdCooldownRemaining = speedBoostAdCooldownRemaining,
+                    speedBoostAdMessage = speedBoostAdMessage,
                     onBuyTemporaryBoost = onBuyTemporaryBoost,
+                    onWatchSpeedBoostAd = onWatchSpeedBoostAd,
+                    onDismissSpeedBoostAdMessage = onDismissSpeedBoostAdMessage,
                     palette = palette,
                 )
                 ShopTab.TIME_SKIPS -> TimeSkipsTab(
@@ -222,7 +241,10 @@ private fun GetPlatinumTab(
     ) {
         item { SectionLabel(text = "Earn Platinum", palette = palette) }
         item {
-            WatchAdRow(
+            AdRewardRow(
+                title = "Watch an Ad",
+                description = "Earn ${GoldFormat.format(PLATINUM_AD_REWARD_PP)} Platinum Pieces by watching a short " +
+                    "video. Once every 24 hours.",
                 cooldownRemaining = platinumAdCooldownRemaining,
                 onWatchAd = onWatchAd,
                 palette = palette,
@@ -323,7 +345,12 @@ private fun PermanentBoostsTab(
 private fun TemporaryBoostsTab(
     platinumPieces: Double,
     activeTemporaryBoosts: List<Pair<ActiveTemporaryBoost, Duration>>,
+    speedBoostAdAvailableSlots: Int,
+    speedBoostAdCooldownRemaining: Duration,
+    speedBoostAdMessage: String?,
     onBuyTemporaryBoost: (TemporaryBoostOption) -> Unit,
+    onWatchSpeedBoostAd: () -> Unit,
+    onDismissSpeedBoostAdMessage: () -> Unit,
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
@@ -334,6 +361,29 @@ private fun TemporaryBoostsTab(
         if (activeTemporaryBoosts.isNotEmpty()) {
             item { ActiveTemporaryBoostsCard(activeTemporaryBoosts, palette) }
         }
+        item { SectionLabel(text = "Earn a Free Boost", palette = palette) }
+        item {
+            AdRewardRow(
+                title = "Watch an Ad",
+                description = "Get a free ${GoldFormat.format(SPEED_BOOST_AD_MULTIPLIER)}x Speed boost for " +
+                    "${DurationFormat.format(SPEED_BOOST_AD_DURATION)}. Stacks with itself — up to " +
+                    "$SPEED_BOOST_AD_MAX_SLOTS at once ($speedBoostAdAvailableSlots/$SPEED_BOOST_AD_MAX_SLOTS " +
+                    "available now, each slot free again 24h after its own watch).",
+                cooldownRemaining = speedBoostAdCooldownRemaining,
+                onWatchAd = onWatchSpeedBoostAd,
+                palette = palette,
+            )
+        }
+        speedBoostAdMessage?.let { message ->
+            item {
+                PlatinumAdMessageCard(
+                    message = message,
+                    onDismiss = onDismissSpeedBoostAdMessage,
+                    palette = palette,
+                )
+            }
+        }
+        item { SectionLabel(text = "Buy a Boost", palette = palette) }
         TEMPORARY_BOOST_OPTIONS.forEach { option ->
             item {
                 BoostRow(
@@ -577,15 +627,19 @@ private fun BoostRow(
 }
 
 /**
- * The real "Watch an Ad" row — earns [PLATINUM_AD_REWARD_PP] Platinum
- * Pieces, gated by a 24-hour cooldown (see `domain/model/AdRewards.kt`).
- * Disables itself and shows "Available in Xh Ym" whenever
+ * A rewarded-ad row — [title]/[description] describe whatever it earns
+ * (Platinum Pieces, a Speed boost, etc.), so this same shape covers both
+ * `GetPlatinumTab`'s Platinum-earning row and `TemporaryBoostsTab`'s
+ * Speed-boost-earning row rather than duplicating the whole card for a
+ * second reward. Disables itself and shows "In Xh Ym" whenever
  * [cooldownRemaining] is non-zero, computed reactively from the live
  * `GameState` by the caller rather than tracked as separate UI state — so
  * the label updates on its own as `gameState` ticks, no polling needed here.
  */
 @Composable
-private fun WatchAdRow(
+private fun AdRewardRow(
+    title: String,
+    description: String,
     cooldownRemaining: Duration,
     onWatchAd: () -> Unit,
     palette: FantasyPalette,
@@ -600,13 +654,12 @@ private fun WatchAdRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Watch an Ad",
+                    text = title,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
                 )
                 Text(
-                    text = "Earn ${GoldFormat.format(PLATINUM_AD_REWARD_PP)} Platinum Pieces by watching a short " +
-                        "video. Once every 24 hours.",
+                    text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = palette.ink.copy(alpha = 0.7f),
                 )

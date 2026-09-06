@@ -40,6 +40,14 @@ data class GameStateEntity(
      */
     val activeTemporaryBoostsJson: String = "[]",
     val lastPlatinumAdWatchedAtEpochMillis: Long? = null,
+    /**
+     * [com.wyrmwhelp.idlehoard.domain.model.GameState.speedBoostAdWatchTimestamps]
+     * JSON-encoded as a single column (a small list of epoch-millis longs —
+     * see `GameStateMappers.kt`'s (de)serialization), same reasoning as
+     * [activeTemporaryBoostsJson]. `"[]"` for an empty list, never
+     * blank/null.
+     */
+    val speedBoostAdWatchTimestampsJson: String = "[]",
 ) {
     companion object {
         const val SINGLETON_ID = 0

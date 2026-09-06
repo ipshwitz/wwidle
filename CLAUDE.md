@@ -92,8 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.28.2** (Settings now shows the app version at
-     the bottom — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.29.0** (added a free ad-watch Speed boost to the
+     Shop's Temporary tab — see the "Shop's ad-watch Speed boost" bullet
+     under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -680,11 +681,12 @@ These apply to every change made in this repo, however small:
     for a screen to ask for one — so an ad is normally already loaded by
     the time a player reaches a rewarded placement instead of loading on
     demand. `RewardedPlacement` is a small enum, one entry per real AdMob
-    ad unit id (`OFFLINE_EARNINGS_DOUBLE`, `SHOP_PLATINUM` as of 0.18.0) —
+    ad unit id (`OFFLINE_EARNINGS_DOUBLE`, `SHOP_PLATINUM` as of 0.18.0,
+    `SHOP_SPEED_BOOST` as of 0.29.0) —
     adding a new rewarded spot means adding an entry there; `AdManager`
     itself tracks a loaded-ad slot per placement (`Map<RewardedPlacement,
     RewardedAd>`) generically rather than one hardcoded field per
-    placement, so it doesn't need touching again for a third. Two entry
+    placement, so it doesn't need touching again for a fourth. Two entry
     points, both placement-scoped: `isAdReady(placement)`/
     `showAd(placement, activity, onRewardEarned, onUnavailable)`. `showAd`
     always kicks off loading that placement's *next* ad afterward (on
@@ -729,14 +731,59 @@ These apply to every change made in this repo, however small:
     `GameEngine.grantPlatinumAdReward(now)` grants the Platinum and stamps
     the watch time atomically, re-checking the cooldown itself rather than
     trusting `GameViewModel.watchAdForPlatinum` already did (belt-and-braces
-    against a race between two rapid taps). `ShopContent`'s `WatchAdRow`
-    computes its own "Available in Xh Ym" label reactively from
+    against a race between two rapid taps). `ShopContent`'s `AdRewardRow`
+    (generalized from an originally Platinum-only `WatchAdRow` once the
+    Speed Boost ad-watch below needed the identical card shape — see that
+    bullet) computes its own "Available in Xh Ym" label reactively from
     `gameState.platinumAdCooldownRemaining()` passed in by `MainActivity` —
     no separate countdown timer or polling, it just updates naturally as
     `gameState` ticks. Shared `ui/format/DurationFormat.kt` formats that
-    countdown for both `WatchAdRow`'s button label and
+    countdown for both `AdRewardRow`'s button label and
     `GameViewModel.platinumAdMessage`'s cooldown text, extracted once it
     was clear both needed the identical "3h 12m" logic.
+  - **Shop's ad-watch Speed boost (v0.29.0)** — a second, independent
+    rewarded placement (`RewardedPlacement.SHOP_SPEED_BOOST`, ad unit id
+    `ca-app-pub-1913393601233746/7941856119`), added to the Temporary tab's
+    "Earn a Free Boost" section above the existing "Buy a Boost" list of
+    PP-bought temporary boosts (both section labels are new in v0.29.0;
+    the tab had no section headers before this). Confirmed design (asked
+    the user to disambiguate before building): watching grants
+    `SPEED_BOOST_AD_MULTIPLIER` (2x) Speed for `SPEED_BOOST_AD_DURATION`
+    (4h) as an ordinary [ActiveTemporaryBoost] (`domain/model/Boosts.kt`)
+    — reusing that existing stacking mechanism completely rather than
+    inventing a second one, so it stacks multiplicatively with itself and
+    with any PP-bought Speed boost exactly like every other
+    `TemporaryBoostCategory.SPEED` entry. Unlike the single-cooldown
+    Platinum ad above, this one has **`SPEED_BOOST_AD_MAX_SLOTS` (4)
+    independent daily slots**, each on its own 24-hour cooldown — watching
+    all 4 back-to-back stacks four concurrent 2x boosts (16x total)
+    instead of one shared cooldown only ever allowing one at a time. All
+    the math lives in `domain/model/AdRewards.kt` alongside the Platinum
+    reward: `GameState.speedBoostAdWatchTimestamps: List<Instant>` records
+    *when* each of the last watches happened rather than tracking which
+    literal slot (1-4) a watch occupied — a slot is "free" whenever fewer
+    than 4 recorded timestamps are still within their own 24-hour window
+    (`availableSpeedBoostAdSlots`/`canWatchSpeedBoostAd`/
+    `speedBoostAdCooldownRemaining`, the last returning the soonest busy
+    slot's own remaining time) — functionally identical to true fixed
+    slots without needing to track slot identity. `GameEngine.grantSpeedBoostAdReward(now)`
+    prunes expired timestamps, re-checks a slot is actually free (same
+    belt-and-braces pattern as `grantPlatinumAdReward`), appends the watch
+    and the new `ActiveTemporaryBoost` atomically in one `_state.update`,
+    and returns whether it actually granted anything.
+    `GameViewModel.watchAdForSpeedBoost`/`speedBoostAdMessage`/
+    `dismissSpeedBoostAdMessage` mirror `watchAdForPlatinum`'s shape
+    exactly. `speedBoostAdWatchTimestamps` is carried forward in
+    `GameEngine.performLevelUp()` — an ad-watch cooldown is per-device
+    grind, not run progress, same treatment as `lastPlatinumAdWatchedAt`
+    and every other Platinum/ad-related field. Persisted as a JSON-encoded
+    `List<Long>` (epoch millis) — `GameStateEntity.speedBoostAdWatchTimestampsJson`
+    (Room, bumped to **database version 10**) via the same
+    encode-a-list-into-one-String-column pattern already used for
+    `activeTemporaryBoostsJson`, and `GameStateDto.speedBoostAdWatchTimestampsEpochMillis`
+    (Supabase, a plain `List<Long>` — jsonb needs no encoding trick) with
+    an empty-list default so an older cloud save without this field still
+    decodes.
   - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0, price/PP
     curve revised twice since — v0.27.1, then v0.27.2)**
     (`billing/BillingManager.kt`) — Google Play Billing, replacing the
@@ -1591,11 +1638,17 @@ test-device safeguard that must stay in debug builds):
 - **Welcome Back "Watch Ad to Double"** (live, 0.17.0) — doubles the
   offline-earnings amount shown in the "While You Were Away…" dialog. Ad
   unit id `ca-app-pub-1913393601233746/1494731799`.
-- **Shop "Watch an Ad"** (live, 0.18.0; open to guests since 0.18.1) —
-  earns 2 Platinum Pieces, once every 24 hours (cooldown tracked on the
-  save itself, not ad-network- or device-side — see the "Shop's Watch an
-  Ad" bullet under Tech stack). Ad unit id
+- **Shop "Watch an Ad" (Platinum)** (live, 0.18.0; open to guests since
+  0.18.1) — earns 2 Platinum Pieces, once every 24 hours (cooldown tracked
+  on the save itself, not ad-network- or device-side — see the "Shop's
+  Watch an Ad" bullet under Tech stack). Ad unit id
   `ca-app-pub-1913393601233746/9425192707`.
+- **Shop "Watch an Ad" (Speed boost)** (live, 0.29.0; open to guests, same
+  reasoning as the Platinum one below — no real money involved) — grants a
+  free 2x Speed boost for 4 hours, up to 4 independent watches at a time,
+  each on its own 24-hour cooldown (see the "Shop's ad-watch Speed boost"
+  bullet under Tech stack). Ad unit id
+  `ca-app-pub-1913393601233746/7941856119`.
 
 The premium currency is `GameState.platinumPieces` (labeled "pp" in the
 UI) — no separate "Jewels" or other premium currency was added; platinum

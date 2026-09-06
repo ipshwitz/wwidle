@@ -70,6 +70,14 @@ import java.time.Instant
  * @property lastPlatinumAdWatchedAt When the Shop's "Watch an Ad" rewarded
  *   placement was last watched to completion, or null if never — see
  *   `domain/model/AdRewards.kt` for the 24-hour cooldown this gates.
+ * @property speedBoostAdWatchTimestamps When each of the Shop's ad-watch
+ *   Speed-boost rewards was granted, kept only while still within its own
+ *   24-hour cooldown (see `domain/model/AdRewards.kt`'s
+ *   `SPEED_BOOST_AD_MAX_SLOTS`/`availableSpeedBoostAdSlots`) — up to 4
+ *   independent watches can be "in cooldown" at once, each expiring 24
+ *   hours after its own timestamp rather than sharing one cooldown, which
+ *   is what lets watching all 4 back-to-back stack four concurrent 2x
+ *   Speed boosts (16x) instead of only ever allowing one.
  * @property everythingProfitUpgradeLevel Tiers bought of the Gold Pieces
  *   "Everything Profit" upgrade line (`domain/model/GpUpgrades.kt`) —
  *   boosts every owned lair's income at once. Resets on a Level Up, same
@@ -113,6 +121,7 @@ data class GameState(
     val permanentGemBoost5xLevel: Int = 0,
     val activeTemporaryBoosts: List<ActiveTemporaryBoost> = emptyList(),
     val lastPlatinumAdWatchedAt: Instant? = null,
+    val speedBoostAdWatchTimestamps: List<Instant> = emptyList(),
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

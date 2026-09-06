@@ -29,6 +29,7 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     permanentGemBoost5xLevel = permanentGemBoost5xLevel,
     activeTemporaryBoosts = activeTemporaryBoosts.map { it.toDto() },
     lastPlatinumAdWatchedAtEpochMillis = lastPlatinumAdWatchedAt?.toEpochMilli(),
+    speedBoostAdWatchTimestampsEpochMillis = speedBoostAdWatchTimestamps.map { it.toEpochMilli() },
 )
 
 private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
@@ -70,6 +71,7 @@ fun GameStateDto.toDomain(): GameState = GameState(
     permanentGemBoost5xLevel = permanentGemBoost5xLevel,
     activeTemporaryBoosts = activeTemporaryBoosts.map { it.toDomain() },
     lastPlatinumAdWatchedAt = lastPlatinumAdWatchedAtEpochMillis?.let { Instant.ofEpochMilli(it) },
+    speedBoostAdWatchTimestamps = speedBoostAdWatchTimestampsEpochMillis.map { Instant.ofEpochMilli(it) },
 )
 
 private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(

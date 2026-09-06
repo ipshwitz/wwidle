@@ -55,6 +55,10 @@ class GameStateDtoMappersTest {
                 ),
             ),
             lastPlatinumAdWatchedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            speedBoostAdWatchTimestamps = listOf(
+                Instant.now().minusSeconds(3600).truncatedTo(ChronoUnit.MILLIS),
+                Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            ),
         )
 
         val restored = original.toDto().toDomain()
@@ -87,6 +91,7 @@ class GameStateDtoMappersTest {
         assertEquals(0, decoded.permanentGemBoost5xLevel)
         assertEquals(emptyList<Any>(), decoded.activeTemporaryBoosts)
         assertEquals(null, decoded.lastPlatinumAdWatchedAtEpochMillis)
+        assertEquals(emptyList<Long>(), decoded.speedBoostAdWatchTimestampsEpochMillis)
         assertEquals(0L, decoded.gems)
         assertEquals(0, decoded.totalLevelUps)
         assertEquals(0.0, decoded.lifetimeGoldEarned, 0.0001)

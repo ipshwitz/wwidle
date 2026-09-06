@@ -64,6 +64,10 @@ class GameStateMappersTest {
                 ),
             ),
             lastPlatinumAdWatchedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            speedBoostAdWatchTimestamps = listOf(
+                Instant.now().minusSeconds(3600).truncatedTo(ChronoUnit.MILLIS),
+                Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            ),
         )
 
         val (stateEntity, lairEntities) = original.toEntities()

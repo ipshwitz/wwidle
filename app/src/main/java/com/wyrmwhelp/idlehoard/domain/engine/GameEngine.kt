@@ -11,7 +11,11 @@ import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
 import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_COOLDOWN
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
+import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.canWatchPlatinumAd
+import com.wyrmwhelp.idlehoard.domain.model.canWatchSpeedBoostAd
 import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
@@ -411,8 +415,8 @@ class GameEngine @Inject constructor() {
      * every permanent boost tier bought with it
      * ([GameState.permanentSpeedBoost2xLevel] and its eight siblings) and
      * every currently-running [GameState.activeTemporaryBoosts] instance,
-     * [GameState.offlineCapHours], the
-     * ad-watch cooldown ([GameState.lastPlatinumAdWatchedAt]), and —
+     * [GameState.offlineCapHours], both ad-watch cooldowns
+     * ([GameState.lastPlatinumAdWatchedAt]/[GameState.speedBoostAdWatchTimestamps]), and —
      * critically — [GameState.lifetimeGoldEarned] itself all carry over
      * unchanged; only the gold side of the *current run* (and the old Gem
      * batch) resets. That includes every Gold Pieces upgrade
@@ -452,6 +456,7 @@ class GameEngine @Inject constructor() {
                     permanentGemBoost5xLevel = current.permanentGemBoost5xLevel,
                     activeTemporaryBoosts = current.activeTemporaryBoosts,
                     lastPlatinumAdWatchedAt = current.lastPlatinumAdWatchedAt,
+                    speedBoostAdWatchTimestamps = current.speedBoostAdWatchTimestamps,
                 )
             }
         }
@@ -533,6 +538,37 @@ class GameEngine @Inject constructor() {
                 current.copy(
                     platinumPieces = current.platinumPieces + PLATINUM_AD_REWARD_PP,
                     lastPlatinumAdWatchedAt = now,
+                )
+            }
+        }
+        return granted
+    }
+
+    /**
+     * Grants the Shop's ad-watch Speed-boost reward if one of its
+     * [SPEED_BOOST_AD_MAX_SLOTS] daily slots is free (see
+     * `domain/model/AdRewards.kt`), stamping [now] onto
+     * [GameState.speedBoostAdWatchTimestamps] (pruned of already-expired
+     * entries first) and appending a fresh [ActiveTemporaryBoost] exactly
+     * like a PP-bought temporary boost — it stacks multiplicatively with
+     * any other running Speed boost the same way. Returns true if
+     * granted, false if all slots are currently busy — callers should
+     * only reach this after `AdManager.showAd` already confirmed the
+     * reward was earned, so false here would mean the two clocks
+     * disagreed, not a normal outcome.
+     */
+    fun grantSpeedBoostAdReward(now: Instant = Instant.now()): Boolean {
+        var granted = false
+        _state.update { current ->
+            if (!current.canWatchSpeedBoostAd(now)) {
+                current
+            } else {
+                granted = true
+                val prunedWatches = current.speedBoostAdWatchTimestamps.filter { Duration.between(it, now) < SPEED_BOOST_AD_COOLDOWN }
+                current.copy(
+                    speedBoostAdWatchTimestamps = prunedWatches + now,
+                    activeTemporaryBoosts = current.activeTemporaryBoosts +
+                        ActiveTemporaryBoost(TemporaryBoostCategory.SPEED, SPEED_BOOST_AD_MULTIPLIER, now.plus(SPEED_BOOST_AD_DURATION)),
                 )
             }
         }

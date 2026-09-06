@@ -4,7 +4,10 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 9 for the Platinum Upgrades feature: replaced
+ * Bumped to version 10 for the Shop's ad-watch Speed-boost reward: one new
+ * `speedBoostAdWatchTimestampsJson` column (see `GameStateMappers.kt`) —
+ * see `domain/model/AdRewards.kt`. Version 9 was the Platinum Upgrades
+ * feature: replaced
  * [GameStateEntity]'s old `speedBoostLevel`/`profitBoostLevel` columns with
  * nine permanent-boost-tier columns
  * (`permanentSpeedBoost2xLevel`/`5xLevel`/`10xLevel`,
@@ -32,7 +35,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

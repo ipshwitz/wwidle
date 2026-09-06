@@ -19,9 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
+import com.wyrmwhelp.idlehoard.domain.model.availableSpeedBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
+import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
 import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
@@ -71,6 +73,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     val platinumAdMessage by gameViewModel.platinumAdMessage.collectAsStateWithLifecycle()
     val platinumPurchasePrices by gameViewModel.platinumPurchasePrices.collectAsStateWithLifecycle()
     val platinumPurchaseMessage by gameViewModel.platinumPurchaseMessage.collectAsStateWithLifecycle()
+    val speedBoostAdMessage by gameViewModel.speedBoostAdMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     BackHandler(enabled = openSection != null) { openSection = null }
@@ -116,6 +119,9 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             platinumAdMessage = platinumAdMessage,
                             platinumPurchasePrices = platinumPurchasePrices,
                             platinumPurchaseMessage = platinumPurchaseMessage,
+                            speedBoostAdAvailableSlots = gameState.availableSpeedBoostAdSlots(),
+                            speedBoostAdCooldownRemaining = gameState.speedBoostAdCooldownRemaining(),
+                            speedBoostAdMessage = speedBoostAdMessage,
                             onBuyPermanentBoost = gameViewModel::purchasePermanentBoost,
                             onBuyTemporaryBoost = gameViewModel::purchaseTemporaryBoost,
                             onBuyTimeSkip = gameViewModel::purchaseTimeSkip,
@@ -127,6 +133,10 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                                 (context as? Activity)?.let { gameViewModel.buyPlatinumPack(it, productId) }
                             },
                             onDismissPlatinumPurchaseMessage = gameViewModel::dismissPlatinumPurchaseMessage,
+                            onWatchSpeedBoostAd = {
+                                (context as? Activity)?.let { gameViewModel.watchAdForSpeedBoost(it) }
+                            },
+                            onDismissSpeedBoostAdMessage = gameViewModel::dismissSpeedBoostAdMessage,
                         )
                     }
                 }

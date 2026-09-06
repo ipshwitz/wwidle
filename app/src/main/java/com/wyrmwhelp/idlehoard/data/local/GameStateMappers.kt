@@ -33,6 +33,7 @@ fun GameState.toEntities(): Pair<GameStateEntity, List<OwnedLairEntity>> {
         permanentGemBoost5xLevel = permanentGemBoost5xLevel,
         activeTemporaryBoostsJson = activeTemporaryBoosts.toJson(),
         lastPlatinumAdWatchedAtEpochMillis = lastPlatinumAdWatchedAt?.toEpochMilli(),
+        speedBoostAdWatchTimestampsJson = Json.encodeToString(speedBoostAdWatchTimestamps.map { it.toEpochMilli() }),
     )
     val lairEntities = lairs.values.map { it.toEntity() }
     return stateEntity to lairEntities
@@ -72,6 +73,7 @@ fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = G
     permanentGemBoost5xLevel = permanentGemBoost5xLevel,
     activeTemporaryBoosts = activeTemporaryBoostsJson.toActiveTemporaryBoosts(),
     lastPlatinumAdWatchedAt = lastPlatinumAdWatchedAtEpochMillis?.let { Instant.ofEpochMilli(it) },
+    speedBoostAdWatchTimestamps = Json.decodeFromString<List<Long>>(speedBoostAdWatchTimestampsJson).map { Instant.ofEpochMilli(it) },
 )
 
 private fun OwnedLairEntity.toDomain(): OwnedLair = OwnedLair(
