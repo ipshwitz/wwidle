@@ -1,6 +1,7 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +20,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -91,7 +95,18 @@ private const val PROGRESS_ANIMATION_DURATION_MS = 150
  * once a lair's cycle gets too fast to sample meaningfully — see
  * `GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS`. The animation's own tween
  * duration is a fixed 150ms, deliberately decoupled from the engine's tick
- * rate, so rapid resets get smoothed rather than tracked frame-for-frame.
+ * rate, so rapid resets get smoothed rather than tracked frame-for-frame —
+ * *except* the reset itself: [progress] only ever increases within a cycle
+ * and resets exactly once on completion (never any other kind of decrease),
+ * so a lower [progress] than last recomposition is unambiguously "a new
+ * cycle just started," not a value worth tweening smoothly down to. Tweening
+ * it anyway made the bar visibly slide backward into its next cycle instead
+ * of snapping to empty and refilling — and, since that backward slide ate
+ * into the 150ms window, also cut the *next* forward tween short enough
+ * that a moderately fast lair's bar rarely looked like it actually reached
+ * full before resetting again. A remembered `previousProgress` (per card,
+ * since this is `remember`ed inside the composable) tracks last
+ * recomposition's raw value so the reset can `snap()` instead.
  */
 @Composable
 fun LairCard(
@@ -114,9 +129,12 @@ fun LairCard(
     val claimQuantity = buyQuantity.resolve(lair, owned.count, goldPieces).coerceAtLeast(1)
     val claimCost = lair.costForUnits(owned.count, claimQuantity)
     val canClaim = goldPieces >= claimCost
+    var previousProgress by remember { mutableFloatStateOf(progress) }
+    val isReset = progress < previousProgress
+    previousProgress = progress
     val animatedFillFraction by animateFloatAsState(
         targetValue = progress,
-        animationSpec = tween(durationMillis = PROGRESS_ANIMATION_DURATION_MS),
+        animationSpec = if (isReset) snap() else tween(durationMillis = PROGRESS_ANIMATION_DURATION_MS),
         label = "lairFill",
     )
     val rarity = rarityColor(lair.tier)

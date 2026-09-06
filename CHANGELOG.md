@@ -3,6 +3,22 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.21.3] - 2026-09-05 8:11 PM EDT
+
+- Fixed the progress-fill bar not starting cleanly from empty or reliably
+  reaching full: after the previous fix's 150ms tween, a cycle resetting
+  to 0% still animated smoothly *backward* into the next cycle instead of
+  snapping — which also ate into the next cycle's own 150ms fill window,
+  so a moderately fast lair's bar rarely looked like it actually finished
+  before resetting again.
+- Since a lair's fill fraction only ever increases within a cycle and
+  drops exactly once on completion, any decrease is unambiguously a reset
+  — the bar now snaps instantly to empty in that case instead of tweening,
+  and only tweens smoothly while actually filling forward.
+- Verified on the emulator: a Steward-managed lair's bar climbed smoothly
+  across several consecutive frames (65% → 90% → 95%) and then reset to a
+  fresh low value with no in-between slide-back frames.
+
 ## [0.21.2] - 2026-09-05 8:00 PM EDT
 
 - Fixed the lair progress-fill bar bouncing/glitching at high Speed

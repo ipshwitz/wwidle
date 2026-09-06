@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.21.2** (fixed the lair progress-fill bar bouncing
-     at high Speed multipliers — engine-computed progress map, decoupled
-     150ms tween — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.21.3** (progress-fill bar now snaps instantly on
+     cycle reset instead of tweening backward into the next cycle — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -375,6 +375,23 @@ These apply to every change made in this repo, however small:
       exactly meant the animation re-synced to a fresh target almost
       immediately every tick, so a fast-resetting target produced visible
       bounce instead of being smoothed over several ticks.
+    - **Snap-on-reset (v0.21.3)** — the 150ms tween fixed the bounce but
+      introduced a new, subtler issue: since [progress] only ever increases
+      within a cycle and drops exactly once on completion, tweening *that*
+      drop the same smooth way made the bar visibly slide backward into its
+      next cycle instead of resetting cleanly — and since that backward
+      slide ate into the 150ms window, it also cut the next forward tween
+      short enough that a moderately fast lair's bar rarely looked like it
+      actually reached full before resetting again. `LairCard` now
+      `remember`s the previous recomposition's raw `progress` value per
+      card; any *decrease* (never a natural part of the ramp — there's no
+      other way `progress` goes down) swaps the `animationSpec` to `snap()`
+      for that one frame instead of `tween(...)`, so the bar jumps instantly
+      to empty and the next fill starts clean. Confirmed via a burst of
+      screenshots on a Steward-managed lair: fill visibly climbed
+      65%→90%→95% across consecutive frames, then the very next sample
+      showed it already restarted at a fresh low value with no
+      intermediate slide-back frames — a snap, not a tween.
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
     the stated art style — no sprite asset) fired only when a manually
