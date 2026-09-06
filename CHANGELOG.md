@@ -3,6 +3,17 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.28.0] - 2026-09-06 10:15 PM EDT
+
+- Reorganized the Shop into four tabs instead of one long scroll:
+  - **Get PP** (first/default) — "Watch an Ad" and "Buy Platinum Pieces"
+    together, since both are about getting more Platinum.
+  - **Permanent**, **Temporary**, and **Time Skips** — each of the three
+    spend categories that used to just be sections in the long scroll now
+    gets its own tab.
+  - The Platinum balance stays visible above the tabs no matter which one
+    you're on.
+
 ## [0.27.2] - 2026-09-06 9:50 PM EDT
 
 - Devalued the Platinum Pieces IAP packs further — 100 pp for $0.99 made

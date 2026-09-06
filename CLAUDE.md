@@ -92,10 +92,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.27.2** (deliberately devalued the "Buy Platinum
-     Pieces" packs further — $0.99 now buys a stingy 4 pp teaser, $9.99
-     tops out at 100 pp, per explicit instruction that the currency itself
-     should feel scarce — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.28.0** (reorganized the Shop into four tabs —
+     Get PP, Permanent, Temporary, Time Skips — with Get PP (the ad-watch
+     and IAP earn paths) first/default instead of one long scrolled list
+     — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1183,17 +1183,31 @@ These apply to every change made in this repo, however small:
     `WyrmWhelpApp` wires it straight to `gameViewModel::hireSteward`, the
     domain method that already existed (and was already tested) from when
     the button lived on `LairCard`.
-  - **`ShopContent`** (`ui/shop/ShopContent.kt`) — the Shop section's real
-    content: a balance card, "Permanent Boosts" (one `PermanentBoostCategoryCard`
-    per category — Speed/Profit/Gem %, each stacking its own three tiers,
-    see the Platinum Upgrades bullet below), "Temporary Boosts" (an
-    `ActiveTemporaryBoostsCard` live countdown when any are running, then
-    one row per `TEMPORARY_BOOST_OPTIONS` entry), "Time Skips" (one row
-    per `TIME_SKIP_OPTIONS` entry — six tiers as of v0.26.0, up from two),
-    then "Earn Platinum" (the real "Watch an Ad") and, once signed in,
-    "Buy Platinum Pieces" — five real Google Play Billing packs as of
-    v0.27.0 (see the `BillingManager` bullet below), one `PlatinumPackRow`
-    per `PLATINUM_PURCHASE_OPTIONS` tier.
+  - **`ShopContent`** (`ui/shop/ShopContent.kt`, reorganized into tabs in
+    v0.28.0) — the Shop section's real content: a balance card shown
+    above the tabs (visible on all of them), then a private `ShopTab`
+    enum/`ShopTabRow` driving four tabs — same
+    `CutCornerShape`/gold-vs-wood-gradient tab-button look as
+    `UpgradesContent.kt`'s `UpgradeTab` row, duplicated privately here per
+    this project's per-file-duplication convention rather than shared.
+    **"Get PP" is first/default** (previously the Shop opened straight
+    into "Permanent Boosts," with earning Platinum buried at the bottom
+    of one long scroll — explicit feedback that a player reaching for the
+    Shop is usually there to *get* Platinum, not spend it) and holds
+    "Earn Platinum" (the real "Watch an Ad") plus, once signed in, "Buy
+    Platinum Pieces" (five real Google Play Billing packs as of v0.27.0 —
+    see the `BillingManager` bullet below — one `PlatinumPackRow` per
+    `PLATINUM_PURCHASE_OPTIONS` tier) right alongside it, so both ways to
+    get more pp live on the same tab. "Permanent" holds one
+    `PermanentBoostCategoryCard` per category (Speed/Profit/Gem %, each
+    stacking its own three tiers — see the Platinum Upgrades bullet
+    below); "Temporary" holds an `ActiveTemporaryBoostsCard` live
+    countdown when any are running, then one row per
+    `TEMPORARY_BOOST_OPTIONS` entry; "Time Skips" holds one row per
+    `TIME_SKIP_OPTIONS` entry (six tiers as of v0.26.0, up from two) —
+    each of these three was previously just a `SectionLabel`-delimited
+    section in that same one long scroll, now split one-to-one into its
+    own tab now that the Shop sells five different things.
     `FloatingMenu`'s `"Shop"` entry (its own wooden-sign art as of v0.20.1)
     reaches it. Takes `platinumPieces`, `permanentBoostLevelFor: (PermanentBoostTier)
     -> Int` (a bound `GameState.permanentBoostLevel` reference from the
@@ -1211,7 +1225,12 @@ These apply to every change made in this repo, however small:
     matching `GameViewModel` methods, same pattern as `StewardsContent`'s
     `onHireSteward`. This is the *only* place any permanent/temporary
     boost or Platinum pack is purchased — the Upgrades screen's Platinum
-    tab only displays what's already been bought (see above).
+    tab only displays what's already been bought (see above). Verified
+    live on-device: all four tabs render and scroll correctly, switching
+    tabs preserves the live Platinum balance shown above them, and a real
+    permanent-boost purchase on the "Permanent" tab still deducted the
+    correct cost and updated the owned count exactly as before the
+    reorganization.
   - **Platinum Upgrades (v0.26.0)** (`domain/model/Boosts.kt`) —
     replaced the original Speed Boost/Profit Boost design (a single
     compounding %-per-level line each, like the Gold/Gem upgrade lines)
