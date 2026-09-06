@@ -4,6 +4,9 @@ import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
+import com.wyrmwhelp.idlehoard.domain.model.GemUpgrades
+import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
+import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
 import com.wyrmwhelp.idlehoard.domain.model.canWatchPlatinumAd
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
@@ -120,6 +123,7 @@ class GameEngine @Inject constructor() {
         if (state.lairs.isEmpty()) return emptyMap()
         val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
         val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
+        val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
         val progress = mutableMapOf<String, Float>()
         for ((lairId, owned) in state.lairs) {
             if (owned.count <= 0) continue
@@ -128,7 +132,8 @@ class GameEngine @Inject constructor() {
                 continue
             }
             val lair = CreatureLairCatalog.get(lairId)
-            val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
+            val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
+            val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier)
             progress[lairId] = when {
                 productionSeconds < PROGRESS_SOLID_THRESHOLD_SECONDS -> 1f
                 productionSeconds <= 0.0 -> 0f
@@ -285,6 +290,99 @@ class GameEngine @Inject constructor() {
     }
 
     /**
+     * Buys the next tier of [lairId]'s own Gold Pieces [category] upgrade
+     * line (`GpUpgrades.kt`) — one of the 28 per-lair lines, distinct from
+     * the two account-wide "Everything" lines (see [purchaseGpEverythingUpgrade]).
+     * Returns true if bought, false if [lairId] isn't owned, the line is
+     * already at [GpUpgrades.LAIR_LINE_PHASES]'s max tier, or the player
+     * can't afford the next tier.
+     */
+    fun purchaseGpLairUpgrade(lairId: String, category: UpgradeCategory): Boolean {
+        var bought = false
+        _state.update { current ->
+            val owned = current.ownedLair(lairId)
+            val currentLevel = if (category == UpgradeCategory.PROFIT) owned.profitUpgradeLevel else owned.speedUpgradeLevel
+            val nextTier = currentLevel + 1
+            if (owned.count <= 0 || nextTier > GpUpgrades.LAIR_LINE_PHASES.totalTiers) {
+                current
+            } else {
+                val cost = GpUpgrades.costForLairTier(lairId, category, nextTier)
+                if (current.goldPieces < cost) {
+                    current
+                } else {
+                    bought = true
+                    val updatedOwned = if (category == UpgradeCategory.PROFIT) {
+                        owned.copy(profitUpgradeLevel = nextTier)
+                    } else {
+                        owned.copy(speedUpgradeLevel = nextTier)
+                    }
+                    current.copy(
+                        goldPieces = current.goldPieces - cost,
+                        lairs = current.lairs + (lairId to updatedOwned),
+                    )
+                }
+            }
+        }
+        return bought
+    }
+
+    /**
+     * Buys the next tier of the account-wide "Everything" [category]
+     * upgrade line (`GpUpgrades.kt`) — affects every owned lair at once,
+     * unlike [purchaseGpLairUpgrade]'s per-lair lines. Returns true if
+     * bought, false if already at max tier or unaffordable.
+     */
+    fun purchaseGpEverythingUpgrade(category: UpgradeCategory): Boolean {
+        var bought = false
+        _state.update { current ->
+            val currentLevel = if (category == UpgradeCategory.PROFIT) current.everythingProfitUpgradeLevel else current.everythingSpeedUpgradeLevel
+            val phases = if (category == UpgradeCategory.PROFIT) GpUpgrades.EVERYTHING_PROFIT_PHASES else GpUpgrades.EVERYTHING_SPEED_PHASES
+            val nextTier = currentLevel + 1
+            if (nextTier > phases.totalTiers) {
+                current
+            } else {
+                val cost = GpUpgrades.costForEverythingTier(category, nextTier)
+                if (current.goldPieces < cost) {
+                    current
+                } else {
+                    bought = true
+                    if (category == UpgradeCategory.PROFIT) {
+                        current.copy(goldPieces = current.goldPieces - cost, everythingProfitUpgradeLevel = nextTier)
+                    } else {
+                        current.copy(goldPieces = current.goldPieces - cost, everythingSpeedUpgradeLevel = nextTier)
+                    }
+                }
+            }
+        }
+        return bought
+    }
+
+    /**
+     * Buys the next tier of the Gem-spent "Gem Efficiency" upgrade
+     * (`GemUpgrades.kt`), raising the per-Gem income bonus
+     * [gemIncomeMultiplier] grants. Returns true if bought, false if
+     * already at max tier or the player can't afford it in Gems.
+     */
+    fun purchaseGemEfficiencyUpgrade(): Boolean {
+        var bought = false
+        _state.update { current ->
+            val nextTier = current.gemEfficiencyLevel + 1
+            if (nextTier > GemUpgrades.PHASES.totalTiers) {
+                current
+            } else {
+                val cost = GemUpgrades.costForTierGems(nextTier)
+                if (current.gems < cost) {
+                    current
+                } else {
+                    bought = true
+                    current.copy(gems = current.gems - cost, gemEfficiencyLevel = nextTier)
+                }
+            }
+        }
+        return bought
+    }
+
+    /**
      * Resets the current run for a fresh Gem batch (see
      * `domain/model/LevelUp.kt`'s `gemsEarnedFromLevelUp`) — Gold Pieces
      * and every owned lair go back to the exact same starting shape a
@@ -297,7 +395,13 @@ class GameEngine @Inject constructor() {
      * ad-watch cooldown ([GameState.lastPlatinumAdWatchedAt]), and —
      * critically — [GameState.lifetimeGoldEarned] itself all carry over
      * unchanged; only the gold side of the *current run* (and the old Gem
-     * batch) resets. Returns the size of the new Gem batch; if
+     * batch) resets. That includes every Gold Pieces upgrade
+     * (`GpUpgrades.kt`) — the per-lair ones implicitly, since [GameState.lairs]
+     * resets to the starting map, and [GameState.everythingProfitUpgradeLevel]/
+     * [GameState.everythingSpeedUpgradeLevel] explicitly, by simply not
+     * naming them below (a fresh [GameState]'s own defaults are 0) — and
+     * [GameState.gemEfficiencyLevel] (`GemUpgrades.kt`), for the same reason
+     * Gems themselves reset. Returns the size of the new Gem batch; if
      * [GameState.lifetimeGoldEarned] hasn't grown enough since the last
      * Level Up to clear the applicable minimum, nothing is reset and this
      * returns 0 (checked and applied atomically inside the same [_state]
@@ -408,11 +512,14 @@ class GameEngine @Inject constructor() {
         val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
         val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
         val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
-        val gemMultiplier = gemIncomeMultiplier(state.gems)
+        val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel)
+        val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
+        val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
             val (next, earned) = advanceLair(
                 lairId, owned, deltaSeconds, globalSpeedMultiplier, globalIncomeMultiplier, speedMultiplier, profitMultiplier, gemMultiplier,
+                everythingProfitUpgradeMultiplier, everythingSpeedUpgradeMultiplier,
             )
             goldEarned += earned
             next
@@ -438,9 +545,13 @@ class GameEngine @Inject constructor() {
      * least [MIN_CONFETTI_PRODUCTION_SECONDS] — a very heavily Speed-Boosted
      * lair can complete faster than that effect can read as anything but a
      * flicker, so it's skipped rather than spammed. [globalSpeedMultiplier],
-     * [globalIncomeMultiplier], [speedMultiplier], [profitMultiplier], and
-     * [gemMultiplier] are each computed once per [advance] call (same value
-     * for every lair that tick), not per lair.
+     * [globalIncomeMultiplier], [speedMultiplier], [profitMultiplier],
+     * [gemMultiplier], [everythingProfitUpgradeMultiplier], and
+     * [everythingSpeedUpgradeMultiplier] are each computed once per
+     * [advance] call (same value for every lair that tick), not per lair —
+     * only this lair's own `profitUpgradeLevel`/`speedUpgradeLevel` (see
+     * `GpUpgrades.kt`) vary lair to lair, so those are combined with the
+     * Everything multipliers here instead.
      */
     private fun advanceLair(
         lairId: String,
@@ -451,17 +562,21 @@ class GameEngine @Inject constructor() {
         speedMultiplier: Double,
         profitMultiplier: Double,
         gemMultiplier: Double,
+        everythingProfitUpgradeMultiplier: Double,
+        everythingSpeedUpgradeMultiplier: Double,
     ): Pair<OwnedLair, Double> {
         if (owned.count <= 0) return owned to 0.0
 
         val lair = CreatureLairCatalog.get(lairId)
-        val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
+        val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
+        val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
+        val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier)
 
         if (!owned.hasSteward) {
             if (!owned.isLoading) return owned to 0.0
             val progress = owned.cycleProgressSeconds + deltaSeconds
             return if (progress >= productionSeconds) {
-                val earned = lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier)
+                val earned = lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier)
                 val confettiWorthy = productionSeconds >= MIN_CONFETTI_PRODUCTION_SECONDS
                 owned.copy(
                     cycleProgressSeconds = 0.0,
@@ -477,7 +592,7 @@ class GameEngine @Inject constructor() {
         var earned = 0.0
         while (remaining >= productionSeconds) {
             remaining -= productionSeconds
-            earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier)
+            earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier)
         }
         return owned.copy(cycleProgressSeconds = remaining) to earned
     }
@@ -501,25 +616,29 @@ class GameEngine @Inject constructor() {
         val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
         val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
         val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
-        val gemMultiplier = gemIncomeMultiplier(state.gems)
+        val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel)
+        val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
+        val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
 
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
             if (owned.count <= 0) return@mapValues owned
             val lair = CreatureLairCatalog.get(lairId)
-            val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
+            val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
+            val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
+            val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier)
             if (owned.hasSteward) {
                 var remaining = owned.cycleProgressSeconds + seconds
                 var earned = 0.0
                 while (remaining >= productionSeconds) {
                     remaining -= productionSeconds
-                    earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier)
+                    earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier)
                 }
                 goldEarned += earned
                 owned.copy(cycleProgressSeconds = remaining)
             } else {
                 val cycles = kotlin.math.floor(seconds / productionSeconds)
-                goldEarned += cycles * lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier)
+                goldEarned += cycles * lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier)
                 owned
             }
         }

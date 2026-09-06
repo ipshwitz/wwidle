@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.24.0** (Gems are now a temporary per-run bonus,
-     replaced each Level Up instead of accumulating forever — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.25.0** (added the Upgrades menu section — 475
+     Gold-funded tiers and a 200-tier Gem Efficiency line, both resetting
+     on Level Up; Platinum tab deferred — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -938,6 +938,132 @@ These apply to every change made in this repo, however small:
     instead of an empty screen. Pure display — takes `lairs`/`state`
     passed in by `WyrmWhelpApp` (which already holds the `GameViewModel`
     reference) rather than taking a ViewModel itself.
+  - **Upgrades (v0.25.0)** — a permanent Gold/Gem sink layered on top of
+    the automatic ownership milestones above, reachable from the
+    floating menu between Unlocks and Stewards. Built from a
+    confirmed 5-question design pass (tab structure, exact tier counts,
+    what Gem upgrades actually affect, Platinum deferred, per-line
+    phase jumps) rather than guessed.
+    - **`UpgradePhases`/`upgradeTierCost`/`upgradeTotalPercent`**
+      (`domain/model/UpgradeTiers.kt`) — the shared beginning/mid/end-game
+      shape every upgrade line uses: `UpgradePhases(beginningTiers,
+      midTiers, endTiers)` with a `totalTiers`, `phaseOfTier(tier)`
+      (1/2/3), and `positionWithinPhase(tier)` (0-indexed within its own
+      phase — kept as a tested utility, but **not** used by the cost
+      formula; see the gotcha below for why). `upgradeTierCost(tier,
+      phases, baseCost, costGrowthRate, phaseJumpMultiplier)` = `baseCost
+      * phaseJumpMultiplier^(phase-1) * costGrowthRate^(tier-1)` — the
+      `costGrowthRate` exponent is the tier's **absolute** position
+      across the whole line, never resetting each phase, with
+      `phaseJumpMultiplier` layered on top as a pure additional kicker at
+      each boundary. **Gotcha hit building this:** the first-pass
+      formula used `positionWithinPhase(tier)` (which *does* reset to 0
+      each phase) as that exponent instead — harmless for a short phase,
+      but for Gem Efficiency's 67-tier phases at 1.15 growth, phase 1
+      alone smoothly compounds past 10,000x before ever hitting the flat
+      5x `phaseJumpMultiplier`, so resetting the exponent at the
+      boundary made phase 2's *first* tier cheaper than phase 1's *last*
+      one — the opposite of the intended "obvious jump." Caught by
+      `GemUpgradesTest`'s phase-boundary test failing, not by
+      inspection — a lesson to test phase-jump behavior at realistic
+      phase lengths, not just short ones, since the bug's effect scales
+      with how long a phase runs. `upgradeTotalPercent(level, phases,
+      percentPerTierPhase1/2/3)` is unrelated to cost — it's the
+      *additive* (not compounding) percentage-point total a line's
+      *effect* has accumulated, with the per-tier rate itself increasing
+      at each phase boundary; this is where a maxed line's power jump
+      actually comes from, since the cost curve's own phase jump only
+      makes a line more expensive, not more rewarding.
+    - **`GpUpgrades`** (`domain/model/GpUpgrades.kt`) — the Gold tab's 30
+      lines, 475 tiers total: 28 per-lair lines (14 lairs × `Profit`/`Speed`
+      `UpgradeCategory`, `LAIR_LINE_PHASES` = 5/5/5 = 15 tiers each, base
+      cost `lair.baseCostGp * 100`) + 2 "Everything" lines (`Profit` 9/9/10
+      = 28 tiers, `Speed` 9/9/9 = 27 tiers, flat 300,000,000 gp base cost)
+      — `28*15 + 28 + 27 = 475` exactly, asserted in `GpUpgradesTest`.
+      Shared `costGrowthRate = 1.25`, `phaseJumpMultiplier = 8.0`; percent
+      per tier is 2%/4%/8% across phases 1/2/3 for both categories.
+      `lairProfitMultiplier`/`lairSpeedMultiplier`/`everythingProfitMultiplier`/
+      `everythingSpeedMultiplier(level)` each return `1.0 +
+      upgradeTotalPercent(...) / 100.0`.
+    - **`GemUpgrades`** (`domain/model/GemUpgrades.kt`) — the Gems tab's
+      single line, "Gem Efficiency," 200 tiers (67/67/66) — **every** Gem
+      upgrade raises the per-Gem income-bonus percentage, per an explicit
+      instruction that Gem upgrades should only ever affect that one
+      number, nothing else. `BASE_COST_GEMS = 5.0`,
+      `costGrowthRate = 1.15`, `phaseJumpMultiplier = 5.0`; per-tier bonus
+      (percentage points, additive) is 0.0005%/0.001%/0.002% across
+      phases 1/2/3 — small numbers since they stack onto the already
+      substantial flat 2%-per-Gem baseline (`LevelUp.kt`'s
+      `GEM_INCOME_BONUS_PER_GEM`, made a public `const val` so
+      `GemUpgrades`/`gemIncomeMultiplier` can share it). `costForTierGems(tier):
+      Long` rounds the fractional Double cost **up** (`ceil`) since Gems
+      are a whole-number currency, unlike Gold. `gemIncomeMultiplier(gems,
+      gemEfficiencyLevel)` now reads `GEM_INCOME_BONUS_PER_GEM +
+      GemUpgrades.bonusPerGem(gemEfficiencyLevel)` as the per-Gem rate —
+      spending Gems on this upgrade correctly does **not** shrink the
+      bonus from Gems still held; it only raises the rate applied to
+      whatever's left.
+    - **Platinum tab deliberately deferred** — per explicit instruction
+      ("dont implement any new platinum upgrades right now. Just Gold and
+      Gems"), `UpgradesContent`'s Platinum tab renders the existing
+      `ComingSoonPlaceholder()`. The existing Platinum-funded Boosts
+      (`domain/model/Boosts.kt` — Speed Boost, Profit Boost, Time Skips)
+      are untouched by this feature and remain the only Platinum spend
+      path; they're also the only upgrade-like state that's genuinely
+      permanent through Level Up, unlike everything built here.
+    - **Everything here resets on Level Up, unlike Boosts** — a lair's
+      own `profitUpgradeLevel`/`speedUpgradeLevel` (new fields on
+      `OwnedLair`) reset implicitly since `GameState.lairs` itself resets
+      to the starting map on Level Up; `GameState.everythingProfitUpgradeLevel`/
+      `everythingSpeedUpgradeLevel`/`gemEfficiencyLevel` reset the same
+      way `gems` does, by simply not being carried into the fresh
+      `GameState` `performLevelUp()` constructs. This was the explicit
+      point of the "GP and Gem Upgrades" reset requirement that kicked
+      off this session's Level Up redesign — see the Prestige bullet
+      under Core game design. Room bumped to **version 8** for these five
+      new persisted fields (both `GameStateEntity` and `OwnedLairEntity`);
+      the Supabase `GameStateDto`/`OwnedLairDto` got the same five fields,
+      each with a `= 0` default for old cloud saves.
+    - **`GameEngine`** gained three purchase methods, each atomic
+      (afford-check, max-tier-check, and the actual deduction all inside
+      one `_state.update`, so a purchase can't partially apply):
+      `purchaseGpLairUpgrade(lairId, category)`,
+      `purchaseGpEverythingUpgrade(category)`, and
+      `purchaseGemEfficiencyUpgrade()` — thin `GameViewModel` wrappers
+      forward all three straight through, same shape as
+      `claimLair`/`hireSteward`. Every multiplier-consuming call site
+      (`advance`/`advanceLair`/`grantInstantProduction`/
+      `computeLairProgress` in `GameEngine`, plus `GameScreen`'s
+      gold-per-second sum and `LairRow`'s per-card display) now computes
+      the two "Everything" multipliers once per tick/recomposition and
+      combines them with a lair's own upgrade level before passing the
+      result into `CreatureLair.incomePerCycle`'s new
+      `upgradeProfitMultiplier` param / `effectiveProductionSeconds`'s new
+      `upgradeSpeedMultiplier` param (both default `1.0`, both threaded
+      down through `LairRow`→`LairCard` for display, same pattern as
+      every other multiplier this game has added incrementally).
+    - **`UpgradesContent`** (`ui/upgrades/UpgradesContent.kt`) — a 3-tab
+      segmented control (`UpgradeTab.GOLD`/`GEMS`/`PLATINUM`) via a custom
+      private `UpgradeTabButton`, **not** the shared `WoodenButton` —
+      `WoodenButton`'s `enabled` param gates both its visual state and its
+      clickability together, which doesn't work for a tab row where every
+      tab (including the currently-selected one, for re-selection) must
+      stay clickable regardless of which is active. A shared private
+      `UpgradeLineRow` (label, level/maxLevel, effect description, cost
+      label, canAfford, onBuy) renders every line in both the Gold and
+      Gems tabs so the row shape can't drift between them. `ParchmentCard`/
+      `SectionLabel` are duplicated privately in this file rather than
+      extracted, matching the established per-file-duplication convention
+      already used identically in `ShopContent.kt`/`StewardsContent.kt`/
+      `LevelUpContent.kt`. Verified live on an installed device: all three
+      tabs render correctly, a real Gold purchase (Kobold Warren Profit)
+      deducted the exact displayed cost (373.8 gp) and moved the line from
+      Lv 0/15 to Lv 1/15 with a freshly recalculated next-tier cost
+      (467.3 gp, matching `costGrowthRate = 1.25`), and a real Gem
+      purchase moved Gem Efficiency from Lv 0/200 to Lv 1/200 for the
+      displayed 5-Gem cost, with the next cost updating to 6 Gems
+      (`ceil(5 * 1.15) = 6`) and the per-Gem bonus display updating from
+      +2.0% to +2.1% income.
   - **`StewardsContent`** (`ui/stewards/StewardsContent.kt`) — the Stewards
     section's real content: an intro card explaining what a Steward does,
     then one row per *owned* lair (a lair with zero units doesn't get a row —
@@ -1380,17 +1506,17 @@ we'll pin these down as we build each system.
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested
-- Manual upgrade shop (spending gold on a chosen boost) — not implemented.
-  The *automatic* ownership-milestone multipliers this was originally
-  tracking are done (see `domain/model/Milestone.kt`, above) — this is only
-  about a separate, player-chosen upgrade purchase on top of those.
-  **Design intent confirmed for whenever this (and any future
-  Gem-spending shop) gets built: both must reset on a Level Up, unlike
-  the existing Platinum-bought Boosts, which stay permanent.** Gold- and
-  Gem-sourced power is tied to the current run (Gold resets already,
-  Gems are themselves temporary as of v0.24.0 — see the Level Up bullet
-  under Tech stack); only Platinum — real-money/ad-sourced — buys
-  anything that survives a reset.
+- Manual upgrade shop — **built as of v0.25.0** (the Upgrades menu
+  section: 475 Gold tiers, 200 Gem tiers — see the Upgrades bullet under
+  Tech stack). Confirms the design intent recorded here previously: both
+  the Gold and Gem sides reset on Level Up, exactly like the currencies
+  that fund them; only a future Platinum tab — deliberately deferred,
+  not yet built — would buy anything that survives a reset. What's still
+  open: the Platinum tab itself (100 tiers were originally mentioned but
+  explicitly put on hold — "dont implement any new platinum upgrades
+  right now"), and whether it should mirror this same
+  phase/tier-jump shape or do something distinct given Platinum's
+  already-permanent, real-money-adjacent nature.
 - Leaderboard scope (global hoard value? fastest Level Up? per-lair records?)
 - Target device scope (phone-only vs. tablet/landscape support)
 - Cloud sync now happens on launch, every 5 minutes, on sign-up/sign-in, and

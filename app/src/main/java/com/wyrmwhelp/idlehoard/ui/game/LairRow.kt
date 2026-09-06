@@ -82,6 +82,7 @@ fun LairRow(
     palette: FantasyPalette = FantasyPalette.Default,
     profitBoostMultiplier: Double = 1.0,
     gemBonusMultiplier: Double = 1.0,
+    upgradeProfitMultiplier: Double = 1.0,
 ) {
     var coinBurstTrigger by remember { mutableIntStateOf(0) }
     var lastSeenCompletedLoads by remember { mutableIntStateOf(owned.completedLoads) }
@@ -132,6 +133,7 @@ fun LairRow(
             palette = palette,
             profitBoostMultiplier = profitBoostMultiplier,
             gemBonusMultiplier = gemBonusMultiplier,
+            upgradeProfitMultiplier = upgradeProfitMultiplier,
         )
     }
 }

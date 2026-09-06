@@ -2,9 +2,13 @@ package com.wyrmwhelp.idlehoard.domain.engine
 
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.GameState
+import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_COOLDOWN
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
+import com.wyrmwhelp.idlehoard.domain.model.GemUpgrades
+import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
+import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
@@ -597,5 +601,171 @@ class GameEngineTest {
             engine.state.value.goldPieces,
             0.0001,
         )
+    }
+
+    @Test
+    fun `purchaseGpLairUpgrade deducts gold and increments that lair's own level`() {
+        val cost = GpUpgrades.costForLairTier("kobold_warren", UpgradeCategory.PROFIT, 1)
+        engine.loadState(GameState(goldPieces = cost, lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1))))
+
+        val bought = engine.purchaseGpLairUpgrade("kobold_warren", UpgradeCategory.PROFIT)
+
+        assertTrue(bought)
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+        assertEquals(1, engine.state.value.ownedLair("kobold_warren").profitUpgradeLevel)
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").speedUpgradeLevel)
+    }
+
+    @Test
+    fun `purchaseGpLairUpgrade fails for a lair that isn't owned`() {
+        engine.loadState(GameState(goldPieces = 1_000_000_000.0, lairs = emptyMap()))
+
+        val bought = engine.purchaseGpLairUpgrade("goblin_camp", UpgradeCategory.PROFIT)
+
+        assertFalse(bought)
+    }
+
+    @Test
+    fun `purchaseGpLairUpgrade fails once a line is already at its max tier`() {
+        val maxLevel = GpUpgrades.LAIR_LINE_PHASES.totalTiers
+        engine.loadState(
+            GameState(
+                goldPieces = Double.MAX_VALUE / 2,
+                lairs = mapOf(
+                    "kobold_warren" to OwnedLair(
+                        lairId = "kobold_warren",
+                        count = 1,
+                        profitUpgradeLevel = maxLevel,
+                    ),
+                ),
+            ),
+        )
+
+        val bought = engine.purchaseGpLairUpgrade("kobold_warren", UpgradeCategory.PROFIT)
+
+        assertFalse(bought)
+        assertEquals(maxLevel, engine.state.value.ownedLair("kobold_warren").profitUpgradeLevel)
+    }
+
+    @Test
+    fun `purchaseGpLairUpgrade fails when gold is insufficient`() {
+        val cost = GpUpgrades.costForLairTier("kobold_warren", UpgradeCategory.SPEED, 1)
+        engine.loadState(
+            GameState(
+                goldPieces = cost - 0.01,
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+            ),
+        )
+
+        val bought = engine.purchaseGpLairUpgrade("kobold_warren", UpgradeCategory.SPEED)
+
+        assertFalse(bought)
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").speedUpgradeLevel)
+    }
+
+    @Test
+    fun `a lair's Profit upgrade level boosts only that lair's income`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        val cost = GpUpgrades.costForLairTier("kobold_warren", UpgradeCategory.PROFIT, 1)
+        engine.loadState(
+            GameState(goldPieces = lair.baseCostGp + cost, lairs = emptyMap()),
+        )
+        engine.purchaseLair("kobold_warren")
+        engine.purchaseGpLairUpgrade("kobold_warren", UpgradeCategory.PROFIT)
+        engine.startLairLoad("kobold_warren")
+
+        engine.tick(lair.baseProductionSeconds)
+
+        assertEquals(
+            lair.incomePerCycle(1, upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(1)),
+            engine.state.value.goldPieces,
+            0.0001,
+        )
+    }
+
+    @Test
+    fun `purchaseGpEverythingUpgrade deducts gold and increments the account-wide level`() {
+        val cost = GpUpgrades.costForEverythingTier(UpgradeCategory.SPEED, 1)
+        engine.loadState(GameState(goldPieces = cost))
+
+        val bought = engine.purchaseGpEverythingUpgrade(UpgradeCategory.SPEED)
+
+        assertTrue(bought)
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+        assertEquals(1, engine.state.value.everythingSpeedUpgradeLevel)
+        assertEquals(0, engine.state.value.everythingProfitUpgradeLevel)
+    }
+
+    @Test
+    fun `purchaseGpEverythingUpgrade fails once already at max tier`() {
+        val maxLevel = GpUpgrades.EVERYTHING_PROFIT_PHASES.totalTiers
+        engine.loadState(GameState(goldPieces = Double.MAX_VALUE / 2, everythingProfitUpgradeLevel = maxLevel))
+
+        val bought = engine.purchaseGpEverythingUpgrade(UpgradeCategory.PROFIT)
+
+        assertFalse(bought)
+        assertEquals(maxLevel, engine.state.value.everythingProfitUpgradeLevel)
+    }
+
+    @Test
+    fun `purchaseGemEfficiencyUpgrade deducts gems and increments the level`() {
+        val cost = GemUpgrades.costForTierGems(1)
+        engine.loadState(GameState(gems = cost))
+
+        val bought = engine.purchaseGemEfficiencyUpgrade()
+
+        assertTrue(bought)
+        assertEquals(0L, engine.state.value.gems)
+        assertEquals(1, engine.state.value.gemEfficiencyLevel)
+    }
+
+    @Test
+    fun `purchaseGemEfficiencyUpgrade fails when gems are insufficient`() {
+        val cost = GemUpgrades.costForTierGems(1)
+        engine.loadState(GameState(gems = cost - 1))
+
+        val bought = engine.purchaseGemEfficiencyUpgrade()
+
+        assertFalse(bought)
+        assertEquals(0, engine.state.value.gemEfficiencyLevel)
+    }
+
+    @Test
+    fun `purchaseGemEfficiencyUpgrade fails once already at max tier`() {
+        val maxLevel = GemUpgrades.PHASES.totalTiers
+        engine.loadState(GameState(gems = Long.MAX_VALUE / 2, gemEfficiencyLevel = maxLevel))
+
+        val bought = engine.purchaseGemEfficiencyUpgrade()
+
+        assertFalse(bought)
+        assertEquals(maxLevel, engine.state.value.gemEfficiencyLevel)
+    }
+
+    @Test
+    fun `performLevelUp resets every Gold Pieces and Gem upgrade level`() {
+        engine.loadState(
+            GameState(
+                lifetimeGoldEarned = 1_000_000_000_000_000.0,
+                lairs = mapOf(
+                    "kobold_warren" to OwnedLair(
+                        lairId = "kobold_warren",
+                        count = 1,
+                        profitUpgradeLevel = 3,
+                        speedUpgradeLevel = 2,
+                    ),
+                ),
+                everythingProfitUpgradeLevel = 5,
+                everythingSpeedUpgradeLevel = 4,
+                gemEfficiencyLevel = 10,
+            ),
+        )
+
+        engine.performLevelUp()
+
+        assertEquals(0, engine.state.value.everythingProfitUpgradeLevel)
+        assertEquals(0, engine.state.value.everythingSpeedUpgradeLevel)
+        assertEquals(0, engine.state.value.gemEfficiencyLevel)
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").profitUpgradeLevel)
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").speedUpgradeLevel)
     }
 }

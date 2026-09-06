@@ -10,6 +10,9 @@ fun GameState.toEntities(): Pair<GameStateEntity, List<OwnedLairEntity>> {
         platinumPieces = platinumPieces,
         gems = gems,
         lifetimeGoldEarned = lifetimeGoldEarned,
+        everythingProfitUpgradeLevel = everythingProfitUpgradeLevel,
+        everythingSpeedUpgradeLevel = everythingSpeedUpgradeLevel,
+        gemEfficiencyLevel = gemEfficiencyLevel,
         offlineCapHours = offlineCapHours,
         lastSavedAtEpochMillis = lastSavedAt.toEpochMilli(),
         totalLevelUps = totalLevelUps,
@@ -28,6 +31,8 @@ private fun OwnedLair.toEntity(): OwnedLairEntity = OwnedLairEntity(
     cycleProgressSeconds = cycleProgressSeconds,
     isLoading = isLoading,
     completedLoads = completedLoads,
+    profitUpgradeLevel = profitUpgradeLevel,
+    speedUpgradeLevel = speedUpgradeLevel,
 )
 
 fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = GameState(
@@ -35,6 +40,9 @@ fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = G
     platinumPieces = platinumPieces,
     gems = gems,
     lifetimeGoldEarned = lifetimeGoldEarned,
+    everythingProfitUpgradeLevel = everythingProfitUpgradeLevel,
+    everythingSpeedUpgradeLevel = everythingSpeedUpgradeLevel,
+    gemEfficiencyLevel = gemEfficiencyLevel,
     lairs = lairEntities.associate { it.lairId to it.toDomain() },
     offlineCapHours = offlineCapHours,
     lastSavedAt = Instant.ofEpochMilli(lastSavedAtEpochMillis),
@@ -51,4 +59,6 @@ private fun OwnedLairEntity.toDomain(): OwnedLair = OwnedLair(
     cycleProgressSeconds = cycleProgressSeconds,
     isLoading = isLoading,
     completedLoads = completedLoads,
+    profitUpgradeLevel = profitUpgradeLevel,
+    speedUpgradeLevel = speedUpgradeLevel,
 )

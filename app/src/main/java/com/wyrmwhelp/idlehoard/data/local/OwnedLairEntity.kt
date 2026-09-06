@@ -12,4 +12,6 @@ data class OwnedLairEntity(
     val cycleProgressSeconds: Double,
     val isLoading: Boolean = false,
     val completedLoads: Int = 0,
+    val profitUpgradeLevel: Int = 0,
+    val speedUpgradeLevel: Int = 0,
 )

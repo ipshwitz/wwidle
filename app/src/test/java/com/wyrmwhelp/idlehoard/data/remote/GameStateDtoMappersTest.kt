@@ -18,6 +18,9 @@ class GameStateDtoMappersTest {
             platinumPieces = 42.0,
             gems = 7L,
             lifetimeGoldEarned = 987_654.0,
+            everythingProfitUpgradeLevel = 12,
+            everythingSpeedUpgradeLevel = 8,
+            gemEfficiencyLevel = 15,
             lairs = mapOf(
                 "kobold_warren" to OwnedLair(
                     lairId = "kobold_warren",
@@ -26,6 +29,8 @@ class GameStateDtoMappersTest {
                     cycleProgressSeconds = 1.5,
                     isLoading = true,
                     completedLoads = 4,
+                    profitUpgradeLevel = 6,
+                    speedUpgradeLevel = 9,
                 ),
             ),
             offlineCapHours = 6.0,
@@ -61,6 +66,9 @@ class GameStateDtoMappersTest {
         assertEquals(0L, decoded.gems)
         assertEquals(0, decoded.totalLevelUps)
         assertEquals(0.0, decoded.lifetimeGoldEarned, 0.0001)
+        assertEquals(0, decoded.everythingProfitUpgradeLevel)
+        assertEquals(0, decoded.everythingSpeedUpgradeLevel)
+        assertEquals(0, decoded.gemEfficiencyLevel)
     }
 
     @Test

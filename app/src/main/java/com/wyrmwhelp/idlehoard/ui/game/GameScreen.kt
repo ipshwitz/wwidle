@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
@@ -42,7 +43,9 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(viewModel.lairs)
     val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
     val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
-    val gemMultiplier = gemIncomeMultiplier(state.gems)
+    val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel)
+    val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
+    val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
 
     // Total income rate from Steward-managed lairs only — the only ones
     // that actually run continuously on their own now. A lair without a
@@ -52,8 +55,10 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val goldPerSecond = viewModel.lairs.sumOf { lair ->
         val owned = state.ownedLair(lair.id)
         if (owned.count > 0 && owned.hasSteward) {
-            lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier) /
-                lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
+            val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
+            val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
+            lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier) /
+                lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier)
         } else {
             0.0
         }
@@ -85,6 +90,8 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
             ) {
                 items(viewModel.lairs, key = { it.id }) { lair ->
                     val owned = state.ownedLair(lair.id)
+                    val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
+                    val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
                     LairRow(
                         lair = lair,
                         owned = owned,
@@ -92,11 +99,12 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         buyQuantity = buyQuantity,
                         globalIncomeMultiplier = globalIncomeMultiplier,
                         progress = lairProgress[lair.id] ?: 0f,
-                        productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier),
+                        productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier),
                         onClaim = { viewModel.claimLair(lair.id) },
                         onStartLoad = { viewModel.startLairLoad(lair.id) },
                         profitBoostMultiplier = profitMultiplier,
                         gemBonusMultiplier = gemMultiplier,
+                        upgradeProfitMultiplier = upgradeProfitMultiplier,
                     )
                 }
             }

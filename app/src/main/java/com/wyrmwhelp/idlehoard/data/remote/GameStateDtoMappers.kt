@@ -9,6 +9,9 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     platinumPieces = platinumPieces,
     gems = gems,
     lifetimeGoldEarned = lifetimeGoldEarned,
+    everythingProfitUpgradeLevel = everythingProfitUpgradeLevel,
+    everythingSpeedUpgradeLevel = everythingSpeedUpgradeLevel,
+    gemEfficiencyLevel = gemEfficiencyLevel,
     lairs = lairs.mapValues { (_, owned) -> owned.toDto() },
     offlineCapHours = offlineCapHours,
     lastSavedAtEpochMillis = lastSavedAt.toEpochMilli(),
@@ -24,6 +27,8 @@ private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
     cycleProgressSeconds = cycleProgressSeconds,
     isLoading = isLoading,
     completedLoads = completedLoads,
+    profitUpgradeLevel = profitUpgradeLevel,
+    speedUpgradeLevel = speedUpgradeLevel,
 )
 
 fun GameStateDto.toDomain(): GameState = GameState(
@@ -31,6 +36,9 @@ fun GameStateDto.toDomain(): GameState = GameState(
     platinumPieces = platinumPieces,
     gems = gems,
     lifetimeGoldEarned = lifetimeGoldEarned,
+    everythingProfitUpgradeLevel = everythingProfitUpgradeLevel,
+    everythingSpeedUpgradeLevel = everythingSpeedUpgradeLevel,
+    gemEfficiencyLevel = gemEfficiencyLevel,
     lairs = lairs.mapValues { (lairId, dto) -> dto.toDomain(lairId) },
     offlineCapHours = offlineCapHours,
     lastSavedAt = Instant.ofEpochMilli(lastSavedAtEpochMillis),
@@ -47,4 +55,6 @@ private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(
     cycleProgressSeconds = cycleProgressSeconds,
     isLoading = isLoading,
     completedLoads = completedLoads,
+    profitUpgradeLevel = profitUpgradeLevel,
+    speedUpgradeLevel = speedUpgradeLevel,
 )

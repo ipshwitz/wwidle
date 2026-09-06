@@ -56,6 +56,7 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 @Composable
 fun LevelUpContent(
     gems: Long,
+    gemEfficiencyLevel: Int,
     gemsEarnable: Long,
     onLevelUp: () -> Unit,
     modifier: Modifier = Modifier,
@@ -69,7 +70,7 @@ fun LevelUpContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item { IntroCard(palette = palette) }
-        item { GemsBalanceCard(gems = gems, palette = palette) }
+        item { GemsBalanceCard(gems = gems, gemEfficiencyLevel = gemEfficiencyLevel, palette = palette) }
         item {
             LevelUpCard(
                 gemsEarnable = gemsEarnable,
@@ -135,7 +136,7 @@ private fun IntroCard(palette: FantasyPalette, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun GemsBalanceCard(gems: Long, palette: FantasyPalette, modifier: Modifier = Modifier) {
+private fun GemsBalanceCard(gems: Long, gemEfficiencyLevel: Int, palette: FantasyPalette, modifier: Modifier = Modifier) {
     ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.gemDeep.copy(alpha = 0.8f)) {
         GlowingGoldText(
             text = "${GoldFormat.format(gems.toDouble())} gems",
@@ -145,7 +146,7 @@ private fun GemsBalanceCard(gems: Long, palette: FantasyPalette, modifier: Modif
             glowDeep = palette.gemDeep,
         )
         Spacer(Modifier.height(2.dp))
-        val bonusPercent = (gemIncomeMultiplier(gems) - 1.0) * 100.0
+        val bonusPercent = (gemIncomeMultiplier(gems, gemEfficiencyLevel) - 1.0) * 100.0
         Text(
             text = "+${GoldFormat.format(bonusPercent)}% income from every lair, until your next Level Up",
             style = MaterialTheme.typography.bodySmall,

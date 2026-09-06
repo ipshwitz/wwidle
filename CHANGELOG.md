@@ -3,6 +3,37 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.25.0] - 2026-09-06 2:50 PM EDT
+
+- Added the Upgrades menu section — a permanent Gold/Gem sink on top of
+  the existing ownership milestones, reachable from the floating menu
+  between Unlocks and Stewards:
+  - **Gold tab:** 475 tiers total across 30 lines — every lair gets its
+    own Profit and Speed line (15 tiers each, 28 lairs), plus two
+    "Everything" lines (Profit and Speed, 28/27 tiers) that boost every
+    owned lair at once. Each line runs through three internal
+    beginning/mid/end phases with a deliberate cost *and* effect jump at
+    each phase boundary, not just smooth compounding — mirroring the
+    lair catalog's own tier jumps.
+  - **Gems tab:** a single 200-tier "Gem Efficiency" line that raises how
+    much income bonus each currently-held Gem is worth (stacking on top
+    of the flat 2%/Gem baseline). Gems spent here stop counting toward
+    that per-Gem bonus, same as spending them any other way.
+  - **Platinum tab:** left as a "Coming soon…" placeholder for now —
+    intentionally not built yet.
+  - Every Gold- and Gem-funded upgrade level resets on your next Level
+    Up, same as the currency that bought it — only Platinum-funded
+    upgrades (not built yet) will carry forward. Room bumped to database
+    version 8 for the five new persisted fields (a lair's own
+    Profit/Speed upgrade level, plus the two Everything levels and Gem
+    Efficiency level).
+  - Verified live on-device: opening each tab renders correctly, a real
+    Gold purchase (Kobold Warren's Profit line) deducted the exact
+    373.8 gp shown and moved the line to Lv 1/15 with an updated
+    next-tier cost, and a real Gem purchase moved Gem Efficiency to
+    Lv 1/200 for 5 Gems with the per-Gem bonus display updating from
+    +2.0% to +2.1% income.
+
 ## [0.24.0] - 2026-09-06 12:31 PM EDT
 
 - Redesigned Gems from an accumulating prestige currency into a

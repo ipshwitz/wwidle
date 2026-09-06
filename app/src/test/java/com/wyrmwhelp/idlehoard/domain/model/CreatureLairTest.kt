@@ -178,6 +178,25 @@ class CreatureLairTest {
     }
 
     @Test
+    fun `incomePerCycle applies the GP upgrade profit multiplier on top of the others`() {
+        val unitsOwned = 500
+        val globalIncomeMultiplier = 3.0
+        val profitBoostMultiplier = 1.5
+        val gemBonusMultiplier = 1.2
+        val upgradeProfitMultiplier = 1.3
+
+        val income = lair.incomePerCycle(
+            unitsOwned, globalIncomeMultiplier, profitBoostMultiplier, gemBonusMultiplier, upgradeProfitMultiplier,
+        )
+
+        assertEquals(
+            lair.baseIncomeGp * unitsOwned * 4.0 * globalIncomeMultiplier * profitBoostMultiplier * gemBonusMultiplier * upgradeProfitMultiplier,
+            income,
+            0.0001,
+        )
+    }
+
+    @Test
     fun `effectiveProductionSeconds defaults to the base cycle time unchanged`() {
         assertEquals(lair.baseProductionSeconds, lair.effectiveProductionSeconds(), 0.0001)
     }
@@ -219,6 +238,19 @@ class CreatureLairTest {
         assertEquals(
             lair.baseProductionSeconds / (2.0 * 3.0),
             lair.effectiveProductionSeconds(unitsOwned = 25, globalSpeedMilestoneMultiplier = 3.0),
+            0.0001,
+        )
+    }
+
+    @Test
+    fun `effectiveProductionSeconds also divides by the GP upgrade speed multiplier`() {
+        assertEquals(
+            lair.baseProductionSeconds / (2.0 * 3.0 * 1.4),
+            lair.effectiveProductionSeconds(
+                unitsOwned = 25,
+                globalSpeedMilestoneMultiplier = 3.0,
+                upgradeSpeedMultiplier = 1.4,
+            ),
             0.0001,
         )
     }

@@ -17,6 +17,7 @@ import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
 import com.wyrmwhelp.idlehoard.domain.model.milestonesCrossed
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
+import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
 import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 import com.wyrmwhelp.idlehoard.domain.repository.AuthRepository
@@ -480,6 +481,21 @@ class GameViewModel @Inject constructor(
 
     fun purchaseTimeSkip(option: TimeSkipOption) {
         gameEngine.purchaseTimeSkip(option)
+    }
+
+    /** The Upgrades section's Gold tab — buys the next tier of one lair's own Profit/Speed line. See `GameEngine.purchaseGpLairUpgrade`. */
+    fun purchaseGpLairUpgrade(lairId: String, category: UpgradeCategory) {
+        gameEngine.purchaseGpLairUpgrade(lairId, category)
+    }
+
+    /** The Upgrades section's Gold tab — buys the next tier of an "Everything" line. See `GameEngine.purchaseGpEverythingUpgrade`. */
+    fun purchaseGpEverythingUpgrade(category: UpgradeCategory) {
+        gameEngine.purchaseGpEverythingUpgrade(category)
+    }
+
+    /** The Upgrades section's Gems tab — buys the next Gem Efficiency tier. See `GameEngine.purchaseGemEfficiencyUpgrade`. */
+    fun purchaseGemEfficiencyUpgrade() {
+        gameEngine.purchaseGemEfficiencyUpgrade()
     }
 
     /**

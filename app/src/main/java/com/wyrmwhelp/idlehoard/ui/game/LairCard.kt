@@ -195,6 +195,7 @@ fun LairCard(
     palette: FantasyPalette = FantasyPalette.Default,
     profitBoostMultiplier: Double = 1.0,
     gemBonusMultiplier: Double = 1.0,
+    upgradeProfitMultiplier: Double = 1.0,
 ) {
     // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
     // affordable — falling back to a 1-unit preview keeps the button showing
@@ -286,7 +287,7 @@ fun LairCard(
                     }
                     Text(
                         text = if (owned.count > 0) {
-                            "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier, gemBonusMultiplier))} gp / ${CycleTimeFormat.format(productionSeconds)}"
+                            "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier, gemBonusMultiplier, upgradeProfitMultiplier))} gp / ${CycleTimeFormat.format(productionSeconds)}"
                         } else {
                             "Claim to begin"
                         },

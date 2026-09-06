@@ -30,6 +30,7 @@ import com.wyrmwhelp.idlehoard.ui.shop.ShopContent
 import com.wyrmwhelp.idlehoard.ui.stewards.StewardsContent
 import com.wyrmwhelp.idlehoard.ui.theme.WyrmWhelpIdleHoardTheme
 import com.wyrmwhelp.idlehoard.ui.unlocks.UnlocksContent
+import com.wyrmwhelp.idlehoard.ui.upgrades.UpgradesContent
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -111,10 +112,22 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                         )
                     }
                 }
+                "Upgrades" -> {
+                    {
+                        UpgradesContent(
+                            lairs = gameViewModel.lairs,
+                            state = gameState,
+                            onBuyGpLairUpgrade = gameViewModel::purchaseGpLairUpgrade,
+                            onBuyGpEverythingUpgrade = gameViewModel::purchaseGpEverythingUpgrade,
+                            onBuyGemEfficiencyUpgrade = gameViewModel::purchaseGemEfficiencyUpgrade,
+                        )
+                    }
+                }
                 "Level Up" -> {
                     {
                         LevelUpContent(
                             gems = gameState.gems,
+                            gemEfficiencyLevel = gameState.gemEfficiencyLevel,
                             gemsEarnable = gameState.gemsEarnedFromLevelUp(),
                             onLevelUp = gameViewModel::performLevelUp,
                         )

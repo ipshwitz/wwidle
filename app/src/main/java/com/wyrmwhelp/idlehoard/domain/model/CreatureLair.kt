@@ -109,38 +109,48 @@ data class CreatureLair(
      * `GameState.globalIncomeMilestoneMultiplier`), the permanent
      * account-wide profit boost via [profitBoostMultiplier] (from
      * `profitBoostMultiplier(GameState.profitBoostLevel)` in `Boosts.kt`),
-     * and the permanent Gem bonus via [gemBonusMultiplier] (from
-     * `gemIncomeMultiplier(GameState.gems)` in `LevelUp.kt`) — callers that
-     * don't pass one of these (existing tests, mainly) get the no-bonus
-     * default of 1.0 for it. Speed-type milestone rungs have no effect here
-     * — see [effectiveProductionSeconds] for those.
+     * the temporary Gem bonus via [gemBonusMultiplier] (from
+     * `gemIncomeMultiplier(GameState.gems, GameState.gemEfficiencyLevel)`
+     * in `LevelUp.kt`), and the manually-bought Gold Pieces upgrade bonus
+     * via [upgradeProfitMultiplier] (this lair's own Profit line combined
+     * with the "Everything Profit" line — see `GpUpgrades.kt`) — callers
+     * that don't pass one of these (existing tests, mainly) get the
+     * no-bonus default of 1.0 for it. Speed-type milestone rungs have no
+     * effect here — see [effectiveProductionSeconds] for those.
      */
     fun incomePerCycle(
         unitsOwned: Int,
         globalIncomeMultiplier: Double = 1.0,
         profitBoostMultiplier: Double = 1.0,
         gemBonusMultiplier: Double = 1.0,
+        upgradeProfitMultiplier: Double = 1.0,
     ): Double =
         baseIncomeGp * unitsOwned * individualIncomeMilestoneMultiplier(unitsOwned) *
-            globalIncomeMultiplier * profitBoostMultiplier * gemBonusMultiplier
+            globalIncomeMultiplier * profitBoostMultiplier * gemBonusMultiplier * upgradeProfitMultiplier
 
     /**
      * This lair's actual cycle time at [unitsOwned] owned, after the
      * permanent account-wide speed boost (`speedBoostMultiplier(GameState.speedBoostLevel)`
      * in `Boosts.kt`), this lair's own Speed milestone bonus (see
-     * [individualSpeedMilestoneMultiplier]), and the "Everything" Speed
+     * [individualSpeedMilestoneMultiplier]), the "Everything" Speed
      * bonus via [globalSpeedMilestoneMultiplier] (from
-     * `GameState.globalSpeedMilestoneMultiplier`) — every one of these makes
-     * cycles complete *faster*, so they divide [baseProductionSeconds]
-     * rather than multiplying it. [unitsOwned] defaults to 0 (no milestone
-     * speed bonus) for callers that don't care about it (existing tests,
-     * mainly); Income-type milestone rungs have no effect here — see
-     * [incomePerCycle] for those.
+     * `GameState.globalSpeedMilestoneMultiplier`), and the manually-bought
+     * Gold Pieces upgrade bonus via [upgradeSpeedMultiplier] (this lair's
+     * own Speed line combined with the "Everything Speed" line — see
+     * `GpUpgrades.kt`) — every one of these makes cycles complete *faster*,
+     * so they divide [baseProductionSeconds] rather than multiplying it.
+     * [unitsOwned] defaults to 0 (no milestone speed bonus) for callers
+     * that don't care about it (existing tests, mainly); Income-type
+     * milestone rungs have no effect here — see [incomePerCycle] for those.
      */
     fun effectiveProductionSeconds(
         unitsOwned: Int = 0,
         speedBoostMultiplier: Double = 1.0,
         globalSpeedMilestoneMultiplier: Double = 1.0,
+        upgradeSpeedMultiplier: Double = 1.0,
     ): Double =
-        baseProductionSeconds / (speedBoostMultiplier * individualSpeedMilestoneMultiplier(unitsOwned) * globalSpeedMilestoneMultiplier)
+        baseProductionSeconds / (
+            speedBoostMultiplier * individualSpeedMilestoneMultiplier(unitsOwned) *
+                globalSpeedMilestoneMultiplier * upgradeSpeedMultiplier
+            )
 }

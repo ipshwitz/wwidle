@@ -43,12 +43,29 @@ import java.time.Instant
  * @property lastPlatinumAdWatchedAt When the Shop's "Watch an Ad" rewarded
  *   placement was last watched to completion, or null if never — see
  *   `domain/model/AdRewards.kt` for the 24-hour cooldown this gates.
+ * @property everythingProfitUpgradeLevel Tiers bought of the Gold Pieces
+ *   "Everything Profit" upgrade line (`domain/model/GpUpgrades.kt`) —
+ *   boosts every owned lair's income at once. Resets on a Level Up, same
+ *   as Gold Pieces themselves (gold-sourced power is tied to the current
+ *   run) — the per-lair equivalent lives on [OwnedLair.profitUpgradeLevel]
+ *   instead, and resets implicitly since [lairs] itself resets.
+ * @property everythingSpeedUpgradeLevel Tiers bought of the Gold Pieces
+ *   "Everything Speed" upgrade line, same shape as
+ *   [everythingProfitUpgradeLevel] but for cycle time instead of income.
+ * @property gemEfficiencyLevel Tiers bought of the Gem-spent "Gem
+ *   Efficiency" upgrade (`domain/model/GemUpgrades.kt`) — raises the
+ *   per-Gem income bonus [gemIncomeMultiplier] grants. Resets on a Level
+ *   Up alongside [gems] itself, since Gems are temporary (see this class's
+ *   [gems] doc) — a Gem-bought upgrade to their value can't outlive them.
  */
 data class GameState(
     val goldPieces: Double = 0.0,
     val platinumPieces: Double = 0.0,
     val gems: Long = 0,
     val lifetimeGoldEarned: Double = 0.0,
+    val everythingProfitUpgradeLevel: Int = 0,
+    val everythingSpeedUpgradeLevel: Int = 0,
+    val gemEfficiencyLevel: Int = 0,
     // A brand-new save starts owning one Kobold Warren already — matching
     // AdVenture Capitalist's own onboarding (a free first Lemonade Stand) —
     // since 0 gold and 0 owned lairs would be a permanent dead end otherwise.

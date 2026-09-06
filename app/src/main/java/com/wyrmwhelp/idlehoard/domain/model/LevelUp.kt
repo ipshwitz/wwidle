@@ -42,7 +42,9 @@ import kotlin.math.sqrt
  */
 private const val GEM_FORMULA_COEFFICIENT = 150.0
 private const val LIFETIME_EARNINGS_DIVISOR = 1_000_000_000_000_000.0 // 10^15
-private const val GEM_INCOME_BONUS_PER_GEM = 0.02
+
+/** Base per-Gem income bonus rate before any Gem Efficiency upgrade (see `GemUpgrades.kt`) is applied on top. */
+const val GEM_INCOME_BONUS_PER_GEM = 0.02
 private const val MIN_GEMS_PER_FIRST_LEVEL_UP = 50L
 private const val MIN_GEMS_PER_RECURRING_LEVEL_UP = 25L
 
@@ -66,11 +68,14 @@ fun GameState.gemsEarnedFromLevelUp(): Long {
 
 /**
  * The income bonus from [gems] currently held — each Gem is worth a flat
- * +2%, additive rather than compounding (unlike the Platinum-bought Profit
- * Boost in `Boosts.kt`) — feeds into `CreatureLair.incomePerCycle` alongside
- * the milestone and Profit Boost multipliers. Temporary by construction:
- * since [gems] itself resets every Level Up (see this file's class doc),
- * so does this bonus — it's a head start for the current run, not a
- * permanent account-wide upgrade.
+ * [GEM_INCOME_BONUS_PER_GEM] (2%) plus whatever `GemUpgrades.bonusPerGem`
+ * adds on top for [gemEfficiencyLevel] tiers bought, additive rather than
+ * compounding (unlike the Platinum-bought Profit Boost in `Boosts.kt`) —
+ * feeds into `CreatureLair.incomePerCycle` alongside the milestone and
+ * Profit Boost multipliers. Temporary by construction: since [gems] itself
+ * resets every Level Up (see this file's class doc) and so does
+ * [gemEfficiencyLevel] (`GemUpgrades.kt`), so does this bonus — it's a
+ * head start for the current run, not a permanent account-wide upgrade.
  */
-fun gemIncomeMultiplier(gems: Long): Double = 1.0 + gems * GEM_INCOME_BONUS_PER_GEM
+fun gemIncomeMultiplier(gems: Long, gemEfficiencyLevel: Int = 0): Double =
+    1.0 + gems * (GEM_INCOME_BONUS_PER_GEM + GemUpgrades.bonusPerGem(gemEfficiencyLevel))

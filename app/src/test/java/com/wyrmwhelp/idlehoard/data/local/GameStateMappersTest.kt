@@ -16,6 +16,9 @@ class GameStateMappersTest {
             platinumPieces = 42.0,
             gems = 7L,
             lifetimeGoldEarned = 987_654.0,
+            everythingProfitUpgradeLevel = 12,
+            everythingSpeedUpgradeLevel = 8,
+            gemEfficiencyLevel = 15,
             lairs = mapOf(
                 "kobold_warren" to OwnedLair(
                     lairId = "kobold_warren",
@@ -24,6 +27,8 @@ class GameStateMappersTest {
                     cycleProgressSeconds = 1.5,
                     isLoading = false,
                     completedLoads = 4,
+                    profitUpgradeLevel = 6,
+                    speedUpgradeLevel = 9,
                 ),
                 "goblin_camp" to OwnedLair(
                     lairId = "goblin_camp",
@@ -32,6 +37,8 @@ class GameStateMappersTest {
                     cycleProgressSeconds = 0.0,
                     isLoading = true,
                     completedLoads = 2,
+                    profitUpgradeLevel = 0,
+                    speedUpgradeLevel = 3,
                 ),
             ),
             offlineCapHours = 6.0,

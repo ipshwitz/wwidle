@@ -23,6 +23,14 @@ package com.wyrmwhelp.idlehoard.domain.model
  *   a boolean, so the UI can detect each individual completion (for the coin-burst
  *   effect) even if several happen in quick succession. Never incremented for
  *   Steward-managed cycles, which collect silently.
+ * @property profitUpgradeLevel Tiers bought of this lair's own Gold Pieces
+ *   Profit upgrade line (`domain/model/GpUpgrades.kt`) — boosts only this
+ *   lair's income, unlike the account-wide "Everything Profit" line on
+ *   [GameState.everythingProfitUpgradeLevel]. Resets on a Level Up
+ *   implicitly, since [GameState.lairs] itself resets to the starting map.
+ * @property speedUpgradeLevel Tiers bought of this lair's own Gold Pieces
+ *   Speed upgrade line, same shape as [profitUpgradeLevel] but for cycle
+ *   time instead of income.
  */
 data class OwnedLair(
     val lairId: String,
@@ -31,4 +39,6 @@ data class OwnedLair(
     val cycleProgressSeconds: Double = 0.0,
     val isLoading: Boolean = false,
     val completedLoads: Int = 0,
+    val profitUpgradeLevel: Int = 0,
+    val speedUpgradeLevel: Int = 0,
 )
