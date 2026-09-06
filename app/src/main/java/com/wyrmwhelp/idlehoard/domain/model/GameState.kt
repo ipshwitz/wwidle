@@ -14,8 +14,20 @@ import java.time.Instant
  *   used here for IAP-sourced value (1 pp = 10 gp per 5E convention, flavor only
  *   for now; no automatic conversion is implemented).
  * @property gems Prestige currency earned by Leveling Up (see
- *   `domain/model/LevelUp.kt`) — permanent bonuses from it carry across
- *   every future Level Up.
+ *   `domain/model/LevelUp.kt`) — the player's current *spendable* balance.
+ *   Distinct from [totalGemsEarned] (which never decreases) so a future
+ *   Gem-spending system can draw this down without ever letting the player
+ *   earn the same Gems again by leveling up a second time.
+ * @property totalGemsEarned Every Gem ever earned across every past Level
+ *   Up, whether still held in [gems] or since spent — the running baseline
+ *   `gemsEarnedFromLevelUp` subtracts from the lifetime-earnings target so
+ *   spending (once that exists) can never be "refunded" by leveling up
+ *   again for free.
+ * @property lifetimeGoldEarned Total Gold Pieces ever earned from
+ *   production (lair income, Time Skips, ad-doubled offline earnings) —
+ *   unlike [goldPieces], this never decreases (not on spending, and not on
+ *   a Level Up reset) and is what actually gates how many Gems the next
+ *   Level Up can earn — see `domain/model/LevelUp.kt`.
  * @property lairs Owned-lair state keyed by [CreatureLair.id]. A missing key
  *   means that lair hasn't been claimed yet.
  * @property offlineCapHours Maximum hours of offline production the player can
@@ -37,6 +49,8 @@ data class GameState(
     val goldPieces: Double = 0.0,
     val platinumPieces: Double = 0.0,
     val gems: Long = 0,
+    val totalGemsEarned: Long = 0,
+    val lifetimeGoldEarned: Double = 0.0,
     // A brand-new save starts owning one Kobold Warren already — matching
     // AdVenture Capitalist's own onboarding (a free first Lemonade Stand) —
     // since 0 gold and 0 owned lairs would be a permanent dead end otherwise.

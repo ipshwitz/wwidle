@@ -290,13 +290,17 @@ class GameEngine @Inject constructor() {
      * the exact same starting shape a brand-new [GameState] begins with (one
      * Kobold Warren, nothing else). Platinum Pieces, the boosts bought with
      * it ([GameState.speedBoostLevel]/[GameState.profitBoostLevel]),
-     * [GameState.offlineCapHours], and the ad-watch cooldown
-     * ([GameState.lastPlatinumAdWatchedAt]) all carry over unchanged — only
-     * the gold side of the economy resets. Returns the number of Gems
-     * earned; if the current run hasn't earned even one yet, nothing is
-     * reset and this returns 0 (checked and applied atomically inside the
-     * same [_state] update, so two rapid calls can't both reset off a stale
-     * "earns enough" read).
+     * [GameState.offlineCapHours], the ad-watch cooldown
+     * ([GameState.lastPlatinumAdWatchedAt]), and — critically —
+     * [GameState.lifetimeGoldEarned] itself all carry over unchanged; only
+     * the gold side of the *current run* resets. Returns the number of Gems
+     * earned; if [GameState.lifetimeGoldEarned] hasn't grown enough since
+     * the last Level Up to earn even one more, nothing is reset and this
+     * returns 0 (checked and applied atomically inside the same [_state]
+     * update, so two rapid calls can't both reset off a stale "earns
+     * enough" read) — see `LevelUp.kt`'s class doc for why this is the
+     * intended "reach further before you can Level Up again" gate, not a
+     * bug.
      */
     fun performLevelUp(): Long {
         var gemsEarned = 0L
@@ -308,6 +312,8 @@ class GameEngine @Inject constructor() {
                 GameState(
                     platinumPieces = current.platinumPieces,
                     gems = current.gems + gemsEarned,
+                    totalGemsEarned = current.totalGemsEarned + gemsEarned,
+                    lifetimeGoldEarned = current.lifetimeGoldEarned,
                     offlineCapHours = current.offlineCapHours,
                     totalLevelUps = current.totalLevelUps + 1,
                     speedBoostLevel = current.speedBoostLevel,
@@ -355,11 +361,13 @@ class GameEngine @Inject constructor() {
      * Directly credits [amount] Gold Pieces, bypassing the normal
      * income/milestone pipeline entirely — a flat grant for one-off bonuses
      * like a rewarded ad (see `GameViewModel.watchAdToDoubleOfflineEarnings`),
-     * not anything a lair produces.
+     * not anything a lair produces. Still counts toward
+     * [GameState.lifetimeGoldEarned] — it's earned Gold same as anything a
+     * lair produces, just not tied to a specific lair's own cycle.
      */
     fun grantGold(amount: Double) {
         if (amount <= 0.0) return
-        _state.update { it.copy(goldPieces = it.goldPieces + amount) }
+        _state.update { it.copy(goldPieces = it.goldPieces + amount, lifetimeGoldEarned = it.lifetimeGoldEarned + amount) }
     }
 
     /**
@@ -387,7 +395,12 @@ class GameEngine @Inject constructor() {
         return granted
     }
 
-    /** Pure production step: advances every owned lair and tallies Gold Pieces earned. */
+    /**
+     * Pure production step: advances every owned lair and tallies Gold
+     * Pieces earned. That earned amount also accumulates into
+     * [GameState.lifetimeGoldEarned], which never resets — see
+     * `domain/model/LevelUp.kt` for why that's what actually gates Gems.
+     */
     private fun advance(state: GameState, deltaSeconds: Double): GameState {
         if (deltaSeconds <= 0.0 || state.lairs.isEmpty()) return state
         val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
@@ -405,6 +418,7 @@ class GameEngine @Inject constructor() {
         }
         return state.copy(
             lairs = updatedLairs,
+            lifetimeGoldEarned = state.lifetimeGoldEarned + goldEarned,
             goldPieces = state.goldPieces + goldEarned,
         )
     }
@@ -508,7 +522,11 @@ class GameEngine @Inject constructor() {
                 owned
             }
         }
-        return state.copy(lairs = updatedLairs, goldPieces = state.goldPieces + goldEarned)
+        return state.copy(
+            lairs = updatedLairs,
+            goldPieces = state.goldPieces + goldEarned,
+            lifetimeGoldEarned = state.lifetimeGoldEarned + goldEarned,
+        )
     }
 
     companion object {

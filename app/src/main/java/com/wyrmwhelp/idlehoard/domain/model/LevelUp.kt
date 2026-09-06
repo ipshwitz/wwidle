@@ -10,34 +10,53 @@ import kotlin.math.sqrt
  * in exchange for Gems, a permanent currency whose only effect so far is
  * [gemIncomeMultiplier]'s account-wide income bonus. Everything *not* tied
  * to the gold economy (Platinum Pieces, the boosts bought with it,
- * [GameState.offlineCapHours], the ad cooldown) survives a Level Up — see
- * `GameEngine.performLevelUp` for exactly what carries over.
+ * [GameState.offlineCapHours], the ad cooldown, [GameState.lifetimeGoldEarned]
+ * itself) survives a Level Up — see `GameEngine.performLevelUp` for exactly
+ * what carries over.
  *
- * Tuning numbers here are first-pass placeholders, same as everywhere else
- * in the economy (see `Boosts.kt`) — not yet playtested.
+ * The Gem formula is AdVenture Capitalist's real Angel Investor formula,
+ * carried over 1:1 (Gold Pieces standing in for AdCap's dollars, same as
+ * the rest of this game's tier-0–9 balance — see `CreatureLairCatalog`):
+ * the *target* total Gems your [GameState.lifetimeGoldEarned] "should" have
+ * earned by now is `150 * sqrt(lifetimeGoldEarned / 10^15)`, and a Level Up
+ * only ever grants the gap between that target and
+ * [GameState.totalGemsEarned] — never a fresh amount computed from
+ * scratch. This is a deliberate *stock*, not *flow*, formula: since
+ * [GameState.lifetimeGoldEarned] never resets and only ever grows, the
+ * target only moves forward when the player actually earns more lifetime
+ * income than they had at their last Level Up — leveling up twice in a
+ * row without earning anything new in between grants 0 Gems the second
+ * time, which is exactly the "reach further before you can Level Up
+ * again" gate this is meant to provide, without a separately-tracked
+ * threshold to keep in sync with the reward itself.
  */
-private const val GEMS_NET_WORTH_DIVISOR = 1_000_000.0
+private const val GEM_FORMULA_COEFFICIENT = 150.0
+private const val LIFETIME_EARNINGS_DIVISOR = 1_000_000_000_000_000.0 // 10^15
 private const val GEM_INCOME_BONUS_PER_GEM = 0.02
 
 /**
- * Gems earned by Leveling Up right now, from [GameState.estimatedNetWorth] —
- * `floor(sqrt(netWorth / GEMS_NET_WORTH_DIVISOR))`, the classic square-root
- * prestige curve: early Level Ups are cheap, later ones need dramatically
- * more net worth for the same Gem reward. A save too early to earn even one
- * Gem returns 0 — `GameEngine.performLevelUp`/the Level Up screen both treat
- * that as "can't Level Up yet" rather than performing a reset for nothing.
+ * Gems a Level Up would earn right now — the target total Gems implied by
+ * [GameState.lifetimeGoldEarned] minus [GameState.totalGemsEarned] already
+ * earned, floored, never negative (a target that's fallen behind
+ * `totalGemsEarned` — impossible in practice since both only ever grow,
+ * but not a case worth crashing over — simply grants nothing rather than
+ * subtracting Gems). 0 means "can't Level Up yet"; `GameEngine.performLevelUp`
+ * and the Level Up screen both treat that as blocking the action entirely,
+ * not performing a reset for nothing.
  */
 fun GameState.gemsEarnedFromLevelUp(): Long {
-    val netWorth = estimatedNetWorth()
-    if (netWorth <= 0.0) return 0L
-    return floor(sqrt(netWorth / GEMS_NET_WORTH_DIVISOR)).toLong().coerceAtLeast(0L)
+    val targetTotalGems = floor(GEM_FORMULA_COEFFICIENT * sqrt(lifetimeGoldEarned / LIFETIME_EARNINGS_DIVISOR)).toLong()
+    return (targetTotalGems - totalGemsEarned).coerceAtLeast(0L)
 }
 
 /**
- * The permanent income bonus from [gems] earned across every past Level
- * Up — each Gem is worth a flat +2%, additive rather than compounding
- * (unlike the Platinum-bought Profit Boost in `Boosts.kt`) — feeds into
+ * The permanent income bonus from [gems] currently held — each Gem is
+ * worth a flat +2%, additive rather than compounding (unlike the
+ * Platinum-bought Profit Boost in `Boosts.kt`) — feeds into
  * `CreatureLair.incomePerCycle` alongside the milestone and Profit Boost
- * multipliers.
+ * multipliers. Reads [GameState.gems] (the spendable balance), not
+ * [GameState.totalGemsEarned] — if a future system lets the player spend
+ * Gems, spent Gems stop contributing to this bonus, same as spending gold
+ * stops it from sitting in the bank.
  */
 fun gemIncomeMultiplier(gems: Long): Double = 1.0 + gems * GEM_INCOME_BONUS_PER_GEM

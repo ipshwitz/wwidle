@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.23.1] - 2026-09-06 11:09 AM EDT
+
+- Fixed Level Up having no real cap: the previous formula computed Gems
+  from your *current* hoard's net worth, which reset every Level Up — so
+  as soon as you'd earned back a small amount of gold, you could Level Up
+  again immediately, over and over, without actually progressing further.
+- Replaced it with AdVenture Capitalist's real Angel Investor formula: Gems
+  earned are based on *lifetime* Gold earned (a new running total that
+  never resets, not even on a Level Up), and a Level Up only ever grants
+  the gap between what that lifetime total "should" be worth in Gems and
+  how many you've already earned. Leveling up twice without earning any
+  new lifetime Gold in between now correctly grants 0 the second time —
+  you have to actually earn more before it unlocks again.
+- Verified live: with 206 Gems already banked from a prior Level Up, the
+  button correctly shows disabled ("Keep earning Gold — Level Up unlocks
+  again once you've earned enough more") since no new lifetime earnings
+  had accrued yet.
+
 ## [0.23.0] - 2026-09-05 11:35 PM EDT
 
 - Implemented Level Up, the prestige mechanic that's been an open question

@@ -9,26 +9,46 @@ class LevelUpTest {
     fun `gemsEarnedFromLevelUp is 0 for a brand-new save`() {
         val state = GameState()
 
-        // A single starting Kobold Warren's net worth is nowhere near the
-        // divisor needed to earn even one Gem yet.
         assertEquals(0L, state.gemsEarnedFromLevelUp())
     }
 
     @Test
-    fun `gemsEarnedFromLevelUp follows the square-root net-worth curve`() {
-        val oneGem = GameState(goldPieces = 1_000_000.0, lairs = emptyMap())
-        val fourGems = GameState(goldPieces = 16_000_000.0, lairs = emptyMap())
+    fun `gemsEarnedFromLevelUp follows AdCap's Angel formula, 150 times sqrt of lifetime earnings over 10^15`() {
+        // 150 * sqrt(1e15 / 1e15) = 150.
+        val state150 = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0)
+        assertEquals(150L, state150.gemsEarnedFromLevelUp())
 
-        assertEquals(1L, oneGem.gemsEarnedFromLevelUp())
-        assertEquals(4L, fourGems.gemsEarnedFromLevelUp())
+        // 150 * sqrt(4e15 / 1e15) = 150 * 2 = 300.
+        val state300 = GameState(lifetimeGoldEarned = 4_000_000_000_000_000.0)
+        assertEquals(300L, state300.gemsEarnedFromLevelUp())
     }
 
     @Test
     fun `gemsEarnedFromLevelUp floors instead of rounding`() {
-        // Net worth just short of the next whole Gem's threshold.
-        val state = GameState(goldPieces = 3_999_999.0, lairs = emptyMap())
+        // 150 * sqrt(0.99e15 / 1e15) ~= 149.25, should floor to 149, not 150.
+        val state = GameState(lifetimeGoldEarned = 990_000_000_000_000.0)
 
-        assertEquals(1L, state.gemsEarnedFromLevelUp())
+        assertEquals(149L, state.gemsEarnedFromLevelUp())
+    }
+
+    @Test
+    fun `gemsEarnedFromLevelUp only grants the gap above gems already earned`() {
+        // The target for this much lifetime earning is 150 gems; having
+        // already earned 100 of them (from a prior Level Up) should only
+        // grant the remaining 50, not another fresh 150.
+        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 100L)
+
+        assertEquals(50L, state.gemsEarnedFromLevelUp())
+    }
+
+    @Test
+    fun `gemsEarnedFromLevelUp is 0 (not negative) once totalGemsEarned has caught up to the target`() {
+        // This is the actual "reach further before you can Level Up again"
+        // gate: leveling up without any new lifetime earnings in between
+        // grants nothing the second time.
+        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 150L)
+
+        assertEquals(0L, state.gemsEarnedFromLevelUp())
     }
 
     @Test

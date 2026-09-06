@@ -9,6 +9,8 @@ data class GameStateDto(
     @SerialName("gold_pieces") val goldPieces: Double,
     @SerialName("platinum_pieces") val platinumPieces: Double,
     @SerialName("gems") val gems: Long = 0,
+    @SerialName("total_gems_earned") val totalGemsEarned: Long = 0,
+    @SerialName("lifetime_gold_earned") val lifetimeGoldEarned: Double = 0.0,
     val lairs: Map<String, OwnedLairDto>,
     @SerialName("offline_cap_hours") val offlineCapHours: Double,
     @SerialName("last_saved_at_epoch_millis") val lastSavedAtEpochMillis: Long,

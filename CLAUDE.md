@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.23.0** (Level Up is implemented — reset your hoard
-     for Gems, a new permanent-bonus currency — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.23.1** (Level Up's Gem formula now gates on
+     lifetime earnings instead of current net worth, so it can't be
+     repeated for free — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -988,16 +988,38 @@ These apply to every change made in this repo, however small:
     `purchaseTimeSkip(option: TimeSkipOption)` (each: check affordability,
     deduct Platinum, apply); `GameViewModel` has matching thin wrappers,
     same shape as `claimLair`/`hireSteward`.
-  - **Level Up** (`domain/model/LevelUp.kt`, v0.23.0) — the prestige
-    mechanic described under Core game design below, finally implemented.
-    Two pure functions: `GameState.gemsEarnedFromLevelUp()` —
-    `floor(sqrt(estimatedNetWorth() / 1_000_000))`, the classic
-    square-root prestige curve (early Level Ups are cheap, later ones need
-    dramatically more net worth for the same Gem reward) — and
-    `gemIncomeMultiplier(gems: Long)` — a flat +2% income bonus per Gem,
-    *additive* rather than compounding (unlike the Platinum-bought Profit
-    Boost), so it doesn't need its own escalating cost curve the way
-    Boosts do. Both are first-pass placeholders, not playtested, same as
+  - **Level Up** (`domain/model/LevelUp.kt`, v0.23.0, gating reworked in
+    v0.23.1) — the prestige mechanic described under Core game design
+    below, finally implemented. `GameState.gemsEarnedFromLevelUp()` is
+    AdVenture Capitalist's real Angel Investor formula, ported 1:1 (same
+    convention as the tier-0–9 lair balance in `CreatureLairCatalog`):
+    `floor(150 * sqrt(lifetimeGoldEarned / 10^15)) - totalGemsEarned`,
+    coerced to never go below 0. **This is deliberately a *stock* formula,
+    not a *flow* one** — the very first version of this (shipped for a
+    few hours in 0.23.0) computed Gems from `estimatedNetWorth()`, which
+    resets to near-zero every Level Up, so the player could immediately
+    Level Up again the moment they'd earned back a trivial amount of
+    gold, over and over, with no real gate at all — not what "Level Up"
+    is supposed to feel like as a prestige mechanic. The fix: `GameState`
+    gained two fields that never reset on a Level Up —
+    `lifetimeGoldEarned` (every Gold Piece ever earned from production,
+    incremented alongside `goldPieces` in `advance`/
+    `grantInstantProduction`/`grantGold`, but *not* when `goldPieces` is
+    spent) and `totalGemsEarned` (every Gem ever earned, whether still
+    held in `gems` or — once a future system lets Gems be spent —
+    "sacrificed"; `gems` alone can't be reused for this since it needs to
+    be safely spendable later without resetting the Level Up baseline).
+    The formula now computes the *target* total Gem count implied by
+    lifetime earnings and only ever grants the gap above what's already
+    been earned — since `lifetimeGoldEarned` only moves forward, Leveling
+    up twice with no new lifetime earnings in between now correctly
+    grants exactly 0 the second time, which *is* the "reach further
+    before you can Level Up again" gate, achieved without a second
+    threshold value to keep in sync with the reward. `gemIncomeMultiplier(gems:
+    Long)` (unchanged) is a flat +2% income bonus per Gem, *additive*
+    rather than compounding (unlike the Platinum-bought Profit Boost), so
+    it doesn't need its own escalating cost curve the way Boosts do. Both
+    formulas are first-pass placeholders, not playtested, same as
     everywhere else in the economy. `CreatureLair.incomePerCycle` takes a
     fourth `gemBonusMultiplier` parameter (default 1.0) alongside the
     existing three — threaded through the same call sites as
@@ -1008,19 +1030,21 @@ These apply to every change made in this repo, however small:
     intact through the whole call chain.
     `GameEngine.performLevelUp()` does the actual reset: computes
     `gemsEarnedFromLevelUp()` first and does nothing (returns 0) if that's
-    0 — a save too early to earn even one Gem can't reset for nothing —
-    otherwise builds a fresh `GameState()` (the same starting shape,
-    Kobold Warren included, `GameState()`'s own defaults) with Platinum
-    Pieces, `speedBoostLevel`/`profitBoostLevel`, `offlineCapHours`, and
-    the ad-watch cooldown (`lastPlatinumAdWatchedAt`) explicitly carried
-    over from the pre-reset state — only the gold side of the economy
-    (Gold Pieces, every owned lair, ownership milestones implicitly via
-    the lair reset) actually resets. `totalLevelUps` increments;
-    `gems` accumulates rather than resets, same as Platinum. The
-    affordability check and the reset happen inside the same `_state.update`
-    call (not a separate read-then-write), so two rapid taps can't both
-    reset off a stale "can afford" read — same pattern as
-    `grantPlatinumAdReward`'s cooldown check.
+    0 — a save that hasn't earned enough new lifetime Gold since its last
+    Level Up can't reset for nothing — otherwise builds a fresh
+    `GameState()` (the same starting shape, Kobold Warren included,
+    `GameState()`'s own defaults) with Platinum Pieces,
+    `speedBoostLevel`/`profitBoostLevel`, `offlineCapHours`, the ad-watch
+    cooldown (`lastPlatinumAdWatchedAt`), and — critically —
+    `lifetimeGoldEarned` itself explicitly carried over from the pre-reset
+    state — only the *current run's* gold (Gold Pieces, every owned lair,
+    ownership milestones implicitly via the lair reset) actually resets;
+    the lifetime tally that gates the next Level Up must not. `totalLevelUps`
+    and `totalGemsEarned` both increment; `gems` accumulates rather than
+    resets, same as Platinum. The affordability check and the reset happen
+    inside the same `_state.update` call (not a separate read-then-write),
+    so two rapid taps can't both reset off a stale "can afford" read —
+    same pattern as `grantPlatinumAdReward`'s cooldown check.
     `GameViewModel.performLevelUp()` calls it and, only if Gems were
     actually earned, sets `levelUpReward: StateFlow<Long?>` so
     `GameScreen` can pop up `LevelUpRewardDialog` — same one-shot-then-null
@@ -1056,16 +1080,25 @@ These apply to every change made in this repo, however small:
     one. `GameHeader` shows Gems in its `ParchmentStrip` alongside gp/sec
     and pp (`FantasyPalette` gained `gemBright`/`gemDeep` amethyst tones
     for this, the same "named color pair per concept" pattern as
-    `goldBright`/`goldDeep`). Persistence: `WyrmWhelpDatabase` bumped to
-    version 5 for the `GameStateEntity` column rename (no formal
-    migration, same destructive-fallback policy as every prior bump);
-    `GameStateDto`'s renamed `gems`/`total_level_ups` JSON keys both keep
-    a `= 0` default (unlike most other DTO fields, which are required)
-    specifically because this was a wire-format rename, not a
-    newly-added field — an old cloud save's `scale_shards`/`total_molts`
-    keys simply go unused rather than being read, and the app has no real
-    installs to preserve yet regardless (same trade-off as the Room
-    migration policy).
+    `goldBright`/`goldDeep`). Persistence bumped `WyrmWhelpDatabase` twice
+    in quick succession: version 5 (v0.23.0) for the `GameStateEntity`
+    column rename itself, version 6 (v0.23.1) for the two new
+    `totalGemsEarned`/`lifetimeGoldEarned` columns the gating rework
+    needed — no formal migration for either, same destructive-fallback
+    policy as every prior bump. `GameStateDto`'s renamed `gems`/
+    `total_level_ups` JSON keys keep a `= 0` default (unlike most other
+    *required* DTO fields) specifically because that was a wire-format
+    rename, not a newly-added field — an old cloud save's
+    `scale_shards`/`total_molts` keys simply go unused rather than being
+    read; `total_gems_earned`/`lifetime_gold_earned` are genuinely new
+    fields and get the same kind of default for the usual reason (an
+    older cloud save's JSON blob won't have those keys yet). The app has
+    no real installs to preserve regardless (same trade-off as the Room
+    migration policy) — but note that during this feature's own
+    development, an old cloud save with `gems` already populated but
+    `totalGemsEarned` still defaulting to 0 will look like it has *more*
+    spendable Gems than its lifetime-earnings baseline accounts for; this
+    only self-corrects once that account performs its next real Level Up.
 - **Data:**
   - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
     (single-row table for currencies/meta) + `OwnedLairEntity` (one row per
@@ -1077,11 +1110,13 @@ These apply to every change made in this repo, however small:
     systems aren't built). **No real migrations exist** — `WyrmWhelpDatabase`
     has no `Migration` objects, so `DatabaseModule`'s `Room.databaseBuilder(...)`
     call adds `.fallbackToDestructiveMigration(dropAllTables = true)` and
-    the database version is bumped by 1 (currently 5, most recently for the
-    v0.23.0 Level Up feature's `GameStateEntity` column rename
-    (`scaleShards`/`totalMolts` → `gems`/`totalLevelUps`) — before that,
-    v0.20.0's gold-collection redesign `OwnedLairEntity.isReadyToCollect` →
-    `isLoading`+`completedLoads` column swap) any time a persisted field
+    the database version is bumped by 1 (currently 6, most recently for the
+    v0.23.1 Level Up gating rework's two new `totalGemsEarned`/
+    `lifetimeGoldEarned` columns — before that, v0.23.0's initial
+    `GameStateEntity` column rename (`scaleShards`/`totalMolts` →
+    `gems`/`totalLevelUps`), and before that v0.20.0's gold-collection
+    redesign `OwnedLairEntity.isReadyToCollect` → `isLoading`+
+    `completedLoads` column swap) any time a persisted field
     is added or changed. This wipes existing local saves on that version
     bump rather than crashing at DB-open time — a deliberate pre-release
     trade-off (no real installs to preserve yet, and a full migration is out

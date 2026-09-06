@@ -175,9 +175,9 @@ private fun LevelUpCard(
                 )
                 Text(
                     text = if (canLevelUp) {
-                        "Earn ${GoldFormat.format(gemsEarnable.toDouble())} Gems for your current hoard."
+                        "Earn ${GoldFormat.format(gemsEarnable.toDouble())} Gems for the Gold you've earned so far."
                     } else {
-                        "Build up more Gold and lairs before your first Level Up pays out any Gems."
+                        "Keep earning Gold — Level Up unlocks again once you've earned enough more."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = palette.ink.copy(alpha = 0.7f),
