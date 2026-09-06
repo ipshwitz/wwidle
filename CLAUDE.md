@@ -92,10 +92,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.27.1** (pulled the "Buy Platinum Pieces" price
-     range in from $0.99–$49.99 to $0.99–$9.99 after checking the top
-     tier's PP amount against the priciest permanent boost tier's own
-     cost — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.27.2** (deliberately devalued the "Buy Platinum
+     Pieces" packs further — $0.99 now buys a stingy 4 pp teaser, $9.99
+     tops out at 100 pp, per explicit instruction that the currency itself
+     should feel scarce — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -735,33 +735,44 @@ These apply to every change made in this repo, however small:
     countdown for both `WatchAdRow`'s button label and
     `GameViewModel.platinumAdMessage`'s cooldown text, extracted once it
     was clear both needed the identical "3h 12m" logic.
-  - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0, price range
-    tightened in v0.27.1)** (`billing/BillingManager.kt`) — Google Play
-    Billing, replacing the disabled "Soon" placeholder with five actual
-    consumable IAP packs (`domain/model/PlatinumPurchases.kt`'s
-    `PLATINUM_PURCHASE_OPTIONS`): $0.99→100 pp, $2.99→330 pp, $4.99→600 pp,
-    $6.99→920 pp, $9.99→1,400 pp. **PP-per-dollar rises only mildly at
-    higher tiers** (101→140 pp/$, +~40% top to bottom) rather than the
-    steep "whale" curve common in mobile IAP — an explicit constraint
-    ("spending 49.99 on PP shouldn't give so many PP that they can get
-    like a years worth of PP that they'll never use"). The whole price
-    range was originally $0.99-$49.99 (100-7,000 pp) — pulled in to
-    $0.99-$9.99 in v0.27.1 after checking the original top tier against
-    the priciest permanent boost tier's own cost: `PERMANENT_SPEED_TIERS`'s
-    10x tier and `PERMANENT_GEM_TIERS`'s 5x tier (`basePp = 60.0`,
-    `costGrowthRate = 1.8`) only cost 60 pp for a first copy, so 7,000 pp
-    could buy seven repeat copies in one sitting (10^7 = 10,000,000x from
-    that tier alone) — exactly the "one purchase trivializes everything"
-    outcome the packs are supposed to avoid. 1,400 pp caps the same tier
-    at five repeat copies instead (`PlatinumPurchasesTest`'s
-    `the top tier can't buy more than a handful of repeat copies...` test
-    pins this down). This alone doesn't make the top tier harmless on its
-    own — the real backstop is that permanent boost tiers' escalating cost
-    (`Boosts.kt`'s `costForPermanentBoostPurchase`) already makes any
-    finite PP amount unable to max those out; keeping the packs themselves
-    modest is what stops a single purchase from trivializing the
-    *flat-cost* consumables (Time Skips, temporary boosts) that have no
-    such built-in ceiling.
+  - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0, price/PP
+    curve revised twice since — v0.27.1, then v0.27.2)**
+    (`billing/BillingManager.kt`) — Google Play Billing, replacing the
+    disabled "Soon" placeholder with five actual consumable IAP packs
+    (`domain/model/PlatinumPurchases.kt`'s `PLATINUM_PURCHASE_OPTIONS`):
+    **$0.99→4 pp, $2.99→15 pp, $4.99→30 pp, $6.99→55 pp, $9.99→100 pp.**
+    This went through three passes, each driven by explicit feedback:
+    - v0.27.0's first pass ($0.99-$49.99, 100-7,000 pp) used a *mild*
+      bonus curve (0/10/20/30/40% over the $0.99 tier's linear rate) —
+      the guiding constraint at the time was just "the top tier shouldn't
+      hand over a year's worth of PP."
+    - v0.27.1 pulled the range in to $0.99-$9.99 (100-1,400 pp, same mild
+      curve) once that top tier was actually checked against the economy:
+      7,000 pp could buy the priciest permanent boost tier
+      (`PERMANENT_SPEED_TIERS`'s 10x / `PERMANENT_GEM_TIERS`'s 5x, both
+      `basePp = 60.0`, `costGrowthRate = 1.8`) seven repeat copies in one
+      sitting (10^7x from that tier alone) — still a "one purchase
+      trivializes everything" outcome even at the smaller scale.
+    - **v0.27.2 is a deliberate, much steeper devaluation of the currency
+      itself**, per explicit instruction that 100 pp for $0.99 "devalued
+      the worth of the currency" — the $0.99 tier is now a stingy *teaser*
+      (4 pp — `PlatinumPurchasesTest`'s `the entry tier is a deliberately
+      stingy teaser...` test confirms it can't even afford the cheapest
+      permanent boost tier's first copy, `basePp = 5.0`), while $9.99 tops
+      out at 100 pp. Pp-per-dollar now climbs a *real* amount top to
+      bottom (~4/$ to ~10/$, ~2.5x) rather than the earlier mild curve —
+      the point shifted from "smooth value scaling" to "Platinum should
+      feel scarce, and the top pack is the one real purchase." At 100 pp,
+      the top tier now caps the same steep permanent-boost tier at just
+      *one* repeat copy (`PlatinumPurchasesTest`'s `the top tier still
+      can't buy more than a couple...` test pins this at ≤2).
+    Across all three passes, the real backstop was never the pack amount
+    alone — permanent boost tiers' escalating cost (`Boosts.kt`'s
+    `costForPermanentBoostPurchase`) already makes any finite PP amount
+    unable to max those out. What the shrinking pack sizes actually
+    guard against is the *flat-cost* consumables (Time Skips, temporary
+    boosts), which have no such built-in ceiling and would otherwise let
+    a large enough PP stash approximate "infinite" via repeat purchases.
     - **Every product id must exist as a consumable in-app product in the
       Google Play Console** under this app's listing before any of this
       actually works — there is no way to create these from code, the

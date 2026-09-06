@@ -3,6 +3,17 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.27.2] - 2026-09-06 9:50 PM EDT
+
+- Devalued the Platinum Pieces IAP packs further — 100 pp for $0.99 made
+  the currency feel worthless, so the $0.99 pack is now a deliberately
+  stingy "teaser" instead of a real purchase:
+  - $0.99 for 4 pp, $2.99 for 15 pp, $4.99 for 30 pp, $6.99 for 55 pp,
+    $9.99 for 100 pp.
+  - The cheapest pack can't even afford the cheapest permanent boost's
+    first purchase on its own — it's meant to give a taste, not a real
+    dent. The $9.99 pack is now the meaningful purchase.
+
 ## [0.27.1] - 2026-09-06 9:35 PM EDT
 
 - Tuned down the "Buy Platinum Pieces" price range — $0.99 to $9.99
