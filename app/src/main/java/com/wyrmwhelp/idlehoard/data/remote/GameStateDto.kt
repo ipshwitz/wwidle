@@ -8,11 +8,11 @@ import kotlinx.serialization.Serializable
 data class GameStateDto(
     @SerialName("gold_pieces") val goldPieces: Double,
     @SerialName("platinum_pieces") val platinumPieces: Double,
-    @SerialName("scale_shards") val scaleShards: Long,
+    @SerialName("gems") val gems: Long = 0,
     val lairs: Map<String, OwnedLairDto>,
     @SerialName("offline_cap_hours") val offlineCapHours: Double,
     @SerialName("last_saved_at_epoch_millis") val lastSavedAtEpochMillis: Long,
-    @SerialName("total_molts") val totalMolts: Int,
+    @SerialName("total_level_ups") val totalLevelUps: Int = 0,
     @SerialName("speed_boost_level") val speedBoostLevel: Int = 0,
     @SerialName("profit_boost_level") val profitBoostLevel: Int = 0,
     @SerialName("last_platinum_ad_watched_at_epoch_millis") val lastPlatinumAdWatchedAtEpochMillis: Long? = null,

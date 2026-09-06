@@ -162,6 +162,22 @@ class CreatureLairTest {
     }
 
     @Test
+    fun `incomePerCycle applies the gem bonus multiplier on top of the others`() {
+        val unitsOwned = 500
+        val globalIncomeMultiplier = 3.0
+        val profitBoostMultiplier = 1.5
+        val gemBonusMultiplier = 1.2
+
+        val income = lair.incomePerCycle(unitsOwned, globalIncomeMultiplier, profitBoostMultiplier, gemBonusMultiplier)
+
+        assertEquals(
+            lair.baseIncomeGp * unitsOwned * 4.0 * globalIncomeMultiplier * profitBoostMultiplier * gemBonusMultiplier,
+            income,
+            0.0001,
+        )
+    }
+
+    @Test
     fun `effectiveProductionSeconds defaults to the base cycle time unchanged`() {
         assertEquals(lair.baseProductionSeconds, lair.effectiveProductionSeconds(), 0.0001)
     }

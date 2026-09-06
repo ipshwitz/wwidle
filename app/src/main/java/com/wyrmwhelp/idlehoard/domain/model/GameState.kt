@@ -13,15 +13,16 @@ import java.time.Instant
  * @property platinumPieces Premium currency (pp) — 5E's rarest standard coin,
  *   used here for IAP-sourced value (1 pp = 10 gp per 5E convention, flavor only
  *   for now; no automatic conversion is implemented).
- * @property scaleShards Prestige currency earned by Molting; permanent bonuses
- *   carry across Molts.
+ * @property gems Prestige currency earned by Leveling Up (see
+ *   `domain/model/LevelUp.kt`) — permanent bonuses from it carry across
+ *   every future Level Up.
  * @property lairs Owned-lair state keyed by [CreatureLair.id]. A missing key
  *   means that lair hasn't been claimed yet.
  * @property offlineCapHours Maximum hours of offline production the player can
  *   collect on return, upgradeable via progression.
  * @property lastSavedAt Timestamp of the last save, used to compute offline
  *   earnings on the next launch.
- * @property totalMolts Number of times the player has Molted (prestiged).
+ * @property totalLevelUps Number of times the player has Leveled Up (prestiged).
  * @property speedBoostLevel Permanent, account-wide production-speed boosts
  *   bought with Platinum Pieces (see `domain/model/Boosts.kt`) — not tied to
  *   any one lair, unlike the ownership milestones.
@@ -35,7 +36,7 @@ import java.time.Instant
 data class GameState(
     val goldPieces: Double = 0.0,
     val platinumPieces: Double = 0.0,
-    val scaleShards: Long = 0,
+    val gems: Long = 0,
     // A brand-new save starts owning one Kobold Warren already — matching
     // AdVenture Capitalist's own onboarding (a free first Lemonade Stand) —
     // since 0 gold and 0 owned lairs would be a permanent dead end otherwise.
@@ -44,7 +45,7 @@ data class GameState(
     ),
     val offlineCapHours: Double = 4.0,
     val lastSavedAt: Instant = Instant.now(),
-    val totalMolts: Int = 0,
+    val totalLevelUps: Int = 0,
     val speedBoostLevel: Int = 0,
     val profitBoostLevel: Int = 0,
     val lastPlatinumAdWatchedAt: Instant? = null,

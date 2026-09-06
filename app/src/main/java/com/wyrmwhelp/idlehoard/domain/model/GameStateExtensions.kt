@@ -83,10 +83,11 @@ fun GameState.milestonesCrossed(
 }
 
 /**
- * Picks the more-progressed of a local and a cloud save (higher [totalMolts]
- * wins outright — a Molt resets the economy, so raw net worth isn't
- * comparable across different prestige counts; net worth breaks ties within
- * the same prestige count). Either side may be missing (no save yet).
+ * Picks the more-progressed of a local and a cloud save (higher
+ * [totalLevelUps] wins outright — a Level Up resets the economy, so raw net
+ * worth isn't comparable across different prestige counts; net worth breaks
+ * ties within the same prestige count). Either side may be missing (no save
+ * yet).
  */
 fun mergeGameStates(local: GameState?, cloud: GameState?): GameState? {
     if (local == null) return cloud
@@ -95,6 +96,6 @@ fun mergeGameStates(local: GameState?, cloud: GameState?): GameState? {
 }
 
 private fun GameState.isMoreAdvancedThan(other: GameState): Boolean {
-    if (totalMolts != other.totalMolts) return totalMolts > other.totalMolts
+    if (totalLevelUps != other.totalLevelUps) return totalLevelUps > other.totalLevelUps
     return estimatedNetWorth() > other.estimatedNetWorth()
 }

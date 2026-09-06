@@ -81,6 +81,7 @@ fun LairRow(
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
     profitBoostMultiplier: Double = 1.0,
+    gemBonusMultiplier: Double = 1.0,
 ) {
     var coinBurstTrigger by remember { mutableIntStateOf(0) }
     var lastSeenCompletedLoads by remember { mutableIntStateOf(owned.completedLoads) }
@@ -130,6 +131,7 @@ fun LairRow(
             modifier = Modifier.weight(1f),
             palette = palette,
             profitBoostMultiplier = profitBoostMultiplier,
+            gemBonusMultiplier = gemBonusMultiplier,
         )
     }
 }

@@ -4,9 +4,11 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 4 for the tap-to-start-load redesign's
+ * Bumped to version 5 for the Level Up feature's [GameStateEntity] rename
+ * of the never-wired-up `scaleShards`/`totalMolts` columns to `gems`/
+ * `totalLevelUps` — version 4 was the tap-to-start-load redesign's
  * [OwnedLairEntity] column swap (`isReadyToCollect` → `isLoading` +
- * `completedLoads`) — version 3 was the Shop ad-reward cooldown's
+ * `completedLoads`), version 3 the Shop ad-reward cooldown's
  * `lastPlatinumAdWatchedAtEpochMillis`, version 2 the Boosts feature's
  * `speedBoostLevel`/`profitBoostLevel`. No formal
  * [androidx.room.migration.Migration] exists yet — `DatabaseModule` falls
@@ -16,7 +18,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

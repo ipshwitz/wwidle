@@ -17,11 +17,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
 import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
+import com.wyrmwhelp.idlehoard.ui.levelup.LevelUpContent
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
 import com.wyrmwhelp.idlehoard.ui.settings.SettingsContent
 import com.wyrmwhelp.idlehoard.ui.shop.ShopContent
@@ -106,6 +108,15 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                                 (context as? Activity)?.let { gameViewModel.watchAdForPlatinum(it) }
                             },
                             onDismissPlatinumAdMessage = gameViewModel::dismissPlatinumAdMessage,
+                        )
+                    }
+                }
+                "Level Up" -> {
+                    {
+                        LevelUpContent(
+                            gems = gameState.gems,
+                            gemsEarnable = gameState.gemsEarnedFromLevelUp(),
+                            onLevelUp = gameViewModel::performLevelUp,
                         )
                     }
                 }

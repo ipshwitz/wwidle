@@ -76,6 +76,12 @@ class GameViewModel @Inject constructor(
     private val _milestoneAnnouncement = MutableStateFlow<MilestoneAnnouncement?>(null)
     val milestoneAnnouncement: StateFlow<MilestoneAnnouncement?> = _milestoneAnnouncement.asStateFlow()
 
+    // Gems earned by the most recent Level Up, shown once via
+    // LevelUpRewardDialog then cleared — null the rest of the time, same
+    // one-shot-pop-up shape as _milestoneAnnouncement above.
+    private val _levelUpReward = MutableStateFlow<Long?>(null)
+    val levelUpReward: StateFlow<Long?> = _levelUpReward.asStateFlow()
+
     // A single big purchase (e.g. buying MAX) can cross several rungs at
     // once — held here and drained one at a time via
     // dismissMilestoneAnnouncement rather than bundled into one pop-up.
@@ -474,6 +480,27 @@ class GameViewModel @Inject constructor(
 
     fun purchaseTimeSkip(option: TimeSkipOption) {
         gameEngine.purchaseTimeSkip(option)
+    }
+
+    /**
+     * The Level Up section's confirmed reset button — see
+     * `GameEngine.performLevelUp`. Only shows [levelUpReward] when Gems were
+     * actually earned; the Level Up screen itself is expected to disable its
+     * button (and skip the confirmation dialog) whenever
+     * `GameState.gemsEarnedFromLevelUp()` is 0, so reaching here with
+     * nothing earned would mean the two disagreed rather than a normal
+     * outcome — same defensive shape as `watchAdForPlatinum`.
+     */
+    fun performLevelUp() {
+        val gemsEarned = gameEngine.performLevelUp()
+        if (gemsEarned > 0) {
+            _levelUpReward.value = gemsEarned
+        }
+    }
+
+    /** Dismisses the Level Up reward pop-up. */
+    fun dismissLevelUpReward() {
+        _levelUpReward.value = null
     }
 
     private companion object {

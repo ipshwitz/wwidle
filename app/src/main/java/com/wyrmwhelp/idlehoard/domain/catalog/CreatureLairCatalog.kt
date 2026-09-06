@@ -19,8 +19,9 @@ import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
  * cheaper, per-unit, to keep stacking them from becoming impossible). Cycle
  * time is the one place we deliberately diverge: AdCap's real jump from Bank
  * to Oil Company is a further 6x (to ~10 hours), and it relies on repeated
- * Angel Investor prestige resets to claw that back down — a system we don't
- * have yet (see Molt in CLAUDE.md's open questions) — so tiers 10–13 use a
+ * Angel Investor prestige resets to claw that back down — Level Up (see
+ * `domain/model/LevelUp.kt`) is our equivalent, but it wasn't playtested
+ * against these tiers when they were first tuned — so tiers 10–13 use a
  * tempered ~1.5–2x per tier instead, capping the current top end at a few
  * days rather than compounding into weeks.
  */

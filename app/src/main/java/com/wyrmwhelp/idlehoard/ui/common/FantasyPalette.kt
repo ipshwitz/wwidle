@@ -22,6 +22,9 @@ data class FantasyPalette(
     val parchment: Color,
     val parchmentShade: Color,
     val ink: Color,
+    /** Amethyst tones for Gems (the Level Up prestige currency) — the "third currency" alongside gold/platinum. */
+    val gemBright: Color,
+    val gemDeep: Color,
 ) {
     companion object {
         val Default = FantasyPalette(
@@ -34,6 +37,8 @@ data class FantasyPalette(
             parchment = Color(0xFFE8D9B5),
             parchmentShade = Color(0xFFC9B183),
             ink = Color(0xFF3B2A1A),
+            gemBright = Color(0xFFCE93D8),
+            gemDeep = Color(0xFF6A1B9A),
         )
     }
 }

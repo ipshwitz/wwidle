@@ -25,9 +25,9 @@ class GameStateExtensionsTest {
     }
 
     @Test
-    fun `merge picks the higher totalMolts side even if its net worth is lower`() {
-        val freshPrestige = GameState(goldPieces = 10.0, totalMolts = 2)
-        val richButUnprestiged = GameState(goldPieces = 1_000_000.0, totalMolts = 0)
+    fun `merge picks the higher totalLevelUps side even if its net worth is lower`() {
+        val freshPrestige = GameState(goldPieces = 10.0, totalLevelUps = 2)
+        val richButUnprestiged = GameState(goldPieces = 1_000_000.0, totalLevelUps = 0)
 
         assertEquals(freshPrestige, mergeGameStates(local = richButUnprestiged, cloud = freshPrestige))
         assertEquals(freshPrestige, mergeGameStates(local = freshPrestige, cloud = richButUnprestiged))

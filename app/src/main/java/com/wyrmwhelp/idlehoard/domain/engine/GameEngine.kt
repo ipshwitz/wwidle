@@ -5,6 +5,8 @@ import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.canWatchPlatinumAd
+import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
@@ -41,7 +43,7 @@ data class OfflineEarnings(
 /**
  * Core domain engine: owns the authoritative [GameState], runs the passive
  * production tick loop, and applies player actions (claiming lairs, hiring
- * Stewards, starting lairs' production cycles). App-scoped singleton —
+ * Stewards, starting lairs' production cycles, Leveling Up). App-scoped singleton —
  * outlives any single screen/ViewModel, since production must keep running
  * across navigation. No persistence wiring yet; [loadState] and
  * [applyOfflineEarnings] are the seams the Room/Supabase repositories will
@@ -283,6 +285,42 @@ class GameEngine @Inject constructor() {
     }
 
     /**
+     * Resets the current run for Gems (see `domain/model/LevelUp.kt`'s
+     * `gemsEarnedFromLevelUp`) — Gold Pieces and every owned lair go back to
+     * the exact same starting shape a brand-new [GameState] begins with (one
+     * Kobold Warren, nothing else). Platinum Pieces, the boosts bought with
+     * it ([GameState.speedBoostLevel]/[GameState.profitBoostLevel]),
+     * [GameState.offlineCapHours], and the ad-watch cooldown
+     * ([GameState.lastPlatinumAdWatchedAt]) all carry over unchanged — only
+     * the gold side of the economy resets. Returns the number of Gems
+     * earned; if the current run hasn't earned even one yet, nothing is
+     * reset and this returns 0 (checked and applied atomically inside the
+     * same [_state] update, so two rapid calls can't both reset off a stale
+     * "earns enough" read).
+     */
+    fun performLevelUp(): Long {
+        var gemsEarned = 0L
+        _state.update { current ->
+            gemsEarned = current.gemsEarnedFromLevelUp()
+            if (gemsEarned <= 0L) {
+                current
+            } else {
+                GameState(
+                    platinumPieces = current.platinumPieces,
+                    gems = current.gems + gemsEarned,
+                    offlineCapHours = current.offlineCapHours,
+                    totalLevelUps = current.totalLevelUps + 1,
+                    speedBoostLevel = current.speedBoostLevel,
+                    profitBoostLevel = current.profitBoostLevel,
+                    lastPlatinumAdWatchedAt = current.lastPlatinumAdWatchedAt,
+                )
+            }
+        }
+        _lairProgress.value = computeLairProgress(_state.value)
+        return gemsEarned
+    }
+
+    /**
      * Settles production that happened while the app was closed, based on the
      * time since [GameState.lastSavedAt], capped at [GameState.offlineCapHours].
      * Uses the same per-lair rules as the live tick loop: Steward-managed lairs
@@ -356,10 +394,11 @@ class GameEngine @Inject constructor() {
         val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
         val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
         val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
+        val gemMultiplier = gemIncomeMultiplier(state.gems)
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
             val (next, earned) = advanceLair(
-                lairId, owned, deltaSeconds, globalSpeedMultiplier, globalIncomeMultiplier, speedMultiplier, profitMultiplier,
+                lairId, owned, deltaSeconds, globalSpeedMultiplier, globalIncomeMultiplier, speedMultiplier, profitMultiplier, gemMultiplier,
             )
             goldEarned += earned
             next
@@ -384,9 +423,9 @@ class GameEngine @Inject constructor() {
      * least [MIN_CONFETTI_PRODUCTION_SECONDS] — a very heavily Speed-Boosted
      * lair can complete faster than that effect can read as anything but a
      * flicker, so it's skipped rather than spammed. [globalSpeedMultiplier],
-     * [globalIncomeMultiplier], [speedMultiplier], and [profitMultiplier]
-     * are each computed once per [advance] call (same value for every lair
-     * that tick), not per lair.
+     * [globalIncomeMultiplier], [speedMultiplier], [profitMultiplier], and
+     * [gemMultiplier] are each computed once per [advance] call (same value
+     * for every lair that tick), not per lair.
      */
     private fun advanceLair(
         lairId: String,
@@ -396,6 +435,7 @@ class GameEngine @Inject constructor() {
         globalIncomeMultiplier: Double,
         speedMultiplier: Double,
         profitMultiplier: Double,
+        gemMultiplier: Double,
     ): Pair<OwnedLair, Double> {
         if (owned.count <= 0) return owned to 0.0
 
@@ -406,7 +446,7 @@ class GameEngine @Inject constructor() {
             if (!owned.isLoading) return owned to 0.0
             val progress = owned.cycleProgressSeconds + deltaSeconds
             return if (progress >= productionSeconds) {
-                val earned = lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier)
+                val earned = lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier)
                 val confettiWorthy = productionSeconds >= MIN_CONFETTI_PRODUCTION_SECONDS
                 owned.copy(
                     cycleProgressSeconds = 0.0,
@@ -422,7 +462,7 @@ class GameEngine @Inject constructor() {
         var earned = 0.0
         while (remaining >= productionSeconds) {
             remaining -= productionSeconds
-            earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier)
+            earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier)
         }
         return owned.copy(cycleProgressSeconds = remaining) to earned
     }
@@ -446,6 +486,7 @@ class GameEngine @Inject constructor() {
         val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
         val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
         val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
+        val gemMultiplier = gemIncomeMultiplier(state.gems)
 
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
@@ -457,13 +498,13 @@ class GameEngine @Inject constructor() {
                 var earned = 0.0
                 while (remaining >= productionSeconds) {
                     remaining -= productionSeconds
-                    earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier)
+                    earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier)
                 }
                 goldEarned += earned
                 owned.copy(cycleProgressSeconds = remaining)
             } else {
                 val cycles = kotlin.math.floor(seconds / productionSeconds)
-                goldEarned += cycles * lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier)
+                goldEarned += cycles * lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier)
                 owned
             }
         }

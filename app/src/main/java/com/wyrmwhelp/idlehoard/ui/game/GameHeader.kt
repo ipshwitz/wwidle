@@ -43,6 +43,7 @@ data class GameHeaderState(
     val goldPieces: Double,
     val goldPerSecond: Double,
     val platinumPieces: Double,
+    val gems: Long,
     val buyQuantity: BuyQuantity,
 )
 
@@ -54,10 +55,11 @@ data class GameHeaderState(
  *   not-yet-built avatar system ("a handful of pre-created avatar images
  *   they can choose from").
  * - Total Gold Pieces (glowing/embossed, [GlowingGoldText]) over a thin
- *   [ParchmentStrip] showing gold-per-second and Platinum Pieces (labeled
+ *   [ParchmentStrip] showing gold-per-second, Platinum Pieces (labeled
  *   "pp" — "Premium Coins" in the original ask, but kept the existing
  *   5E-flavored `platinumPieces` name rather than add a second label for the
- *   same currency).
+ *   same currency), and Gems (the Level Up prestige currency — see
+ *   `domain/model/LevelUp.kt`).
  * - `WoodenButton` (`ui/common/`): the bulk-purchase quantity selector,
  *   shared with `LairCard`'s Claim button.
  *
@@ -107,6 +109,11 @@ fun GameHeader(
                     text = "${GoldFormat.format(state.platinumPieces)} pp",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.ink,
+                )
+                Text(
+                    text = "${GoldFormat.format(state.gems.toDouble())} gems",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.gemDeep,
                 )
             }
         }

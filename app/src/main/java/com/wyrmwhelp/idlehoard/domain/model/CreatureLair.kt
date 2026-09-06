@@ -106,15 +106,23 @@ data class CreatureLair(
      * Total Gold Pieces produced per completed cycle by [unitsOwned] units,
      * including this lair's own Income milestone bonus, the "Everything"
      * Income bonus via [globalIncomeMultiplier] (from
-     * `GameState.globalIncomeMilestoneMultiplier`), and the permanent
+     * `GameState.globalIncomeMilestoneMultiplier`), the permanent
      * account-wide profit boost via [profitBoostMultiplier] (from
-     * `profitBoostMultiplier(GameState.profitBoostLevel)` in `Boosts.kt`) —
-     * callers that don't pass one of these (existing tests, mainly) get the
-     * no-bonus default of 1.0 for it. Speed-type milestone rungs have no
-     * effect here — see [effectiveProductionSeconds] for those.
+     * `profitBoostMultiplier(GameState.profitBoostLevel)` in `Boosts.kt`),
+     * and the permanent Gem bonus via [gemBonusMultiplier] (from
+     * `gemIncomeMultiplier(GameState.gems)` in `LevelUp.kt`) — callers that
+     * don't pass one of these (existing tests, mainly) get the no-bonus
+     * default of 1.0 for it. Speed-type milestone rungs have no effect here
+     * — see [effectiveProductionSeconds] for those.
      */
-    fun incomePerCycle(unitsOwned: Int, globalIncomeMultiplier: Double = 1.0, profitBoostMultiplier: Double = 1.0): Double =
-        baseIncomeGp * unitsOwned * individualIncomeMilestoneMultiplier(unitsOwned) * globalIncomeMultiplier * profitBoostMultiplier
+    fun incomePerCycle(
+        unitsOwned: Int,
+        globalIncomeMultiplier: Double = 1.0,
+        profitBoostMultiplier: Double = 1.0,
+        gemBonusMultiplier: Double = 1.0,
+    ): Double =
+        baseIncomeGp * unitsOwned * individualIncomeMilestoneMultiplier(unitsOwned) *
+            globalIncomeMultiplier * profitBoostMultiplier * gemBonusMultiplier
 
     /**
      * This lair's actual cycle time at [unitsOwned] owned, after the

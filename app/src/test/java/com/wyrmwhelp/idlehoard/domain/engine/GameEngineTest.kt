@@ -5,6 +5,8 @@ import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_COOLDOWN
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
+import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
@@ -455,5 +457,82 @@ class GameEngineTest {
         assertTrue(granted)
         assertEquals(PLATINUM_AD_REWARD_PP, engine.state.value.platinumPieces, 0.0001)
         assertEquals(nextWatch, engine.state.value.lastPlatinumAdWatchedAt)
+    }
+
+    @Test
+    fun `performLevelUp does nothing and earns no gems when net worth is too low`() {
+        engine.loadState(GameState())
+
+        val gemsEarned = engine.performLevelUp()
+
+        assertEquals(0L, gemsEarned)
+        assertEquals(0L, engine.state.value.gems)
+        assertEquals(0, engine.state.value.totalLevelUps)
+        assertEquals(1, engine.state.value.ownedLair("kobold_warren").count)
+    }
+
+    @Test
+    fun `performLevelUp resets gold and lairs but earns gems and increments totalLevelUps`() {
+        val rich = GameState(goldPieces = 16_000_000.0, lairs = emptyMap())
+        val expectedGems = rich.gemsEarnedFromLevelUp()
+        engine.loadState(rich)
+
+        val gemsEarned = engine.performLevelUp()
+
+        assertEquals(expectedGems, gemsEarned)
+        assertTrue(gemsEarned > 0L)
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+        assertEquals(1, engine.state.value.ownedLair("kobold_warren").count)
+        assertEquals(gemsEarned, engine.state.value.gems)
+        assertEquals(1, engine.state.value.totalLevelUps)
+    }
+
+    @Test
+    fun `performLevelUp carries over platinum, boosts, offline cap, and the ad cooldown`() {
+        val watchedAt = Instant.now()
+        engine.loadState(
+            GameState(
+                goldPieces = 16_000_000.0,
+                lairs = emptyMap(),
+                platinumPieces = 42.0,
+                speedBoostLevel = 3,
+                profitBoostLevel = 5,
+                offlineCapHours = 8.0,
+                lastPlatinumAdWatchedAt = watchedAt,
+            ),
+        )
+
+        engine.performLevelUp()
+
+        assertEquals(42.0, engine.state.value.platinumPieces, 0.0001)
+        assertEquals(3, engine.state.value.speedBoostLevel)
+        assertEquals(5, engine.state.value.profitBoostLevel)
+        assertEquals(8.0, engine.state.value.offlineCapHours, 0.0001)
+        assertEquals(watchedAt, engine.state.value.lastPlatinumAdWatchedAt)
+    }
+
+    @Test
+    fun `performLevelUp accumulates gems across repeated Level Ups`() {
+        engine.loadState(GameState(goldPieces = 16_000_000.0, lairs = emptyMap(), gems = 10L))
+
+        val gemsEarned = engine.performLevelUp()
+
+        assertEquals(10L + gemsEarned, engine.state.value.gems)
+    }
+
+    @Test
+    fun `gems earned from a past Level Up permanently boost income`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), gems = 10L))
+        engine.purchaseLair("kobold_warren")
+        engine.startLairLoad("kobold_warren")
+
+        engine.tick(lair.baseProductionSeconds)
+
+        assertEquals(
+            lair.incomePerCycle(1, gemBonusMultiplier = gemIncomeMultiplier(10L)),
+            engine.state.value.goldPieces,
+            0.0001,
+        )
     }
 }

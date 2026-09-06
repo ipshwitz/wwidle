@@ -3,6 +3,33 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.23.0] - 2026-09-05 11:35 PM EDT
+
+- Implemented Level Up, the prestige mechanic that's been an open question
+  since the project started: reset your Gold and every owned lair back to
+  the start, in exchange for Gems — a new, third currency that permanently
+  boosts every future run's income (+2% per Gem, flat, not compounding).
+  Platinum Pieces and everything bought with it (Speed/Profit Boost, the
+  ad cooldown) carry over across a Level Up untouched.
+- Gems earned follows a square-root curve based on your current hoard's
+  net worth — cheap early on, needing dramatically more to earn the same
+  amount later, the classic prestige-currency shape.
+- New "Level Up" section (reachable from the same menu item that's existed
+  since early on) shows your current Gems and their income bonus, plus
+  exactly how many Gems leveling up right now would earn. Tapping the
+  button asks for confirmation first — resetting your hoard isn't
+  something to do by accident — then pops up a reward dialog on success,
+  matching the game's existing reward-popup look but recolored to
+  amethyst for Gems instead of gold.
+- Gems now show in the header next to gold/sec and Platinum Pieces.
+- This replaces an earlier planned currency name, "Scale Shards" — it had
+  a placeholder field in the save data but no actual mechanic attached to
+  it yet, so it's simply been renamed to Gems rather than kept as a
+  separate, unused currency.
+- Verified live: leveled up a 27B-gold hoard, earned 206 Gems, watched the
+  reset happen (hoard back to one Kobold Warren, 0 gold) and the new
+  +412% income bonus apply immediately to that lair's production.
+
 ## [0.22.3] - 2026-09-05 10:15 PM EDT
 
 - Replaced the buy button's flat brick-red "can't afford this" color with a

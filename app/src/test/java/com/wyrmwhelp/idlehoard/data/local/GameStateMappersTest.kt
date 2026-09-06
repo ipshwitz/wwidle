@@ -14,7 +14,7 @@ class GameStateMappersTest {
         val original = GameState(
             goldPieces = 12_345.5,
             platinumPieces = 42.0,
-            scaleShards = 7L,
+            gems = 7L,
             lairs = mapOf(
                 "kobold_warren" to OwnedLair(
                     lairId = "kobold_warren",
@@ -36,7 +36,7 @@ class GameStateMappersTest {
             offlineCapHours = 6.0,
             // Room stores millisecond precision, so truncate before comparing.
             lastSavedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            totalMolts = 2,
+            totalLevelUps = 2,
             speedBoostLevel = 3,
             profitBoostLevel = 5,
             lastPlatinumAdWatchedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),

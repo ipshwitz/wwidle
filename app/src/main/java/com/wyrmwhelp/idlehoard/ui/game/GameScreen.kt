@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
@@ -30,6 +31,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val buyQuantity by viewModel.buyQuantity.collectAsStateWithLifecycle()
     val milestoneAnnouncement by viewModel.milestoneAnnouncement.collectAsStateWithLifecycle()
     val lairProgress by viewModel.lairProgress.collectAsStateWithLifecycle()
+    val levelUpReward by viewModel.levelUpReward.collectAsStateWithLifecycle()
 
     // The "Everything" milestone bonuses — same compounding schedule as each
     // lair's own bonus, but keyed on the lowest owned count across all of
@@ -40,6 +42,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(viewModel.lairs)
     val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
     val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
+    val gemMultiplier = gemIncomeMultiplier(state.gems)
 
     // Total income rate from Steward-managed lairs only — the only ones
     // that actually run continuously on their own now. A lair without a
@@ -49,7 +52,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val goldPerSecond = viewModel.lairs.sumOf { lair ->
         val owned = state.ownedLair(lair.id)
         if (owned.count > 0 && owned.hasSteward) {
-            lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier) /
+            lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier) /
                 lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier)
         } else {
             0.0
@@ -66,6 +69,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         goldPieces = state.goldPieces,
                         goldPerSecond = goldPerSecond,
                         platinumPieces = state.platinumPieces,
+                        gems = state.gems,
                         buyQuantity = buyQuantity,
                     ),
                     onCycleBuyQuantity = viewModel::cycleBuyQuantity,
@@ -92,6 +96,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                         onClaim = { viewModel.claimLair(lair.id) },
                         onStartLoad = { viewModel.startLairLoad(lair.id) },
                         profitBoostMultiplier = profitMultiplier,
+                        gemBonusMultiplier = gemMultiplier,
                     )
                 }
             }
@@ -115,6 +120,13 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
         MilestoneReachedDialog(
             announcement = announcement,
             onDismiss = viewModel::dismissMilestoneAnnouncement,
+        )
+    }
+
+    levelUpReward?.let { gemsEarned ->
+        LevelUpRewardDialog(
+            gemsEarned = gemsEarned,
+            onDismiss = viewModel::dismissLevelUpReward,
         )
     }
 }

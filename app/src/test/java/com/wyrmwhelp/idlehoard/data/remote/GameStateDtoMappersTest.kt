@@ -16,7 +16,7 @@ class GameStateDtoMappersTest {
         val original = GameState(
             goldPieces = 12_345.5,
             platinumPieces = 42.0,
-            scaleShards = 7L,
+            gems = 7L,
             lairs = mapOf(
                 "kobold_warren" to OwnedLair(
                     lairId = "kobold_warren",
@@ -29,7 +29,7 @@ class GameStateDtoMappersTest {
             ),
             offlineCapHours = 6.0,
             lastSavedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            totalMolts = 2,
+            totalLevelUps = 2,
             speedBoostLevel = 3,
             profitBoostLevel = 5,
             lastPlatinumAdWatchedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
@@ -46,11 +46,9 @@ class GameStateDtoMappersTest {
             {
                 "gold_pieces": 25.0,
                 "platinum_pieces": 0.0,
-                "scale_shards": 0,
                 "lairs": {},
                 "offline_cap_hours": 4.0,
-                "last_saved_at_epoch_millis": 0,
-                "total_molts": 0
+                "last_saved_at_epoch_millis": 0
             }
         """.trimIndent()
 
@@ -59,6 +57,8 @@ class GameStateDtoMappersTest {
         assertEquals(0, decoded.speedBoostLevel)
         assertEquals(0, decoded.profitBoostLevel)
         assertEquals(null, decoded.lastPlatinumAdWatchedAtEpochMillis)
+        assertEquals(0L, decoded.gems)
+        assertEquals(0, decoded.totalLevelUps)
     }
 
     @Test

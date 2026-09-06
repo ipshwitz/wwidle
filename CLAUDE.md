@@ -92,8 +92,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.22.3** (the buy button's unaffordable state now
-     dims its own rarity color instead of switching to brick-red — see
+   - Current version: **0.23.0** (Level Up is implemented — reset your hoard
+     for Gems, a new permanent-bonus currency — see
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -988,6 +988,84 @@ These apply to every change made in this repo, however small:
     `purchaseTimeSkip(option: TimeSkipOption)` (each: check affordability,
     deduct Platinum, apply); `GameViewModel` has matching thin wrappers,
     same shape as `claimLair`/`hireSteward`.
+  - **Level Up** (`domain/model/LevelUp.kt`, v0.23.0) — the prestige
+    mechanic described under Core game design below, finally implemented.
+    Two pure functions: `GameState.gemsEarnedFromLevelUp()` —
+    `floor(sqrt(estimatedNetWorth() / 1_000_000))`, the classic
+    square-root prestige curve (early Level Ups are cheap, later ones need
+    dramatically more net worth for the same Gem reward) — and
+    `gemIncomeMultiplier(gems: Long)` — a flat +2% income bonus per Gem,
+    *additive* rather than compounding (unlike the Platinum-bought Profit
+    Boost), so it doesn't need its own escalating cost curve the way
+    Boosts do. Both are first-pass placeholders, not playtested, same as
+    everywhere else in the economy. `CreatureLair.incomePerCycle` takes a
+    fourth `gemBonusMultiplier` parameter (default 1.0) alongside the
+    existing three — threaded through the same call sites as
+    `profitBoostMultiplier` (`GameEngine.advance`/`advanceLair`/
+    `grantInstantProduction`, `GameScreen`'s gold-per-second sum,
+    `LairRow`/`LairCard`'s income display) rather than folded into one of
+    the existing multiplier slots, keeping each bonus source's own name
+    intact through the whole call chain.
+    `GameEngine.performLevelUp()` does the actual reset: computes
+    `gemsEarnedFromLevelUp()` first and does nothing (returns 0) if that's
+    0 — a save too early to earn even one Gem can't reset for nothing —
+    otherwise builds a fresh `GameState()` (the same starting shape,
+    Kobold Warren included, `GameState()`'s own defaults) with Platinum
+    Pieces, `speedBoostLevel`/`profitBoostLevel`, `offlineCapHours`, and
+    the ad-watch cooldown (`lastPlatinumAdWatchedAt`) explicitly carried
+    over from the pre-reset state — only the gold side of the economy
+    (Gold Pieces, every owned lair, ownership milestones implicitly via
+    the lair reset) actually resets. `totalLevelUps` increments;
+    `gems` accumulates rather than resets, same as Platinum. The
+    affordability check and the reset happen inside the same `_state.update`
+    call (not a separate read-then-write), so two rapid taps can't both
+    reset off a stale "can afford" read — same pattern as
+    `grantPlatinumAdReward`'s cooldown check.
+    `GameViewModel.performLevelUp()` calls it and, only if Gems were
+    actually earned, sets `levelUpReward: StateFlow<Long?>` so
+    `GameScreen` can pop up `LevelUpRewardDialog` — same one-shot-then-null
+    shape as `milestoneAnnouncement`, reusing the `WelcomeBackDialog`/
+    `MilestoneReachedDialog` chrome (parchment card, `open_chest` art,
+    `GlowingGoldText`) but with the glow recolored to amethyst via two new
+    optional `glowBright`/`glowDeep` params on `GlowingGoldText` (default
+    to the existing gold tones, so every other call site is unaffected).
+    `ui/levelup/LevelUpContent.kt` is the Level Up menu section's real
+    content (`MainActivity`'s `"Level Up" ->` branch, same
+    pure-display-plus-callback pattern as `ShopContent`/`StewardsContent`):
+    an intro card, a Gems-balance card (current Gems plus the resulting
+    income-bonus percentage, live-computed), and a "Level Up now" card
+    showing the exact Gem payout for the *current* run
+    (`gameState.gemsEarnedFromLevelUp()`, computed live by `WyrmWhelpApp`
+    the same way `ShopContent`'s ad-cooldown label is — no polling, it
+    just updates as `gameState` ticks) with a `WoodenButton` that disables
+    itself once that payout is 0. Tapping the button doesn't reset
+    immediately — it opens `LevelUpConfirmDialog`, a private composable
+    with its own local `remember`ed show/hide state (not
+    `GameViewModel`-driven, unlike `LevelUpRewardDialog`, since it's a
+    plain "are you sure" step with no state that needs to survive the
+    section closing) showing the exact Gem payout and warning that Gold
+    and every lair will reset, with side-by-side Cancel/"Level Up!"
+    `WoodenButton`s — only confirming there calls `onLevelUp`.
+    **Gems currency plumbing**: `GameState.gems: Long` and
+    `GameState.totalLevelUps: Int` are a rename of two fields that existed
+    since early in the project as an unused prestige scaffold
+    (`scaleShards`/`totalMolts` — see CHANGELOG 0.23.0) but had no actual
+    mechanic wired up to them until this version; the rename reflects the
+    "scrap Scale Shards, Gems is the only prestige currency" decision made
+    when this was built, not a currency being added on top of an existing
+    one. `GameHeader` shows Gems in its `ParchmentStrip` alongside gp/sec
+    and pp (`FantasyPalette` gained `gemBright`/`gemDeep` amethyst tones
+    for this, the same "named color pair per concept" pattern as
+    `goldBright`/`goldDeep`). Persistence: `WyrmWhelpDatabase` bumped to
+    version 5 for the `GameStateEntity` column rename (no formal
+    migration, same destructive-fallback policy as every prior bump);
+    `GameStateDto`'s renamed `gems`/`total_level_ups` JSON keys both keep
+    a `= 0` default (unlike most other DTO fields, which are required)
+    specifically because this was a wire-format rename, not a
+    newly-added field — an old cloud save's `scale_shards`/`total_molts`
+    keys simply go unused rather than being read, and the app has no real
+    installs to preserve yet regardless (same trade-off as the Room
+    migration policy).
 - **Data:**
   - **Room** — local persistence, implemented (`data/local/`): `GameStateEntity`
     (single-row table for currencies/meta) + `OwnedLairEntity` (one row per
@@ -999,8 +1077,10 @@ These apply to every change made in this repo, however small:
     systems aren't built). **No real migrations exist** — `WyrmWhelpDatabase`
     has no `Migration` objects, so `DatabaseModule`'s `Room.databaseBuilder(...)`
     call adds `.fallbackToDestructiveMigration(dropAllTables = true)` and
-    the database version is bumped by 1 (currently 4, most recently for the
-    v0.20.0 gold-collection redesign's `OwnedLairEntity.isReadyToCollect` →
+    the database version is bumped by 1 (currently 5, most recently for the
+    v0.23.0 Level Up feature's `GameStateEntity` column rename
+    (`scaleShards`/`totalMolts` → `gems`/`totalLevelUps`) — before that,
+    v0.20.0's gold-collection redesign `OwnedLairEntity.isReadyToCollect` →
     `isLoading`+`completedLoads` column swap) any time a persisted field
     is added or changed. This wipes existing local saves on that version
     bump rather than crashing at DB-open time — a deliberate pre-release
@@ -1040,7 +1120,7 @@ These apply to every change made in this repo, however small:
   push — none of those exist yet (no Settings screen, no Level Up). See open
   questions.
 - **Merge logic:** `domain/model/GameStateExtensions.kt#mergeGameStates` —
-  compares local vs. cloud `GameState`, higher `totalMolts` (Level Up count)
+  compares local vs. cloud `GameState`, higher `totalLevelUps` (Level Up count)
   wins outright,
   `estimatedNetWorth()` (liquid currency + what owned lairs cost to claim from
   scratch) breaks ties within the same prestige count. The winner is loaded
@@ -1168,14 +1248,20 @@ real-money transaction. See Open Questions for what's still missing.
   equivalent past Oil Company) extend the same cost/income patterns with a
   tempered cycle-time curve. A new save starts owning one Kobold Warren
   already (matching AdCap's free starting Lemonade Stand) with 0 gold.
-- **Prestige — Level Up** (renamed from "Molt"): resets the current
-  hoard/lairs in exchange for **Scale Shards**, a permanent-bonus currency
-  that boosts all future runs. Renamed because "Molt" only fit dragon-flavored
-  lairs, not the goblins/orcs/etc. earlier in the catalog — "Level Up" is
-  generic TTRPG language that fits every tier. Mechanic still not implemented
-  (see open questions); the persisted field is still named
-  `GameState.totalMolts` internally — rename it to match once Level Up is
-  actually built, so the old name doesn't linger as a mismatch.
+- **Prestige — Level Up** (renamed from "Molt" — "Molt" only fit
+  dragon-flavored lairs, not the goblins/orcs/etc. earlier in the catalog;
+  "Level Up" is generic TTRPG language that fits every tier), implemented
+  in v0.23.0: resets the current hoard (Gold Pieces and every owned lair,
+  back to the exact starting shape a brand-new save begins with) in
+  exchange for **Gems**, a permanent currency that boosts every future
+  run's income. Gems replaced an earlier planned currency name, "Scale
+  Shards," which had a dormant `GameState` field
+  (`scaleShards`/`totalMolts`) but no actual mechanic wired up yet when the
+  rename happened — that field is `GameState.gems`/`totalLevelUps` now,
+  the same rename `GameState.totalMolts`'s own doc comment had been asking
+  for since before this was built. See `domain/model/LevelUp.kt`,
+  `GameEngine.performLevelUp`, and `ui/levelup/LevelUpContent.kt` under
+  Tech stack below for the full implementation.
 - **Art style:** vector/flat illustration, built with Compose (custom vector
   drawables + Compose Canvas for animation). No external sprite/asset-pack
   dependency.
@@ -1187,13 +1273,17 @@ we'll pin these down as we build each system.
 ## Open questions / not yet decided
 
 - Whelp/Wyrm collectible system mechanics (how it interacts with lairs)
-- Full currency list — Gold Pieces and Platinum Pieces are wired into
-  `GameState`; the premium-currency naming question is settled (it's
-  Platinum, not a separate "Jewels" — see Monetization above), Platinum has
-  a real spend path (Speed/Profit boosts, Time Skip — see the Boosts bullet
-  under Tech stack), and now a real *earn* path too — the Shop's "Watch an
-  Ad" (2 pp, 24h cooldown, 0.18.0). Still missing: "buy outright" (IAP) is
-  still a disabled placeholder since billing integration doesn't exist yet.
+- Full currency list — now three, all wired into `GameState`: Gold Pieces
+  (primary), Platinum Pieces (premium — the naming question is settled,
+  it's Platinum, not a separate "Jewels," see Monetization above), and
+  Gems (Level Up's prestige currency, v0.23.0 — see `domain/model/LevelUp.kt`).
+  Platinum has a real spend path (Speed/Profit boosts, Time Skip — see the
+  Boosts bullet under Tech stack) and a real *earn* path (the Shop's
+  "Watch an Ad," 2 pp, 24h cooldown, 0.18.0); "buy outright" (IAP) is still
+  a disabled placeholder since billing integration doesn't exist yet. Gems
+  are earned solely via Level Up and spent nowhere yet — their only effect
+  is `gemIncomeMultiplier`'s flat, always-on account-wide income bonus;
+  a real Gem shop (cosmetics, extra permanent bonuses, etc.) is still open.
 - `ConsentManager` (GDPR/UMP ad-consent flow) isn't built — the rewarded
   placements live so far ship without any consent gating in front of them.
   Needed before ads run for real EU/UK traffic; revisit before

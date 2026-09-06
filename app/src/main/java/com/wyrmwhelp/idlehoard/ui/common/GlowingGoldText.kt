@@ -25,7 +25,11 @@ import androidx.compose.ui.unit.dp
  *
  * Started as `GameHeader`'s own private composable for the header's gold
  * total; promoted here once `WelcomeBackDialog` needed the same look for its
- * offline-earnings amount.
+ * offline-earnings amount. [glowBright]/[glowDeep] default to
+ * [colors]' gold tones but can be overridden — `LevelUpContent` reuses this
+ * same emboss-plus-glow look for Gems with [FantasyPalette.gemBright]/
+ * [FantasyPalette.gemDeep] instead, rather than inventing a second "glowing
+ * currency amount" composable for a different color.
  */
 @Composable
 fun GlowingGoldText(
@@ -33,6 +37,8 @@ fun GlowingGoldText(
     modifier: Modifier = Modifier,
     colors: FantasyPalette = FantasyPalette.Default,
     style: TextStyle = MaterialTheme.typography.headlineSmall,
+    glowBright: Color = colors.goldBright,
+    glowDeep: Color = colors.goldDeep,
 ) {
     val baseStyle = style.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.ExtraBold)
     Box(modifier = modifier) {
@@ -47,8 +53,8 @@ fun GlowingGoldText(
         Text(
             text = text,
             style = baseStyle.copy(
-                color = colors.goldBright,
-                shadow = Shadow(colors.goldDeep.copy(alpha = 0.9f), Offset.Zero, blurRadius = 18f),
+                color = glowBright,
+                shadow = Shadow(glowDeep.copy(alpha = 0.9f), Offset.Zero, blurRadius = 18f),
             ),
         )
     }
