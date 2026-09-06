@@ -3,6 +3,18 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.27.1] - 2026-09-06 9:35 PM EDT
+
+- Tuned down the "Buy Platinum Pieces" price range — $0.99 to $9.99
+  instead of $0.99 to $49.99:
+  - $0.99 for 100 pp, $2.99 for 330 pp, $4.99 for 600 pp, $6.99 for
+    920 pp, $9.99 for 1,400 pp.
+  - The old $49.99 pack's 7,000 pp was too much once checked against
+    what things actually cost — enough to buy the single most expensive
+    permanent boost tier seven times over in one sitting. The new top
+    pack's 1,400 pp buys about five instead, a much more reasonable
+    biggest-purchase-of-the-day size.
+
 ## [0.27.0] - 2026-09-06 9:10 PM EDT
 
 - Added real "Buy Platinum Pieces" — the Shop's disabled "Soon" placeholder

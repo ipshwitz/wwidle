@@ -22,10 +22,10 @@ class PlatinumPurchasesTest {
     @Test
     fun `matches the confirmed price and PP amounts`() {
         assertEquals(PlatinumPurchaseOption("pp_pack_small", 0.99, 100), PLATINUM_PURCHASE_OPTIONS[0])
-        assertEquals(PlatinumPurchaseOption("pp_pack_medium", 4.99, 550), PLATINUM_PURCHASE_OPTIONS[1])
-        assertEquals(PlatinumPurchaseOption("pp_pack_large", 9.99, 1_200), PLATINUM_PURCHASE_OPTIONS[2])
-        assertEquals(PlatinumPurchaseOption("pp_pack_huge", 19.99, 2_600), PLATINUM_PURCHASE_OPTIONS[3])
-        assertEquals(PlatinumPurchaseOption("pp_pack_mega", 49.99, 7_000), PLATINUM_PURCHASE_OPTIONS[4])
+        assertEquals(PlatinumPurchaseOption("pp_pack_medium", 2.99, 330), PLATINUM_PURCHASE_OPTIONS[1])
+        assertEquals(PlatinumPurchaseOption("pp_pack_large", 4.99, 600), PLATINUM_PURCHASE_OPTIONS[2])
+        assertEquals(PlatinumPurchaseOption("pp_pack_huge", 6.99, 920), PLATINUM_PURCHASE_OPTIONS[3])
+        assertEquals(PlatinumPurchaseOption("pp_pack_mega", 9.99, 1_400), PLATINUM_PURCHASE_OPTIONS[4])
     }
 
     @Test
@@ -36,7 +36,26 @@ class PlatinumPurchasesTest {
         assertTrue(ratesPerDollar.zipWithNext().all { (a, b) -> b >= a })
         // ...but the top tier is at most ~50% better per-dollar than the entry
         // tier, not an order of magnitude — the explicit "shouldn't be a
-        // year's worth of PP they'll never use" constraint on the $49.99 pack.
+        // year's worth of PP they'll never use" constraint on the top pack.
         assertTrue(ratesPerDollar.last() / ratesPerDollar.first() < 1.5)
+    }
+
+    @Test
+    fun `the top tier can't buy more than a handful of repeat copies of the priciest permanent boost tier`() {
+        // The 10x Speed / 5x Gem % tiers share the steepest cost curve
+        // (basePp 60, costGrowthRate 1.8) — this is the scenario that
+        // originally motivated pulling the whole price range in from
+        // $0.99-$49.99 to $0.99-$9.99.
+        val steepTier = PermanentBoostTier(PermanentBoostCategory.SPEED, multiplier = 10.0, basePp = 60.0, costGrowthRate = 1.8)
+        val topTierPp = PLATINUM_PURCHASE_OPTIONS.last().platinumPieces
+
+        var level = 0
+        var spent = 0.0
+        while (spent + costForPermanentBoostPurchase(steepTier, level) <= topTierPp) {
+            spent += costForPermanentBoostPurchase(steepTier, level)
+            level++
+        }
+
+        assertTrue("expected at most 5 repeat copies, got $level", level <= 5)
     }
 }

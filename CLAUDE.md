@@ -92,9 +92,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.27.0** (added real Google Play Billing —
-     "Buy Platinum Pieces" is five actual IAP packs ($0.99–$49.99) instead
-     of a disabled placeholder; see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.27.1** (pulled the "Buy Platinum Pieces" price
+     range in from $0.99–$49.99 to $0.99–$9.99 after checking the top
+     tier's PP amount against the priciest permanent boost tier's own
+     cost — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -734,22 +735,33 @@ These apply to every change made in this repo, however small:
     countdown for both `WatchAdRow`'s button label and
     `GameViewModel.platinumAdMessage`'s cooldown text, extracted once it
     was clear both needed the identical "3h 12m" logic.
-  - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0)**
-    (`billing/BillingManager.kt`) — Google Play Billing, replacing the
-    disabled "Soon" placeholder with five actual consumable IAP packs
-    (`domain/model/PlatinumPurchases.kt`'s `PLATINUM_PURCHASE_OPTIONS`):
-    $0.99→100 pp, $4.99→550 pp, $9.99→1,200 pp, $19.99→2,600 pp,
-    $49.99→7,000 pp. **PP-per-dollar rises only mildly at higher tiers**
-    (101→140 pp/$, +~40% top to bottom) rather than the steep "whale"
-    curve common in mobile IAP — an explicit constraint ("spending 49.99
-    on PP shouldn't give so many PP that they can get like a years worth
-    of PP that they'll never use"). This alone doesn't make the top tier
-    harmless on its own — the real backstop is that permanent boost
-    tiers' escalating cost (`Boosts.kt`'s `costForPermanentBoostPurchase`)
-    already makes any finite PP amount unable to max those out; keeping
-    the packs themselves modest is what stops a single purchase from
-    trivializing the *flat-cost* consumables (Time Skips, temporary
-    boosts) that have no such built-in ceiling.
+  - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0, price range
+    tightened in v0.27.1)** (`billing/BillingManager.kt`) — Google Play
+    Billing, replacing the disabled "Soon" placeholder with five actual
+    consumable IAP packs (`domain/model/PlatinumPurchases.kt`'s
+    `PLATINUM_PURCHASE_OPTIONS`): $0.99→100 pp, $2.99→330 pp, $4.99→600 pp,
+    $6.99→920 pp, $9.99→1,400 pp. **PP-per-dollar rises only mildly at
+    higher tiers** (101→140 pp/$, +~40% top to bottom) rather than the
+    steep "whale" curve common in mobile IAP — an explicit constraint
+    ("spending 49.99 on PP shouldn't give so many PP that they can get
+    like a years worth of PP that they'll never use"). The whole price
+    range was originally $0.99-$49.99 (100-7,000 pp) — pulled in to
+    $0.99-$9.99 in v0.27.1 after checking the original top tier against
+    the priciest permanent boost tier's own cost: `PERMANENT_SPEED_TIERS`'s
+    10x tier and `PERMANENT_GEM_TIERS`'s 5x tier (`basePp = 60.0`,
+    `costGrowthRate = 1.8`) only cost 60 pp for a first copy, so 7,000 pp
+    could buy seven repeat copies in one sitting (10^7 = 10,000,000x from
+    that tier alone) — exactly the "one purchase trivializes everything"
+    outcome the packs are supposed to avoid. 1,400 pp caps the same tier
+    at five repeat copies instead (`PlatinumPurchasesTest`'s
+    `the top tier can't buy more than a handful of repeat copies...` test
+    pins this down). This alone doesn't make the top tier harmless on its
+    own — the real backstop is that permanent boost tiers' escalating cost
+    (`Boosts.kt`'s `costForPermanentBoostPurchase`) already makes any
+    finite PP amount unable to max those out; keeping the packs themselves
+    modest is what stops a single purchase from trivializing the
+    *flat-cost* consumables (Time Skips, temporary boosts) that have no
+    such built-in ceiling.
     - **Every product id must exist as a consumable in-app product in the
       Google Play Console** under this app's listing before any of this
       actually works — there is no way to create these from code, the
@@ -1555,7 +1567,7 @@ own doc comment, it just didn't have a UI home yet. The Shop section
 four temporary boost tiers, and six Time Skip sizes as of v0.26.0 — see
 the Platinum Upgrades bullet under Tech stack above), the real ad-earn
 path described above, and — as of v0.27.0 — **real "Buy Platinum Pieces"
-IAP**, five Google Play Billing packs from $0.99 to $49.99 (see the
+IAP**, five Google Play Billing packs from $0.99 to $9.99 (see the
 `BillingManager` bullet under Tech stack for the pricing/PP-amount
 reasoning and what's still unverified).
 **Only "Buy Platinum Pieces" (real money) is hidden for guests** — as of
