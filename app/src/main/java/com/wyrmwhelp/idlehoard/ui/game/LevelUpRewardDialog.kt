@@ -74,14 +74,14 @@ fun LevelUpRewardDialog(
             )
             Spacer(Modifier.height(12.dp))
             GlowingGoldText(
-                text = "+${GoldFormat.format(gemsEarned.toDouble())} Gems",
+                text = "${GoldFormat.format(gemsEarned.toDouble())} Gems",
                 colors = palette,
                 glowBright = palette.gemBright,
                 glowDeep = palette.gemDeep,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "your hoard resets, but the bonus is permanent",
+                text = "your hoard resets with a fresh head start",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontStyle = FontStyle.Italic,
                     color = palette.ink.copy(alpha = 0.75f),

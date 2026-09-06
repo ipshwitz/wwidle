@@ -498,7 +498,7 @@ class GameEngineTest {
     }
 
     @Test
-    fun `performLevelUp resets gold and lairs but earns gems and increments totalLevelUps`() {
+    fun `performLevelUp resets gold and lairs but grants a gem batch and increments totalLevelUps`() {
         // 150 * sqrt(1e15 / 1e15) = 150 gems.
         val rich = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, lairs = emptyMap())
         engine.loadState(rich)
@@ -509,7 +509,6 @@ class GameEngineTest {
         assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
         assertEquals(1, engine.state.value.ownedLair("kobold_warren").count)
         assertEquals(150L, engine.state.value.gems)
-        assertEquals(150L, engine.state.value.totalGemsEarned)
         assertEquals(1, engine.state.value.totalLevelUps)
     }
 
@@ -539,45 +538,53 @@ class GameEngineTest {
     }
 
     @Test
-    fun `performLevelUp accumulates gems across repeated Level Ups`() {
-        engine.loadState(GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, lairs = emptyMap(), gems = 10L))
+    fun `performLevelUp replaces the old gem batch rather than accumulating`() {
+        // Gems are temporary (see LevelUp.kt) — a new batch (150, from this
+        // lifetime earnings) overwrites whatever was already held (10),
+        // rather than adding to it.
+        engine.loadState(GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, lairs = emptyMap(), gems = 10L, totalLevelUps = 1))
 
         val gemsEarned = engine.performLevelUp()
 
-        assertEquals(10L + gemsEarned, engine.state.value.gems)
+        assertEquals(150L, gemsEarned)
+        assertEquals(150L, engine.state.value.gems)
     }
 
     @Test
-    fun `performLevelUp grants nothing a second time without any new lifetime earnings in between`() {
+    fun `performLevelUp grants the same batch again if lifetime earnings haven't grown`() {
+        // Unlike a typical accumulating prestige currency, repeating a
+        // Level Up with no new lifetime earnings isn't blocked — it just
+        // regrants the identical batch (replacing, not adding), so nothing
+        // is gained or lost by doing it again.
         engine.loadState(GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, lairs = emptyMap()))
         val firstGemsEarned = engine.performLevelUp()
-        assertTrue(firstGemsEarned > 0L)
+        assertEquals(150L, firstGemsEarned)
 
-        val secondGemsEarned = engine.performLevelUp()
-
-        assertEquals(0L, secondGemsEarned)
-        assertEquals(firstGemsEarned, engine.state.value.gems)
-        // The failed second attempt shouldn't have reset anything again either.
-        assertEquals(1, engine.state.value.totalLevelUps)
-    }
-
-    @Test
-    fun `performLevelUp can earn more gems again once lifetime earnings grow further`() {
-        engine.loadState(GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, lairs = emptyMap()))
-        engine.performLevelUp()
-
-        // Growing lifetime earnings 4x (150 * sqrt(4) = 300 target) should
-        // unlock another 150 gems on top of the 150 already earned.
-        engine.loadState(engine.state.value.copy(lifetimeGoldEarned = 4_000_000_000_000_000.0))
         val secondGemsEarned = engine.performLevelUp()
 
         assertEquals(150L, secondGemsEarned)
+        assertEquals(150L, engine.state.value.gems)
+        assertEquals(2, engine.state.value.totalLevelUps)
+    }
+
+    @Test
+    fun `performLevelUp's batch grows as lifetime earnings grow, replacing the smaller old one`() {
+        engine.loadState(GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, lairs = emptyMap()))
+        engine.performLevelUp()
+        assertEquals(150L, engine.state.value.gems)
+
+        // Growing lifetime earnings 4x (150 * sqrt(4) = 300) replaces the
+        // old 150-gem batch with a fresh 300-gem one, not 150 + 300.
+        engine.loadState(engine.state.value.copy(lifetimeGoldEarned = 4_000_000_000_000_000.0))
+        val secondGemsEarned = engine.performLevelUp()
+
+        assertEquals(300L, secondGemsEarned)
         assertEquals(300L, engine.state.value.gems)
         assertEquals(2, engine.state.value.totalLevelUps)
     }
 
     @Test
-    fun `gems earned from a past Level Up permanently boost income`() {
+    fun `gems currently held boost income`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
         engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), gems = 10L))
         engine.purchaseLair("kobold_warren")

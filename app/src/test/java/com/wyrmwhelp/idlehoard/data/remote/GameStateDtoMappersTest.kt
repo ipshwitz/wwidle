@@ -17,7 +17,6 @@ class GameStateDtoMappersTest {
             goldPieces = 12_345.5,
             platinumPieces = 42.0,
             gems = 7L,
-            totalGemsEarned = 9L,
             lifetimeGoldEarned = 987_654.0,
             lairs = mapOf(
                 "kobold_warren" to OwnedLair(
@@ -61,7 +60,6 @@ class GameStateDtoMappersTest {
         assertEquals(null, decoded.lastPlatinumAdWatchedAtEpochMillis)
         assertEquals(0L, decoded.gems)
         assertEquals(0, decoded.totalLevelUps)
-        assertEquals(0L, decoded.totalGemsEarned)
         assertEquals(0.0, decoded.lifetimeGoldEarned, 0.0001)
     }
 

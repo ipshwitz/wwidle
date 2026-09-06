@@ -1,6 +1,7 @@
 package com.wyrmwhelp.idlehoard.domain.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LevelUpTest {
@@ -32,22 +33,22 @@ class LevelUpTest {
     }
 
     @Test
-    fun `gemsEarnedFromLevelUp only grants the gap above gems already earned`() {
-        // The target for this much lifetime earning is 150 gems; having
-        // already earned 100 of them from a prior Level Up (so this isn't
-        // the first one) should only grant the remaining 50, not another
-        // fresh 150.
-        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 100L, totalLevelUps = 1)
+    fun `gemsEarnedFromLevelUp does not subtract gems already held — the batch replaces, not accumulates`() {
+        // Gems are temporary (see LevelUp.kt's class doc): the batch a
+        // Level Up would grant depends only on lifetimeGoldEarned, not on
+        // how many Gems are currently held or were ever earned before.
+        val holdingLots = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, gems = 10_000L, totalLevelUps = 1)
+        val holdingNone = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, gems = 0L, totalLevelUps = 1)
 
-        assertEquals(50L, state.gemsEarnedFromLevelUp())
+        assertEquals(150L, holdingLots.gemsEarnedFromLevelUp())
+        assertEquals(150L, holdingNone.gemsEarnedFromLevelUp())
     }
 
     @Test
     fun `the very first Level Up is blocked until lifetime earnings alone are worth at least 50 gems`() {
         // 150 * sqrt(4.444e12 / 1e15) ~= 10 gems worth of lifetime earnings —
         // comfortably below the 50-gem minimum, so a completely fresh save
-        // (totalLevelUps and totalGemsEarned both default to 0) can't
-        // Level Up yet.
+        // (totalLevelUps defaults to 0) can't Level Up yet.
         val notEnoughYet = GameState(lifetimeGoldEarned = 4_444_444_444_444.0)
 
         assertEquals(0L, notEnoughYet.gemsEarnedFromLevelUp())
@@ -55,26 +56,25 @@ class LevelUpTest {
 
     @Test
     fun `recurring Level Ups use a smaller 25-gem minimum instead of the first Level Up's 50`() {
-        // Gap of 5 is below even the smaller recurring minimum — blocked.
-        val tooSmall = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 145L, totalLevelUps = 1)
+        // 150 * sqrt(2.5e13 / 1e15) ~= 23.7 gems -> floors to 23, below the
+        // 25-gem recurring minimum but would also fail the first-time 50 bar.
+        val tooSmall = GameState(lifetimeGoldEarned = 25_000_000_000_000.0, totalLevelUps = 1)
         assertEquals(0L, tooSmall.gemsEarnedFromLevelUp())
 
-        // Gap of exactly 25 clears the recurring minimum and is granted in full —
-        // note this gap would have been blocked by the first Level Up's
-        // stricter 50-gem bar, so totalLevelUps must actually be doing the
-        // work of picking the right threshold here.
-        val exactlyEnough = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 125L, totalLevelUps = 1)
+        // Just above the exact L for a target of 25 (1e15 * (25/150)^2 =
+        // 1e15/36 ~= 27,777,777,777,777.78) — nudged up by 1 so floating-point
+        // rounding can't accidentally land the computed value a hair under
+        // 25.0 and floor down to 24. Would have failed the first-time 50 bar.
+        val exactlyEnough = GameState(lifetimeGoldEarned = 27_777_777_777_778.0, totalLevelUps = 1)
         assertEquals(25L, exactlyEnough.gemsEarnedFromLevelUp())
     }
 
     @Test
-    fun `gemsEarnedFromLevelUp is 0 (not negative) once totalGemsEarned has caught up to the target`() {
-        // This is the actual "reach further before you can Level Up again"
-        // gate: leveling up without any new lifetime earnings in between
-        // grants nothing the second time.
-        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 150L, totalLevelUps = 1)
+    fun `a Level Up can never grant fewer gems than a previous one, since lifetime earnings only grow`() {
+        val early = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalLevelUps = 1)
+        val later = early.copy(lifetimeGoldEarned = early.lifetimeGoldEarned * 4)
 
-        assertEquals(0L, state.gemsEarnedFromLevelUp())
+        assertTrue(later.gemsEarnedFromLevelUp() >= early.gemsEarnedFromLevelUp())
     }
 
     @Test

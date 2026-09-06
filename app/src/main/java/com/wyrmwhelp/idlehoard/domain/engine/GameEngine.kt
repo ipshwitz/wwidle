@@ -285,22 +285,24 @@ class GameEngine @Inject constructor() {
     }
 
     /**
-     * Resets the current run for Gems (see `domain/model/LevelUp.kt`'s
-     * `gemsEarnedFromLevelUp`) — Gold Pieces and every owned lair go back to
-     * the exact same starting shape a brand-new [GameState] begins with (one
-     * Kobold Warren, nothing else). Platinum Pieces, the boosts bought with
-     * it ([GameState.speedBoostLevel]/[GameState.profitBoostLevel]),
-     * [GameState.offlineCapHours], the ad-watch cooldown
-     * ([GameState.lastPlatinumAdWatchedAt]), and — critically —
-     * [GameState.lifetimeGoldEarned] itself all carry over unchanged; only
-     * the gold side of the *current run* resets. Returns the number of Gems
-     * earned; if [GameState.lifetimeGoldEarned] hasn't grown enough since
-     * the last Level Up to earn even one more, nothing is reset and this
+     * Resets the current run for a fresh Gem batch (see
+     * `domain/model/LevelUp.kt`'s `gemsEarnedFromLevelUp`) — Gold Pieces
+     * and every owned lair go back to the exact same starting shape a
+     * brand-new [GameState] begins with (one Kobold Warren, nothing else),
+     * and [GameState.gems] itself is *replaced* by the new batch, not
+     * added to (Gems are a temporary head start, not an accumulating
+     * currency — see `LevelUp.kt`'s class doc for why). Platinum Pieces,
+     * the boosts bought with it ([GameState.speedBoostLevel]/
+     * [GameState.profitBoostLevel]), [GameState.offlineCapHours], the
+     * ad-watch cooldown ([GameState.lastPlatinumAdWatchedAt]), and —
+     * critically — [GameState.lifetimeGoldEarned] itself all carry over
+     * unchanged; only the gold side of the *current run* (and the old Gem
+     * batch) resets. Returns the size of the new Gem batch; if
+     * [GameState.lifetimeGoldEarned] hasn't grown enough since the last
+     * Level Up to clear the applicable minimum, nothing is reset and this
      * returns 0 (checked and applied atomically inside the same [_state]
      * update, so two rapid calls can't both reset off a stale "earns
-     * enough" read) — see `LevelUp.kt`'s class doc for why this is the
-     * intended "reach further before you can Level Up again" gate, not a
-     * bug.
+     * enough" read).
      */
     fun performLevelUp(): Long {
         var gemsEarned = 0L
@@ -311,8 +313,7 @@ class GameEngine @Inject constructor() {
             } else {
                 GameState(
                     platinumPieces = current.platinumPieces,
-                    gems = current.gems + gemsEarned,
-                    totalGemsEarned = current.totalGemsEarned + gemsEarned,
+                    gems = gemsEarned,
                     lifetimeGoldEarned = current.lifetimeGoldEarned,
                     offlineCapHours = current.offlineCapHours,
                     totalLevelUps = current.totalLevelUps + 1,

@@ -41,9 +41,10 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 /**
  * The "Level Up" section's real content: Level Up is this game's prestige
- * mechanic (see `domain/model/LevelUp.kt`) — reset the current run for
- * Gems, a permanent currency whose only effect so far is a flat account-wide
- * income bonus. Pure display plus one callback — [onLevelUp] is only called
+ * mechanic (see `domain/model/LevelUp.kt`) — reset the current run for a
+ * fresh batch of Gems, a *temporary* income-multiplier head start that
+ * replaces whatever Gems were already held rather than adding to them.
+ * Pure display plus one callback — [onLevelUp] is only called
  * after the player confirms in [LevelUpConfirmDialog] below, and only ever
  * from an enabled button, so it doesn't need to re-check [gemsEarnable]
  * itself (mirroring `ShopContent`'s `onBuy` callbacks). [gemsEarnable] is
@@ -124,9 +125,9 @@ private fun IntroCard(palette: FantasyPalette, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
         )
         Text(
-            text = "Reset your Gold and every owned lair back to the start, in exchange for Gems — a " +
-                "permanent currency that boosts every future run's income. Platinum Pieces and anything " +
-                "bought with it carry over.",
+            text = "Reset your Gold and every owned lair back to the start for a fresh batch of Gems — a " +
+                "big but temporary income boost for your next run, replacing any Gems you're currently " +
+                "holding rather than adding to them. Platinum Pieces and anything bought with it carry over.",
             style = MaterialTheme.typography.bodySmall,
             color = palette.ink.copy(alpha = 0.8f),
         )
@@ -146,7 +147,7 @@ private fun GemsBalanceCard(gems: Long, palette: FantasyPalette, modifier: Modif
         Spacer(Modifier.height(2.dp))
         val bonusPercent = (gemIncomeMultiplier(gems) - 1.0) * 100.0
         Text(
-            text = "+${GoldFormat.format(bonusPercent)}% income from every lair, permanently",
+            text = "+${GoldFormat.format(bonusPercent)}% income from every lair, until your next Level Up",
             style = MaterialTheme.typography.bodySmall,
             color = palette.ink.copy(alpha = 0.7f),
         )
@@ -175,7 +176,7 @@ private fun LevelUpCard(
                 )
                 Text(
                     text = if (canLevelUp) {
-                        "Earn ${GoldFormat.format(gemsEarnable.toDouble())} Gems for the Gold you've earned so far."
+                        "Get a fresh batch of ${GoldFormat.format(gemsEarnable.toDouble())} Gems, replacing any you're holding now."
                     } else {
                         "Keep earning Gold — Level Up unlocks again once you've earned enough more."
                     },
@@ -231,8 +232,8 @@ private fun LevelUpConfirmDialog(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "You'll earn ${GoldFormat.format(gemsEarnable.toDouble())} Gems, but your Gold and " +
-                    "every owned lair will reset.",
+                text = "You'll get a fresh batch of ${GoldFormat.format(gemsEarnable.toDouble())} Gems, " +
+                    "replacing any you're holding now — but your Gold and every owned lair will reset.",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontStyle = FontStyle.Italic,
                     color = palette.ink.copy(alpha = 0.8f),

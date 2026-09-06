@@ -14,15 +14,14 @@ import java.time.Instant
  *   used here for IAP-sourced value (1 pp = 10 gp per 5E convention, flavor only
  *   for now; no automatic conversion is implemented).
  * @property gems Prestige currency earned by Leveling Up (see
- *   `domain/model/LevelUp.kt`) — the player's current *spendable* balance.
- *   Distinct from [totalGemsEarned] (which never decreases) so a future
- *   Gem-spending system can draw this down without ever letting the player
- *   earn the same Gems again by leveling up a second time.
- * @property totalGemsEarned Every Gem ever earned across every past Level
- *   Up, whether still held in [gems] or since spent — the running baseline
- *   `gemsEarnedFromLevelUp` subtracts from the lifetime-earnings target so
- *   spending (once that exists) can never be "refunded" by leveling up
- *   again for free.
+ *   `domain/model/LevelUp.kt`) — **temporary, not permanent**, unlike a
+ *   typical idle-game prestige currency: every Level Up *replaces* this
+ *   with a fresh batch (sized off [lifetimeGoldEarned], so later Level
+ *   Ups grant more) rather than adding to whatever was already held. The
+ *   value isn't accumulation for its own sake — a bigger batch means a
+ *   bigger income head start for *that* run, which matters once a
+ *   leaderboard exists to compare how fast players ramp up, not how many
+ *   Gems they've stockpiled.
  * @property lifetimeGoldEarned Total Gold Pieces ever earned from
  *   production (lair income, Time Skips, ad-doubled offline earnings) —
  *   unlike [goldPieces], this never decreases (not on spending, and not on
@@ -49,7 +48,6 @@ data class GameState(
     val goldPieces: Double = 0.0,
     val platinumPieces: Double = 0.0,
     val gems: Long = 0,
-    val totalGemsEarned: Long = 0,
     val lifetimeGoldEarned: Double = 0.0,
     // A brand-new save starts owning one Kobold Warren already — matching
     // AdVenture Capitalist's own onboarding (a free first Lemonade Stand) —

@@ -3,6 +3,26 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.24.0] - 2026-09-06 12:31 PM EDT
+
+- Redesigned Gems from an accumulating prestige currency into a
+  temporary one, matching AdVenture Capitalist's real Angel Investors
+  (they boost how fast a run ramps up, they don't stack forever):
+  - Every Level Up now *replaces* your Gem balance with a fresh batch
+    sized off your lifetime earnings, instead of adding to whatever you
+    already had. A bigger batch means a faster-ramping next run, not a
+    bigger permanent stockpile — that will matter once there's a
+    leaderboard comparing how fast players build up, not how many Gems
+    they've banked.
+  - Removed the internal "Gems ever earned" ledger this replaces — it
+    existed to stop a Level Up from re-granting Gems you'd already
+    earned, but that's no longer meaningful once Gems don't accumulate.
+  - Every other part of Level Up is unchanged: the 50/25-Gem minimums,
+    Platinum Pieces and PP-bought Boosts staying permanent, and lairs/
+    Gold resetting each time.
+  - Updated the Level Up screen's copy throughout to describe Gems as
+    temporary rather than permanent.
+
 ## [0.23.4] - 2026-09-06 12:02 PM EDT
 
 - Added a recurring 25-Gem minimum for every Level Up after the first —

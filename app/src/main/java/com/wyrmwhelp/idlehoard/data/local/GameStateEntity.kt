@@ -13,7 +13,6 @@ data class GameStateEntity(
     val goldPieces: Double,
     val platinumPieces: Double,
     val gems: Long,
-    val totalGemsEarned: Long = 0,
     val lifetimeGoldEarned: Double = 0.0,
     val offlineCapHours: Double,
     val lastSavedAtEpochMillis: Long,
