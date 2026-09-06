@@ -77,6 +77,9 @@ private val CARD_HEIGHT = 96.dp
 /** Fixed width of the owned-count panel in the bottom row. */
 private val OWNED_BOX_WIDTH = 56.dp
 
+/** Width of the rarity accent stripe along the card's left edge (v0.22.1). */
+private val RARITY_STRIPE_WIDTH = 6.dp
+
 /**
  * A muted brick-red standing in for "can't afford this" on the buy button —
  * deliberately not a stock bright red, which would clash with the warm
@@ -101,10 +104,35 @@ private val unaffordableDark = Color(0xFF6E332B)
  *   (previously a separate line elsewhere in the card). An unclaimed lair
  *   (`owned.count == 0`) shows the track empty with a "Claim to begin"
  *   prompt instead of a real fraction.
- * - **Bottom row**: the [BuyButton] (gold gradient when affordable, the
- *   muted [unaffordableLight]/[unaffordableDark] brick tone when not) takes
- *   most of the width; a fixed-width [OwnedBox] panel to its right replaces
- *   the old "Owned: N" text line.
+ * - **Bottom row**: the [BuyButton] (this lair's own [rarityGradient] when
+ *   affordable, the muted [unaffordableLight]/[unaffordableDark] brick tone
+ *   when not — see the rarity-visibility note below) takes most of the
+ *   width; a fixed-width [OwnedBox] panel to its right replaces the old
+ *   "Owned: N" text line.
+ *
+ * **Rarity visibility (v0.22.1)** — the very first version of this redesign
+ * paired a *gold* affordable-button color with the border as the only other
+ * rarity cue, which caused two complaints once most lairs were affordable
+ * (the normal mid/late-game state): gold — this game's actual *legendary*-tier
+ * rarity color — showed up on every card regardless of tier, both drowning
+ * out the rest of the screen in one color and making "gold = legendary"
+ * meaningless. Also piloted first as an HTML mockup (several variants,
+ * compared side by side) before porting the chosen combination to Compose:
+ * - The affordable [BuyButton] now uses [rarityGradient] (a light/dark pair
+ *   per tier) instead of a flat gold gradient — gold only appears on an
+ *   actually-legendary-tier lair now, resolving the collision at the source
+ *   rather than working around it.
+ * - A solid [RARITY_STRIPE_WIDTH]-wide stripe in the flat [rarityColor]
+ *   sits along the card's left edge, and the whole card background gets a
+ *   faint (`alpha = 0.16f`) rarity wash on top of the parchment gradient —
+ *   both reinforcing the tier read even before looking at the button. The
+ *   outer border dropped its own rarity tint (was `rarity.copy(alpha = 0.7f)`)
+ *   down to a neutral dark tone now that the stripe and wash carry that
+ *   signal instead — a colored border alongside a colored stripe read as
+ *   cluttered in the mockup comparison.
+ * - The content `Column` gets `padding(start = RARITY_STRIPE_WIDTH)` so the
+ *   name/progress bar and the buy button/owned box both clear the stripe
+ *   instead of rendering underneath it.
  *
  * The monster name (e.g. "Kobold") that used to sit next to the challenge
  * rating is dropped — the lair name already implies it in every case so
@@ -190,13 +218,21 @@ fun LairCard(
                     listOf(palette.parchmentShade, palette.parchment),
                 ),
             )
-            .border(1.5.dp, rarity.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+            .background(rarity.copy(alpha = 0.16f))
+            .border(1.5.dp, Color.Black.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
             .clickable(
                 enabled = owned.count > 0 && !owned.hasSteward && !owned.isLoading,
                 onClick = onStartLoad,
             ),
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(RARITY_STRIPE_WIDTH)
+                .background(rarity),
+        )
+
+        Column(modifier = Modifier.fillMaxSize().padding(start = RARITY_STRIPE_WIDTH)) {
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -273,6 +309,11 @@ fun LairCard(
                     },
                     price = "${GoldFormat.format(claimCost)} gp",
                     affordable = canClaim,
+                    affordableGradient = rarityGradient(lair.tier),
+                    // Gold-tier's own gradient is already light — dark ink text
+                    // reads better on it than the white used for every other
+                    // (darker) rarity gradient.
+                    affordableTextColor = if (lair.tier > 11) palette.ink else Color.White,
                     onClick = onClaim,
                     palette = palette,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -290,30 +331,30 @@ fun LairCard(
 }
 
 /**
- * The bottom-left buy action — a gold gradient when [affordable], the muted
- * brick tone when not, with a two-line label (quantity on top, price below)
- * instead of the single-line `WoodenButton` pill this replaced. Kept private
- * to this file since nothing else needs a button shaped quite like this one.
+ * The bottom-left buy action — [affordableGradient] (this lair's own
+ * [rarityGradient] as of v0.22.1, previously always gold) when [affordable],
+ * the muted brick tone when not, with a two-line label (quantity on top,
+ * price below) instead of the single-line `WoodenButton` pill this replaced.
+ * Kept private to this file since nothing else needs a button shaped quite
+ * like this one.
  */
 @Composable
 private fun BuyButton(
     text: String,
     price: String,
     affordable: Boolean,
+    affordableGradient: List<Color>,
+    affordableTextColor: Color,
     onClick: () -> Unit,
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
-    val textColor = if (affordable) palette.ink else palette.parchment
+    val textColor = if (affordable) affordableTextColor else palette.parchment
     Column(
         modifier = modifier
             .background(
                 Brush.verticalGradient(
-                    if (affordable) {
-                        listOf(palette.goldBright, palette.goldDeep)
-                    } else {
-                        listOf(unaffordableLight, unaffordableDark)
-                    },
+                    if (affordable) affordableGradient else listOf(unaffordableLight, unaffordableDark),
                 ),
             )
             .clickable(enabled = affordable, onClick = onClick),
@@ -371,4 +412,20 @@ internal fun rarityColor(tier: Int): Color = when {
     tier <= 8 -> Color(0xFF9C27B0)
     tier <= 11 -> Color(0xFFFF9800)
     else -> Color(0xFFFFC107)
+}
+
+/**
+ * A lighter/darker pair per tier (a "glow" top stop and a deep bottom stop)
+ * for gradients that need more range than the flat [rarityColor] itself —
+ * currently just [BuyButton]'s affordable state (v0.22.1). Hand-picked to
+ * stay recognizably the same hue as [rarityColor] rather than derived
+ * algorithmically, since an automatic lighten/darken can drift a color's hue
+ * enough to stop reading as "the same green" at the extremes.
+ */
+private fun rarityGradient(tier: Int): List<Color> = when {
+    tier <= 2 -> listOf(Color(0xFF6FCB74), Color(0xFF2E7D32))
+    tier <= 5 -> listOf(Color(0xFF5FB0F7), Color(0xFF124E85))
+    tier <= 8 -> listOf(Color(0xFFC158D6), Color(0xFF6A1B7A))
+    tier <= 11 -> listOf(Color(0xFFFFB74D), Color(0xFFC66900))
+    else -> listOf(Color(0xFFFFDD6B), Color(0xFFB8860B))
 }

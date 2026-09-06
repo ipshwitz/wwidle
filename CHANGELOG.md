@@ -3,6 +3,24 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.22.1] - 2026-09-05 9:49 PM EDT
+
+- Fixed the new lair card layout being dominated by gold: the buy button's
+  affordable state was a gold gradient, which is also this game's
+  legendary-tier rarity color — once most lairs were affordable (normal
+  mid/late-game), gold covered nearly every card, both overwhelming the
+  screen and making "gold = legendary" meaningless.
+- The buy button now uses each lair's own rarity color (green, blue,
+  purple, orange) instead of a universal gold — gold only appears on an
+  actually-legendary lair now. A solid accent stripe down the card's left
+  edge plus a faint rarity-colored wash across the whole card background
+  reinforce the tier even before looking at the button. The unaffordable
+  state is unchanged (still a flat muted red regardless of tier).
+- Compared four different fixes as an HTML mockup before building this
+  one, which combines a rarity-colored button with the full-card wash.
+- Verified on the emulator across green, blue, purple, and orange tiers,
+  and confirmed the unaffordable red state still works correctly.
+
 ## [0.22.0] - 2026-09-05 9:31 PM EDT
 
 - Redesigned the lair card layout, piloted first as an HTML mockup (based

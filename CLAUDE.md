@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.22.0** (`LairCard` redesigned around a dedicated
-     progress-bar track, CR shown next to the name, a real buy button and
-     owned panel — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.22.1** (buy button and a left accent stripe now
+     carry each lair's rarity color instead of a universal gold — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -383,6 +383,33 @@ These apply to every change made in this repo, however small:
     lair's actual cycle time can span; [productionSeconds] (the same value
     `GameScreen` already computes for its gold-per-second sum) is passed
     down through `LairRow` as its own prop just for this display.
+  - **Rarity visibility fix (v0.22.1)** — v0.22.0's redesign shipped with a
+    gold gradient on the buy button's affordable state, same as the old
+    single-row card. That collided with gold *also* being this game's
+    legendary-tier `rarityColor` band: once most lairs were affordable (the
+    ordinary mid/late-game state), gold covered nearly every card
+    regardless of tier, both overwhelming the screen and making "gold =
+    legendary" meaningless. Piloted several fixes as an HTML mockup (four
+    variants compared side by side) before building the chosen combination:
+    - `BuyButton`'s affordable gradient is now `rarityGradient(lair.tier)` —
+      a new private hand-picked light/dark pair per tier (not derived
+      algorithmically from `rarityColor`, since an automatic lighten/darken
+      can drift far enough to stop reading as the same hue at the
+      extremes) — so gold only appears on an actually-legendary lair now.
+      The unaffordable state is untouched (still the flat
+      `unaffordableLight`/`unaffordableDark` brick tone regardless of
+      tier — red reads as "can't afford" more clearly than a desaturated
+      per-tier color would).
+    - A solid `RARITY_STRIPE_WIDTH` (6.dp) stripe in the flat `rarityColor`
+      runs down the card's left edge, and the whole card background gets a
+      faint (`alpha = 0.16f`) rarity wash layered over the parchment
+      gradient — both reinforcing the tier even before looking at the
+      button. The content `Column` picks up `padding(start = RARITY_STRIPE_WIDTH)`
+      so the name/progress bar and the bottom row both clear the stripe.
+    - The outer border dropped its own rarity tint (`rarity.copy(alpha = 0.7f)`)
+      to a neutral `Color.Black.copy(alpha = 0.35f)` — a colored border
+      alongside a colored stripe read as cluttered in the mockup
+      comparison, and the stripe/wash already carry that signal.
   - **Progress-bar smoothing (v0.21.2)** — `LairCard`'s fill fraction used to
     be derived per-composable from raw `OwnedLair.cycleProgressSeconds` /
     `CreatureLair.effectiveProductionSeconds`, animated via
