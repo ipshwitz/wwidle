@@ -9,12 +9,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,21 +24,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
-import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import com.wyrmwhelp.idlehoard.ui.format.CycleTimeFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
@@ -66,32 +71,45 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  */
 private const val PROGRESS_ANIMATION_DURATION_MS = 20
 
+/** Fixed overall card height (v0.22.0 redesign) — see [LairCard]'s class doc for why this replaced content-driven sizing. */
+private val CARD_HEIGHT = 96.dp
+
+/** Fixed width of the owned-count panel in the bottom row. */
+private val OWNED_BOX_WIDTH = 56.dp
+
 /**
- * One lair in the list. Styled to match the app's cozy-fantasy chrome
- * ([FantasyPalette] — parchment/wood/gold tones, the same palette
- * `GameHeader` uses) instead of a flat Material-colored block. Still no
- * Material `Card` — a custom `Box` sized via `Modifier.height(IntrinsicSize.Min)`
- * so the whole card keeps doubling as its own progress bar (see the fill
- * layer below), just painted richer now:
- * - A translucent parchment gradient base (`palette.parchmentShade` →
- *   `palette.parchment`, alpha 0.55) instead of a flat rarity wash, so an
- *   *unclaimed* lair still reads as a card rather than a near-invisible
- *   tinted rectangle — but stays sheer enough to keep `GameScreen`'s
- *   background art showing through, same as the card always has.
- * - A faint rarity tint over the whole card, then a stronger rarity-gradient
- *   fill for the claimed fraction ([progress] — 100% = the cycle a tap
- *   started is about to complete and auto-collect) with a bright "leading
- *   edge" line marking exactly how far the fill has come — drawn via
- *   `drawBehind` on the fill `Box` itself at its own right edge, so it
- *   always tracks the animated fraction without any extra position math.
- * - `FontFamily.Serif` for the name (matching `GameHeader`'s lettering) with
- *   a subtle emboss shadow.
- * - The Claim action is a shared `WoodenButton` instead of a Material
- *   `Button`.
+ * A muted brick-red standing in for "can't afford this" on the buy button —
+ * deliberately not a stock bright red, which would clash with the warm
+ * wood/parchment/gold palette everywhere else in this chrome.
+ */
+private val unaffordableLight = Color(0xFFA8564A)
+private val unaffordableDark = Color(0xFF6E332B)
+
+/**
+ * One lair in the list. Redesigned in v0.22.0 from a single card whose whole
+ * background doubled as its own progress bar to a fixed-height
+ * ([CARD_HEIGHT]) card split into two rows, matching a layout piloted first
+ * as an HTML mockup and reskinned here with this app's existing
+ * [FantasyPalette] wood/parchment/gold tones and [rarityColor] ramp rather
+ * than copied wholesale:
+ * - **Top row**: the lair name and challenge rating on one truncating line
+ *   (`"Kobold Warren (1/8 CR)"`, built as a single [buildAnnotatedString] so
+ *   they truncate together rather than as two independent `Text`s), then a
+ *   dedicated progress-bar track below it — a dark inset groove, an animated
+ *   rarity-gradient fill, a soft gloss strip along the top edge, and the
+ *   income/cycle-time line overlaid centered on top of the bar itself
+ *   (previously a separate line elsewhere in the card). An unclaimed lair
+ *   (`owned.count == 0`) shows the track empty with a "Claim to begin"
+ *   prompt instead of a real fraction.
+ * - **Bottom row**: the [BuyButton] (gold gradient when affordable, the
+ *   muted [unaffordableLight]/[unaffordableDark] brick tone when not) takes
+ *   most of the width; a fixed-width [OwnedBox] panel to its right replaces
+ *   the old "Owned: N" text line.
  *
- * The Steward button that used to sit next to Claim is gone — hiring a
- * Steward now lives solely in the Stewards menu section (not built yet), not
- * on every card. `onHireSteward`/`hasSteward` are no longer read here.
+ * The monster name (e.g. "Kobold") that used to sit next to the challenge
+ * rating is dropped — the lair name already implies it in every case so
+ * far, and there wasn't room for it alongside a real progress bar and the
+ * income/cycle-time line it now overlays.
  *
  * [coinBurstTrigger] is hoisted up to `LairRow` (not local `remember` state
  * here) so the creature avatar next to this card — a separate container —
@@ -125,7 +143,7 @@ private const val PROGRESS_ANIMATION_DURATION_MS = 20
  * so the reset can `snap()` instead.
  *
  * [productionSeconds] is this lair's current actual cycle time (after Speed
- * Boost and milestone stacking) — shown next to the income line as
+ * Boost and milestone stacking) — shown centered on the progress bar as
  * `"${gp} gp / ${cycle time}"` via [CycleTimeFormat] instead of the old flat
  * "gp/cycle" label, so the player can actually see how fast a lair is
  * collecting rather than just its per-cycle payout.
@@ -156,7 +174,7 @@ fun LairCard(
     val isReset = progress < previousProgress
     previousProgress = progress
     val animatedFillFraction by animateFloatAsState(
-        targetValue = progress,
+        targetValue = if (owned.count > 0) progress else 0f,
         animationSpec = if (isReset) snap() else tween(durationMillis = PROGRESS_ANIMATION_DURATION_MS),
         label = "lairFill",
     )
@@ -165,94 +183,180 @@ fun LairCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .clip(RoundedCornerShape(12.dp))
+            .height(CARD_HEIGHT)
+            .clip(RoundedCornerShape(14.dp))
             .background(
                 Brush.verticalGradient(
-                    listOf(palette.parchmentShade.copy(alpha = 0.55f), palette.parchment.copy(alpha = 0.55f)),
+                    listOf(palette.parchmentShade, palette.parchment),
                 ),
             )
-            .background(rarity.copy(alpha = if (owned.count > 0) 0.14f else 0.08f))
-            .border(1.5.dp, rarity.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+            .border(1.5.dp, rarity.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
             .clickable(
                 enabled = owned.count > 0 && !owned.hasSteward && !owned.isLoading,
                 onClick = onStartLoad,
             ),
     ) {
-        if (owned.count > 0) {
-            Box(
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(fraction = animatedFillFraction)
-                    .background(Brush.horizontalGradient(listOf(rarity.copy(alpha = 0.22f), rarity.copy(alpha = 0.48f))))
-                    .drawBehind {
-                        if (animatedFillFraction in 0.001f..0.999f) {
-                            drawLine(
-                                color = rarity,
-                                start = Offset(size.width - 1f, 0f),
-                                end = Offset(size.width - 1f, size.height),
-                                strokeWidth = 2f,
-                            )
-                        }
-                    },
-            )
-        }
-
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
-                    text = lair.name,
-                    fontWeight = FontWeight.Bold,
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = palette.ink)) {
+                            append(lair.name)
+                        }
+                        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = palette.ink.copy(alpha = 0.6f))) {
+                            append(" (${lair.challengeRating} CR)")
+                        }
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Serif,
-                        color = palette.ink,
+                        fontSize = 13.sp,
+                        lineHeight = 15.sp,
                         shadow = Shadow(Color.Black.copy(alpha = 0.2f), Offset(0.5f, 0.5f), blurRadius = 0.5f),
                     ),
                 )
-                Text(
-                    text = "Owned: ${owned.count}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = palette.ink.copy(alpha = 0.75f),
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = "${lair.monster} • CR ${lair.challengeRating}",
-                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                    color = palette.ink.copy(alpha = 0.65f),
-                )
-                if (owned.count > 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(palette.woodDark.copy(alpha = 0.35f)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(fraction = animatedFillFraction)
+                            .background(Brush.horizontalGradient(listOf(rarity.copy(alpha = 0.65f), rarity))),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(5.dp)
+                                .background(
+                                    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f), Color.Transparent)),
+                                ),
+                        )
+                    }
                     Text(
-                        text = "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier))} gp / ${CycleTimeFormat.format(productionSeconds)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = palette.goldDeep,
-                        fontWeight = FontWeight.Bold,
+                        text = if (owned.count > 0) {
+                            "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier))} gp / ${CycleTimeFormat.format(productionSeconds)}"
+                        } else {
+                            "Claim to begin"
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 9.sp,
+                            lineHeight = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = palette.parchment,
+                            shadow = Shadow(Color.Black.copy(alpha = 0.55f), Offset.Zero, blurRadius = 1f),
+                        ),
+                        modifier = Modifier.align(Alignment.Center).padding(horizontal = 4.dp),
                     )
                 }
             }
 
-            Row(modifier = Modifier.padding(top = 6.dp)) {
-                WoodenButton(
+            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                BuyButton(
                     text = if (owned.count == 0) {
-                        val prefix = if (claimQuantity == 1) "Claim" else "Claim x$claimQuantity"
-                        "$prefix — ${GoldFormat.format(claimCost)} gp"
+                        if (claimQuantity == 1) "Claim" else "Claim x$claimQuantity"
                     } else {
-                        "+$claimQuantity — ${GoldFormat.format(claimCost)} gp"
+                        "+$claimQuantity"
                     },
+                    price = "${GoldFormat.format(claimCost)} gp",
+                    affordable = canClaim,
                     onClick = onClaim,
-                    enabled = canClaim,
-                    colors = palette,
+                    palette = palette,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+                OwnedBox(
+                    count = owned.count,
+                    palette = palette,
+                    modifier = Modifier.width(OWNED_BOX_WIDTH).fillMaxHeight(),
                 )
             }
         }
 
         CoinBurstOverlay(trigger = coinBurstTrigger, modifier = Modifier.matchParentSize())
+    }
+}
+
+/**
+ * The bottom-left buy action — a gold gradient when [affordable], the muted
+ * brick tone when not, with a two-line label (quantity on top, price below)
+ * instead of the single-line `WoodenButton` pill this replaced. Kept private
+ * to this file since nothing else needs a button shaped quite like this one.
+ */
+@Composable
+private fun BuyButton(
+    text: String,
+    price: String,
+    affordable: Boolean,
+    onClick: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    val textColor = if (affordable) palette.ink else palette.parchment
+    Column(
+        modifier = modifier
+            .background(
+                Brush.verticalGradient(
+                    if (affordable) {
+                        listOf(palette.goldBright, palette.goldDeep)
+                    } else {
+                        listOf(unaffordableLight, unaffordableDark)
+                    },
+                ),
+            )
+            .clickable(enabled = affordable, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold, color = textColor),
+        )
+        Text(
+            text = price,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = textColor),
+        )
+    }
+}
+
+/** The bottom-right owned-count panel — a recessed wood-toned box replacing the old "Owned: N" text line. */
+@Composable
+private fun OwnedBox(count: Int, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(palette.woodDark.copy(alpha = 0.28f))
+            .border(width = 1.5.dp, color = palette.woodDark.copy(alpha = 0.4f)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold, color = palette.ink),
+        )
+        Text(
+            text = "owned",
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 9.sp,
+                fontStyle = FontStyle.Italic,
+                color = palette.ink.copy(alpha = 0.6f),
+            ),
+        )
     }
 }
 

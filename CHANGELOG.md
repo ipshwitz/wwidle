@@ -3,6 +3,34 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.22.0] - 2026-09-05 9:31 PM EDT
+
+- Redesigned the lair card layout, piloted first as an HTML mockup (based
+  on a layout from another of the user's games, reskinned with this
+  game's own wood/parchment/gold palette and rarity colors) before being
+  built in the app:
+  - Each lair's challenge rating now shows right next to its name, e.g.
+    "Kobold Warren (1/8 CR)", instead of on a separate line with the
+    monster type.
+  - The progress fill is now a proper progress-bar track under the name
+    (dark inset groove, animated rarity-colored fill, a gloss highlight
+    strip) with the income/cycle-time text centered right on the bar,
+    instead of the entire card background doubling as the fill.
+  - The buy button is now a full-width two-line control (quantity, then
+    price) — gold when affordable, a muted brick-red when not — and the
+    owned count moved into its own small panel next to it instead of a
+    plain "Owned: N" text line.
+- The monster type line (e.g. "Kobold") is dropped from the card — there
+  wasn't room for it alongside the real progress bar, and the lair name
+  already implies it in every case so far.
+- Fixed a layout bug hit while building this: the progress label's text
+  was overflowing past the bar into the buy button row below it, caused
+  by padding that shrank the area `clip()` actually bounded rather than
+  adding space above the bar, combined with the label inheriting a
+  default text size taller than the bar's own height.
+- Verified on the emulator across every rarity tier and both the
+  affordable/unaffordable and owned/unclaimed states.
+
 ## [0.21.6] - 2026-09-05 8:59 PM EDT
 
 - Fixed a Kobold Warren at a 38ms cycle time (fast, but not fast enough to

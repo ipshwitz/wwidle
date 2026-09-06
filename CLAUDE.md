@@ -92,9 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.21.6** (progress-fill bar now samples finely
-     enough to stay smooth down to tens-of-milliseconds cycle times — see
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.22.0** (`LairCard` redesigned around a dedicated
+     progress-bar track, CR shown next to the name, a real buy button and
+     owned panel — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -255,7 +255,11 @@ These apply to every change made in this repo, however small:
     `LairRow`, not `LairCard`, directly). `Modifier.height(IntrinsicSize.Min)`
     on the `Row` plus `fillMaxHeight().aspectRatio(1f)` on the avatar makes
     the avatar a perfect circle that automatically matches the card's own
-    content-driven height — no magic numbers kept in sync between the two.
+    height — no magic numbers kept in sync between the two; since v0.22.0
+    that height is `LairCard.CARD_HEIGHT` (a fixed value, not content-driven
+    the way it used to be — see that bullet), so the avatar ends up exactly
+    that size too, unchanged mechanism, just a fixed rather than variable
+    source height.
     `CreatureAvatar` shows real portrait art for the lairs that have it —
     `lairPortraitRes(lairId)` (v0.20.2: Kobold Warren, Giant Rat Burrow,
     Bugbear Warcamp so far, from `lair-kobold.png`/`lair-rat.png`/
@@ -309,40 +313,76 @@ These apply to every change made in this repo, however small:
     auto-collecting every completed cycle continuously, online or offline,
     with no confetti, exactly as before; `isLoading`/`completedLoads` are
     meaningless once `hasSteward` is true.
-  - `LairCard` styling: no Material `Card` — a custom `Box` sized via
-    `Modifier.height(IntrinsicSize.Min)` so a second, fractionally-widthed Box
-    can render *behind* the text/buttons as a left-to-right fill representing
-    [progress] (100% = the cycle a tap started is about to complete and
-    auto-collect). Restyled to match `GameHeader`'s cozy-fantasy chrome (was
-    flat rarity-colored blocks with a Material `Button`/`OutlinedButton`
-    pair, which read as "boring" against the rest of the game): a
-    translucent parchment gradient base (`FantasyPalette.parchmentShade`/`parchment`,
-    alpha 0.55 — sheer enough that `GameScreen`'s background art still shows
-    through, same as before) plus a faint per-tier "rarity" tint
-    (`rarityColor(tier)`, the same 5-band green→blue→purple→orange→gold ramp
-    as always) over the whole card, with a stronger rarity gradient for the
-    claimed-fraction fill and a bright 2px line at the fill's own trailing
-    edge (drawn via `drawBehind` *on the fill `Box` itself*, at its own right
-    edge — since that edge already sits exactly at the animated fraction, no
-    extra position math needed; the line is only drawn while the fraction is
-    strictly between 0 and 1, so a fully solid card reads as a clean
-    undivided tint with no seam). `FontFamily.Serif` for the name (matching
-    `GameHeader`), italic muted text for monster/CR, bold `goldDeep`-colored
-    income line reading `"${gp} gp / ${cycle time}"` (v0.21.5, via
-    `ui/format/CycleTimeFormat.kt` — new, since neither `GoldFormat` nor the
-    existing `DurationFormat` cooldown formatter, whole-minutes-only, covers
-    the ms-to-multi-day range a lair's actual cycle time can span) instead
-    of the old flat "gp/cycle" label — [productionSeconds], the same value
-    `GameScreen` already computes for its gold-per-second sum and the
-    (removed) `speedBoostMultiplier`/`globalSpeedMultiplier` params used to
-    derive, is now passed down through `LairRow` as its own prop just for
-    this display. The Claim button is now the shared
-    `WoodenButton` instead of a Material `Button`. **The Steward button is
-    gone** — hiring a Steward now lives solely in the Stewards menu section
-    (see `StewardsContent` below), not on every card; `LairCard` no longer
-    takes `onHireSteward`. The card's `clickable` (`enabled = owned.count >
-    0 && !owned.hasSteward && !owned.isLoading`, `onClick = onStartLoad`) is
-    what actually starts the cycle now, not a collection.
+  - **`LairCard` layout (redesigned v0.22.0)** — piloted first as a
+    standalone HTML mockup (an Artifact, reskinned from a layout description
+    the user supplied from another of their games) before being ported to
+    Compose, replacing the original design where the *entire* card
+    background doubled as its own progress-fill bar. No Material `Card` —
+    a custom `Box`, but now a **fixed height** (`CARD_HEIGHT`, 96.dp — no
+    longer `Modifier.height(IntrinsicSize.Min)` sized off content) split
+    into two equal `weight(1f)` rows:
+    - **Top row**: the lair name and challenge rating on one truncating
+      line — `"Kobold Warren (1/8 CR)"`, built as a single
+      `buildAnnotatedString` (bold ink name + smaller/muted `SpanStyle` for
+      the `"(${lair.challengeRating} CR)"` suffix) so the two truncate
+      together via one `Text(maxLines = 1, overflow = Ellipsis)` rather than
+      as independent `Text`s that could wrap or truncate inconsistently —
+      the monster type (e.g. "Kobold") that used to sit on its own italic
+      line is dropped entirely; there wasn't room for it alongside a real
+      progress bar, and the lair name already implies it in every case so
+      far. Below that, a dedicated progress-bar track (an 18.dp-tall
+      `Box`, `clip(RoundedCornerShape(9.dp))`, `palette.woodDark` @ 0.35
+      alpha for the dark inset groove) containing the animated
+      `rarityColor(tier)`-gradient fill, a 5.dp white-to-transparent gloss
+      strip along the fill's own top edge, and the income/cycle-time line
+      (`"${gp} gp / ${cycle time}"`, via `ui/format/CycleTimeFormat.kt` —
+      see below) centered *on top of* the bar itself instead of sitting on
+      a separate line elsewhere in the card, as it did before this
+      redesign. An unclaimed lair (`owned.count == 0`) shows the track
+      empty with a muted "Claim to begin" prompt instead of a real
+      fraction. **Gotcha hit here:** the first pass computed the bar's
+      height by applying `.padding(top = 4.dp)` *before* `.clip(...)` in
+      the modifier chain, which shrinks the box `clip` actually bounds
+      rather than adding space above it — the progress label's text
+      (sized off `MaterialTheme.typography.labelSmall`'s default line
+      height, taller than the shrunken clipped area) visibly spilled down
+      into the buy-button row below. Fixed by moving the top gap to
+      `Arrangement.spacedBy(...)` on the parent `Column` instead of
+      `.padding` on the bar itself, and by giving the label an explicit
+      small `fontSize`/`lineHeight` rather than trusting the default
+      Material type scale to fit a compact custom-height bar — the same
+      class of bug as the earlier `IntrinsicSize`/`Image` gotcha under
+      `LairRow`: a Material text style's real metrics rarely match a
+      hand-sized container exactly, so hand-sized containers need an
+      explicit, matching text size, not an inherited default.
+    - **Bottom row**: a `BuyButton` (private composable in this file — not
+      the shared `WoodenButton`, which is a single-line pill shape and
+      doesn't fit a two-line stacked label) takes most of the width — a
+      gold gradient (`palette.goldBright`/`goldDeep`) when affordable, a
+      muted brick-red (`unaffordableLight`/`unaffordableDark`, deliberately
+      not a stock bright red — it would clash with the warm palette
+      everywhere else) when not, two centered lines (quantity, then
+      price). A fixed-width (`OWNED_BOX_WIDTH`, 56.dp) `OwnedBox` panel to
+      its right replaces the old "Owned: N" text line — a recessed
+      `palette.woodDark`-tinted panel with the count and an "owned" label.
+    The outer `Box` keeps a translucent parchment gradient base
+    (`FantasyPalette.parchmentShade`/`parchment`) and a per-tier
+    `rarityColor(tier)` border (matching `GameHeader`'s cozy-fantasy chrome
+    rather than flat Material blocks), and its `clickable`
+    (`enabled = owned.count > 0 && !owned.hasSteward && !owned.isLoading`,
+    `onClick = onStartLoad`) still starts the cycle on a tap anywhere on
+    the card, same as before — only the internal layout changed, not the
+    tap contract. **The Steward button is gone** — hiring a Steward lives
+    solely in the Stewards menu section (see `StewardsContent` below), not
+    on every card; `LairCard` no longer takes `onHireSteward`.
+    The income/cycle-time text itself (`"${gp} gp / ${cycle time}"`,
+    v0.21.5) is unchanged in content from before this redesign, just
+    relocated onto the bar — `ui/format/CycleTimeFormat.kt` exists because
+    neither `GoldFormat` nor the existing `DurationFormat` cooldown
+    formatter (whole-minutes-only) covers the ms-to-multi-day range a
+    lair's actual cycle time can span; [productionSeconds] (the same value
+    `GameScreen` already computes for its gold-per-second sum) is passed
+    down through `LairRow` as its own prop just for this display.
   - **Progress-bar smoothing (v0.21.2)** — `LairCard`'s fill fraction used to
     be derived per-composable from raw `OwnedLair.cycleProgressSeconds` /
     `CreatureLair.effectiveProductionSeconds`, animated via
@@ -456,6 +496,14 @@ These apply to every change made in this repo, however small:
       a burst of screenshots: the previously-bouncing 38ms lair now holds a
       stable, consistently near-full fill across consecutive frames instead
       of jumping to random low values.
+    - **Container change (v0.22.0)** — none of the engine-side computation
+      or animation-timing logic above changed when `LairCard` was
+      redesigned; only *where* `animatedFillFraction` gets drawn did — a
+      dedicated progress-bar track inside the top row instead of the whole
+      card's own background. The old bright leading-edge line (drawn via
+      `drawBehind` at the fill's own right edge) didn't carry over; the new
+      track uses a gloss highlight strip along its top edge instead,
+      matching the mockup this layout was piloted from.
   - **`CoinBurstOverlay`** (`ui/game/CoinBurst.kt`) — a one-shot radial burst
     of small gold coins (plain `Canvas`-drawn circles with a darker rim, per
     the stated art style — no sprite asset) fired only when a manually
