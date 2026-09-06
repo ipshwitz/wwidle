@@ -16,6 +16,8 @@ import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
 import com.wyrmwhelp.idlehoard.domain.model.milestonesCrossed
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
+import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
 import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
@@ -471,12 +473,14 @@ class GameViewModel @Inject constructor(
         gameEngine.startLairLoad(lairId)
     }
 
-    fun purchaseSpeedBoost() {
-        gameEngine.purchaseSpeedBoost()
+    /** The Shop's permanent-boost tiles (2x/5x/10x Speed, 1.5x/2x/5x Profit, 1.5x/2x/5x Gem %). See `GameEngine.purchasePermanentBoost`. */
+    fun purchasePermanentBoost(tier: PermanentBoostTier) {
+        gameEngine.purchasePermanentBoost(tier)
     }
 
-    fun purchaseProfitBoost() {
-        gameEngine.purchaseProfitBoost()
+    /** The Shop's temporary-boost tiles (50x/100x Speed, 15x/25x Profit). See `GameEngine.purchaseTemporaryBoost`. */
+    fun purchaseTemporaryBoost(option: TemporaryBoostOption) {
+        gameEngine.purchaseTemporaryBoost(option)
     }
 
     fun purchaseTimeSkip(option: TimeSkipOption) {

@@ -17,7 +17,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
+import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
 import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
@@ -97,13 +99,13 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                     {
                         ShopContent(
                             platinumPieces = gameState.platinumPieces,
-                            speedBoostLevel = gameState.speedBoostLevel,
-                            profitBoostLevel = gameState.profitBoostLevel,
+                            permanentBoostLevelFor = gameState::permanentBoostLevel,
+                            activeTemporaryBoosts = gameState.activeTemporaryBoostsRemaining(),
                             isSignedIn = userEmail != null,
                             platinumAdCooldownRemaining = gameState.platinumAdCooldownRemaining(),
                             platinumAdMessage = platinumAdMessage,
-                            onBuySpeedBoost = gameViewModel::purchaseSpeedBoost,
-                            onBuyProfitBoost = gameViewModel::purchaseProfitBoost,
+                            onBuyPermanentBoost = gameViewModel::purchasePermanentBoost,
+                            onBuyTemporaryBoost = gameViewModel::purchaseTemporaryBoost,
                             onBuyTimeSkip = gameViewModel::purchaseTimeSkip,
                             onWatchAd = {
                                 (context as? Activity)?.let { gameViewModel.watchAdForPlatinum(it) }

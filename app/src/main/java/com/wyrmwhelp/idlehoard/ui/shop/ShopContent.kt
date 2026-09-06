@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,13 +28,18 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
+import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
+import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_GEM_TIERS
+import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
+import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_SPEED_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
+import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
+import com.wyrmwhelp.idlehoard.domain.model.TEMPORARY_BOOST_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
-import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
-import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
-import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
-import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
@@ -41,30 +48,36 @@ import java.time.Duration
 
 /**
  * The "Shop" section's real content: the player's current Platinum Pieces
- * balance, the permanent Boosts Platinum actually buys (Speed, Profit, one
- * row per [TIME_SKIP_OPTIONS] tier — see `domain/model/Boosts.kt`), then
- * the two ways to earn more Platinum. "Watch an Ad" (see
- * [platinumAdCooldownRemaining]/[onWatchAd])
- * is open to guests too — it has no monetary value, so a guest losing it on
- * reinstall isn't a real loss the way losing an IAP receipt would be.
- * "Buy Platinum Pieces" (IAP, still a disabled `WoodenButton` with a
- * "Coming soon" note since billing isn't wired up yet) stays gated to
- * signed-in players — see [isSignedIn] — since that *is* real money, which
- * should stay tied to a recoverable account. Pure display plus callbacks —
- * takes state passed in by `MainActivity`'s `WyrmWhelpApp` (which already
- * holds the `GameViewModel` reference) rather than taking a ViewModel
- * itself.
+ * balance, every way Platinum actually gets spent (see
+ * `domain/model/Boosts.kt`) — permanent boost tiles (2x/5x/10x Speed,
+ * 1.5x/2x/5x Profit, 1.5x/2x/5x Gem %, each independently repurchasable
+ * and stacking with itself), temporary boost tiles (50x/100x Speed for 5
+ * minutes, 15x/25x Profit for 5-10 minutes, stacking multiplicatively with
+ * any other still-running boost in the same category), and one row per
+ * [TIME_SKIP_OPTIONS] tier — then the two ways to earn more Platinum.
+ * Buying here is the only way to acquire any of this; the Upgrades
+ * section's Platinum tab only *displays* what's been bought (see
+ * `ui/upgrades/UpgradesContent.kt`), it has no buy buttons of its own.
+ * "Watch an Ad" (see [platinumAdCooldownRemaining]/[onWatchAd]) is open to
+ * guests too — it has no monetary value, so a guest losing it on reinstall
+ * isn't a real loss the way losing an IAP receipt would be. "Buy Platinum
+ * Pieces" (IAP, still a disabled `WoodenButton` with a "Coming soon" note
+ * since billing isn't wired up yet) stays gated to signed-in players — see
+ * [isSignedIn] — since that *is* real money, which should stay tied to a
+ * recoverable account. Pure display plus callbacks — takes state passed in
+ * by `MainActivity`'s `WyrmWhelpApp` (which already holds the
+ * `GameViewModel` reference) rather than taking a ViewModel itself.
  */
 @Composable
 fun ShopContent(
     platinumPieces: Double,
-    speedBoostLevel: Int,
-    profitBoostLevel: Int,
+    permanentBoostLevelFor: (PermanentBoostTier) -> Int,
+    activeTemporaryBoosts: List<Pair<ActiveTemporaryBoost, Duration>>,
     isSignedIn: Boolean,
     platinumAdCooldownRemaining: Duration,
     platinumAdMessage: String?,
-    onBuySpeedBoost: () -> Unit,
-    onBuyProfitBoost: () -> Unit,
+    onBuyPermanentBoost: (PermanentBoostTier) -> Unit,
+    onBuyTemporaryBoost: (TemporaryBoostOption) -> Unit,
     onBuyTimeSkip: (TimeSkipOption) -> Unit,
     onWatchAd: () -> Unit,
     onDismissPlatinumAdMessage: () -> Unit,
@@ -76,36 +89,64 @@ fun ShopContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item { BalanceCard(platinumPieces = platinumPieces, palette = palette) }
-        item { SectionLabel(text = "Boosts", palette = palette) }
+        item { SectionLabel(text = "Permanent Boosts", palette = palette) }
         item {
-            BoostRow(
-                title = "Speed Boost",
-                description = "Level ${speedBoostLevel} — every lair's cycle is " +
-                    "${GoldFormat.format((speedBoostMultiplier(speedBoostLevel) - 1.0) * 100.0)}% faster.",
-                cost = speedBoostCost(speedBoostLevel),
-                canAfford = platinumPieces >= speedBoostCost(speedBoostLevel),
-                onBuy = onBuySpeedBoost,
+            PermanentBoostCategoryCard(
+                title = "Speed",
+                tiers = PERMANENT_SPEED_TIERS,
+                platinumPieces = platinumPieces,
+                levelFor = permanentBoostLevelFor,
+                onBuy = onBuyPermanentBoost,
                 palette = palette,
             )
         }
         item {
-            BoostRow(
-                title = "Profit Boost",
-                description = "Level ${profitBoostLevel} — every lair earns " +
-                    "${GoldFormat.format((profitBoostMultiplier(profitBoostLevel) - 1.0) * 100.0)}% more gold.",
-                cost = profitBoostCost(profitBoostLevel),
-                canAfford = platinumPieces >= profitBoostCost(profitBoostLevel),
-                onBuy = onBuyProfitBoost,
+            PermanentBoostCategoryCard(
+                title = "Profit",
+                tiers = PERMANENT_PROFIT_TIERS,
+                platinumPieces = platinumPieces,
+                levelFor = permanentBoostLevelFor,
+                onBuy = onBuyPermanentBoost,
                 palette = palette,
             )
         }
+        item {
+            PermanentBoostCategoryCard(
+                title = "Gem %",
+                tiers = PERMANENT_GEM_TIERS,
+                platinumPieces = platinumPieces,
+                levelFor = permanentBoostLevelFor,
+                onBuy = onBuyPermanentBoost,
+                palette = palette,
+            )
+        }
+        item { SectionLabel(text = "Temporary Boosts", palette = palette) }
+        if (activeTemporaryBoosts.isNotEmpty()) {
+            item { ActiveTemporaryBoostsCard(activeTemporaryBoosts, palette) }
+        }
+        TEMPORARY_BOOST_OPTIONS.forEach { option ->
+            item {
+                BoostRow(
+                    title = "${GoldFormat.format(option.multiplier)}x ${option.category.label()} — " +
+                        DurationFormat.format(Duration.ofSeconds(option.durationSeconds)),
+                    description = "Instantly activates ${GoldFormat.format(option.multiplier)}x " +
+                        "${option.category.label().lowercase()} for ${DurationFormat.format(Duration.ofSeconds(option.durationSeconds))}. " +
+                        "Stacks with any other active boost in this category.",
+                    cost = option.costPp,
+                    canAfford = platinumPieces >= option.costPp,
+                    onBuy = { onBuyTemporaryBoost(option) },
+                    palette = palette,
+                )
+            }
+        }
+        item { SectionLabel(text = "Time Skips", palette = palette) }
         TIME_SKIP_OPTIONS.forEach { option ->
             item {
                 val duration = Duration.ofSeconds(option.seconds.toLong())
                 BoostRow(
                     title = "Time Skip — ${DurationFormat.format(duration)}",
                     description = "Instantly grants ${DurationFormat.format(duration)} of production " +
-                        "from every owned lair.",
+                        "from every owned lair. One-time use.",
                     cost = option.costPp,
                     canAfford = platinumPieces >= option.costPp,
                     onBuy = { onBuyTimeSkip(option) },
@@ -212,11 +253,92 @@ private fun BalanceCard(platinumPieces: Double, palette: FantasyPalette, modifie
     }
 }
 
+/** "Speed" / "Profit" for a [TemporaryBoostCategory], matching the labels used throughout the Shop and Upgrades screens. */
+private fun TemporaryBoostCategory.label(): String = if (this == TemporaryBoostCategory.PROFIT) "Profit" else "Speed"
+
 /**
- * One permanent-boost purchase row — Speed Boost / Profit Boost (leveled,
- * compounding) or Time Skip (flat, repeatable). [onBuy] is only ever called
- * from an enabled button, so it doesn't need to re-check affordability
- * itself.
+ * One category's three permanent-boost tiles stacked in a single card
+ * (Speed, Profit, or Gem %) — each [tiers] entry gets its own row, using
+ * [levelFor] to read how many copies of that tier are already owned.
+ */
+@Composable
+private fun PermanentBoostCategoryCard(
+    title: String,
+    tiers: List<PermanentBoostTier>,
+    platinumPieces: Double,
+    levelFor: (PermanentBoostTier) -> Int,
+    onBuy: (PermanentBoostTier) -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.goldDeep.copy(alpha = 0.8f)) {
+        Text(
+            text = title,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+        )
+        tiers.forEachIndexed { index, tier ->
+            if (index > 0) Spacer(Modifier.height(8.dp))
+            val level = levelFor(tier)
+            val cost = costForPermanentBoostPurchase(tier, level)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${GoldFormat.format(tier.multiplier)}x — owned $level",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = palette.ink.copy(alpha = 0.85f),
+                    )
+                    if (level > 0) {
+                        Text(
+                            text = "contributing ${GoldFormat.format(Math.pow(tier.multiplier, level.toDouble()))}x",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = palette.ink.copy(alpha = 0.6f),
+                        )
+                    }
+                }
+                WoodenButton(
+                    text = "Buy — ${GoldFormat.format(cost)} pp",
+                    onClick = { onBuy(tier) },
+                    enabled = platinumPieces >= cost,
+                    colors = palette,
+                )
+            }
+        }
+    }
+}
+
+/** Read-only summary of every still-running temporary boost — the Shop's own live countdown, not a purchase control. */
+@Composable
+private fun ActiveTemporaryBoostsCard(
+    activeTemporaryBoosts: List<Pair<ActiveTemporaryBoost, Duration>>,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.gemDeep.copy(alpha = 0.8f)) {
+        Text(
+            text = "Active",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+        )
+        activeTemporaryBoosts.forEach { (boost, remaining) ->
+            Text(
+                text = "${GoldFormat.format(boost.multiplier)}x ${boost.category.label()} — ${DurationFormat.format(remaining)} left",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.8f),
+            )
+        }
+    }
+}
+
+/**
+ * One permanent-boost purchase row — Time Skip or temporary-boost tile
+ * (both flat-cost, repeatable, no growing level). [onBuy] is only ever
+ * called from an enabled button, so it doesn't need to re-check
+ * affordability itself.
  */
 @Composable
 private fun BoostRow(

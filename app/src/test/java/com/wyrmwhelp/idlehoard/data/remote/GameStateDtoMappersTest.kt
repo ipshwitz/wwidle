@@ -1,7 +1,9 @@
 package com.wyrmwhelp.idlehoard.data.remote
 
+import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlinx.serialization.encodeToString
@@ -36,8 +38,22 @@ class GameStateDtoMappersTest {
             offlineCapHours = 6.0,
             lastSavedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             totalLevelUps = 2,
-            speedBoostLevel = 3,
-            profitBoostLevel = 5,
+            permanentSpeedBoost2xLevel = 3,
+            permanentSpeedBoost5xLevel = 1,
+            permanentSpeedBoost10xLevel = 0,
+            permanentProfitBoost15xLevel = 5,
+            permanentProfitBoost2xLevel = 2,
+            permanentProfitBoost5xLevel = 0,
+            permanentGemBoost15xLevel = 1,
+            permanentGemBoost2xLevel = 0,
+            permanentGemBoost5xLevel = 4,
+            activeTemporaryBoosts = listOf(
+                ActiveTemporaryBoost(
+                    category = TemporaryBoostCategory.SPEED,
+                    multiplier = 50.0,
+                    expiresAt = Instant.now().plusSeconds(300).truncatedTo(ChronoUnit.MILLIS),
+                ),
+            ),
             lastPlatinumAdWatchedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
         )
 
@@ -60,8 +76,16 @@ class GameStateDtoMappersTest {
 
         val decoded = Json.decodeFromString(GameStateDto.serializer(), legacyJson)
 
-        assertEquals(0, decoded.speedBoostLevel)
-        assertEquals(0, decoded.profitBoostLevel)
+        assertEquals(0, decoded.permanentSpeedBoost2xLevel)
+        assertEquals(0, decoded.permanentSpeedBoost5xLevel)
+        assertEquals(0, decoded.permanentSpeedBoost10xLevel)
+        assertEquals(0, decoded.permanentProfitBoost15xLevel)
+        assertEquals(0, decoded.permanentProfitBoost2xLevel)
+        assertEquals(0, decoded.permanentProfitBoost5xLevel)
+        assertEquals(0, decoded.permanentGemBoost15xLevel)
+        assertEquals(0, decoded.permanentGemBoost2xLevel)
+        assertEquals(0, decoded.permanentGemBoost5xLevel)
+        assertEquals(emptyList<Any>(), decoded.activeTemporaryBoosts)
         assertEquals(null, decoded.lastPlatinumAdWatchedAtEpochMillis)
         assertEquals(0L, decoded.gems)
         assertEquals(0, decoded.totalLevelUps)

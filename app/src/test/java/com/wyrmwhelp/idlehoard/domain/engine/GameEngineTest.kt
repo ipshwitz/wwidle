@@ -1,20 +1,22 @@
 package com.wyrmwhelp.idlehoard.domain.engine
 
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
+import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
+import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_SPEED_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_COOLDOWN
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
+import com.wyrmwhelp.idlehoard.domain.model.TEMPORARY_BOOST_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import com.wyrmwhelp.idlehoard.domain.model.GemUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
+import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
-import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
-import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
-import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
-import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -141,11 +143,11 @@ class GameEngineTest {
     @Test
     fun `lairProgress reports a flat 1f once a lair's cycle is too fast to sample meaningfully`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
-        // 1.05^84 ~= 60.85x, pushing kobold_warren's 0.6s base cycle under
-        // GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS (3 ticks, ~99ms).
-        val speedLevel = 84
+        // 100x (the 10x permanent Speed tier bought twice, compounding)
+        // pushes kobold_warren's 0.6s base cycle under
+        // GameEngine.PROGRESS_SOLID_THRESHOLD_SECONDS (10ms).
         engine.loadState(
-            GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), speedBoostLevel = speedLevel),
+            GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), permanentSpeedBoost10xLevel = 2),
         )
         engine.purchaseLair("kobold_warren")
         engine.startLairLoad("kobold_warren")
@@ -252,69 +254,182 @@ class GameEngineTest {
     }
 
     @Test
-    fun `purchasing a speed boost deducts platinum and increments the level`() {
-        engine.loadState(GameState(platinumPieces = speedBoostCost(0)))
+    fun `purchasing a permanent boost deducts platinum and increments that tier's own level`() {
+        val tier = PERMANENT_SPEED_TIERS[0]
+        engine.loadState(GameState(platinumPieces = costForPermanentBoostPurchase(tier, 0)))
 
-        val bought = engine.purchaseSpeedBoost()
+        val bought = engine.purchasePermanentBoost(tier)
 
         assertTrue(bought)
         assertEquals(0.0, engine.state.value.platinumPieces, 0.0001)
-        assertEquals(1, engine.state.value.speedBoostLevel)
+        assertEquals(1, engine.state.value.permanentSpeedBoost2xLevel)
     }
 
     @Test
-    fun `speed boost purchase fails when platinum is insufficient`() {
-        engine.loadState(GameState(platinumPieces = speedBoostCost(0) - 0.01))
+    fun `permanent boost purchase fails when platinum is insufficient`() {
+        val tier = PERMANENT_SPEED_TIERS[0]
+        engine.loadState(GameState(platinumPieces = costForPermanentBoostPurchase(tier, 0) - 0.01))
 
-        val bought = engine.purchaseSpeedBoost()
+        val bought = engine.purchasePermanentBoost(tier)
 
         assertFalse(bought)
-        assertEquals(0, engine.state.value.speedBoostLevel)
+        assertEquals(0, engine.state.value.permanentSpeedBoost2xLevel)
+    }
+
+    @Test
+    fun `buying the same permanent boost tier again costs more, per its own growth rate`() {
+        val tier = PERMANENT_SPEED_TIERS[0]
+        engine.loadState(GameState(platinumPieces = 1_000.0))
+        engine.purchasePermanentBoost(tier)
+        val platinumAfterFirst = engine.state.value.platinumPieces
+
+        engine.purchasePermanentBoost(tier)
+
+        val secondCost = platinumAfterFirst - engine.state.value.platinumPieces
+        assertEquals(costForPermanentBoostPurchase(tier, 1), secondCost, 0.0001)
+        assertEquals(2, engine.state.value.permanentSpeedBoost2xLevel)
+    }
+
+    @Test
+    fun `permanent boost purchases never fail for being at a max level, only affordability`() {
+        val tier = PERMANENT_SPEED_TIERS[0]
+        engine.loadState(GameState(platinumPieces = Double.MAX_VALUE / 2, permanentSpeedBoost2xLevel = 500))
+
+        val bought = engine.purchasePermanentBoost(tier)
+
+        assertTrue(bought)
+        assertEquals(501, engine.state.value.permanentSpeedBoost2xLevel)
     }
 
     @Test
     fun `speed boost shortens a lair's effective cycle time`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
+        val tier = PERMANENT_SPEED_TIERS[0]
         engine.loadState(
-            GameState(goldPieces = lair.baseCostGp, platinumPieces = speedBoostCost(0), lairs = emptyMap()),
+            GameState(goldPieces = lair.baseCostGp, platinumPieces = costForPermanentBoostPurchase(tier, 0), lairs = emptyMap()),
         )
         engine.purchaseLair("kobold_warren")
-        engine.purchaseSpeedBoost()
+        engine.purchasePermanentBoost(tier)
         engine.startLairLoad("kobold_warren")
 
         // A full base-cycle's worth of ticking isn't enough time anymore once
         // the effective cycle is shorter, so the started load should already
         // have completed and auto-collected.
-        engine.tick(lair.baseProductionSeconds / speedBoostMultiplier(1))
+        engine.tick(lair.baseProductionSeconds / tier.multiplier)
 
         assertEquals(1, engine.state.value.ownedLair("kobold_warren").completedLoads)
         assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
     }
 
     @Test
-    fun `purchasing a profit boost deducts platinum and increments the level`() {
-        engine.loadState(GameState(platinumPieces = profitBoostCost(0)))
-
-        val bought = engine.purchaseProfitBoost()
-
-        assertTrue(bought)
-        assertEquals(0.0, engine.state.value.platinumPieces, 0.0001)
-        assertEquals(1, engine.state.value.profitBoostLevel)
-    }
-
-    @Test
     fun `profit boost increases a completed load's income`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
+        val tier = PERMANENT_PROFIT_TIERS[0]
         engine.loadState(
-            GameState(goldPieces = lair.baseCostGp, platinumPieces = profitBoostCost(0), lairs = emptyMap()),
+            GameState(goldPieces = lair.baseCostGp, platinumPieces = costForPermanentBoostPurchase(tier, 0), lairs = emptyMap()),
         )
         engine.purchaseLair("kobold_warren")
-        engine.purchaseProfitBoost()
+        engine.purchasePermanentBoost(tier)
         engine.startLairLoad("kobold_warren")
         engine.tick(lair.baseProductionSeconds)
 
         assertEquals(
-            lair.incomePerCycle(1, profitBoostMultiplier = profitBoostMultiplier(1)),
+            lair.incomePerCycle(1, profitBoostMultiplier = tier.multiplier),
+            engine.state.value.goldPieces,
+            0.0001,
+        )
+    }
+
+    @Test
+    fun `purchasing a temporary boost deducts platinum and starts it running for its duration`() {
+        val option = TEMPORARY_BOOST_OPTIONS.first { it.category == TemporaryBoostCategory.SPEED }
+        engine.loadState(GameState(platinumPieces = option.costPp))
+        val now = Instant.now()
+
+        val bought = engine.purchaseTemporaryBoost(option, now)
+
+        assertTrue(bought)
+        assertEquals(0.0, engine.state.value.platinumPieces, 0.0001)
+        val active = engine.state.value.activeTemporaryBoosts.single()
+        assertEquals(option.category, active.category)
+        assertEquals(option.multiplier, active.multiplier, 0.0001)
+        assertEquals(now.plusSeconds(option.durationSeconds), active.expiresAt)
+    }
+
+    @Test
+    fun `temporary boost purchase fails when platinum is insufficient`() {
+        val option = TEMPORARY_BOOST_OPTIONS.first()
+        engine.loadState(GameState(platinumPieces = option.costPp - 0.01))
+
+        val bought = engine.purchaseTemporaryBoost(option)
+
+        assertFalse(bought)
+        assertTrue(engine.state.value.activeTemporaryBoosts.isEmpty())
+    }
+
+    @Test
+    fun `buying a second temporary boost of the same category stacks multiplicatively while both run`() {
+        val speedOptions = TEMPORARY_BOOST_OPTIONS.filter { it.category == TemporaryBoostCategory.SPEED }
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        val now = Instant.now()
+        engine.loadState(
+            GameState(
+                goldPieces = lair.baseCostGp,
+                platinumPieces = speedOptions.sumOf { it.costPp },
+                lairs = emptyMap(),
+            ),
+        )
+        engine.purchaseLair("kobold_warren")
+        speedOptions.forEach { engine.purchaseTemporaryBoost(it, now) }
+        engine.startLairLoad("kobold_warren")
+
+        // 50x * 100x = 5000x combined — comfortably past the confetti
+        // threshold, so this checks completion via isLoading/gold instead of
+        // OwnedLair.completedLoads (which this speed correctly skips).
+        val expectedMultiplier = speedOptions.fold(1.0) { acc, option -> acc * option.multiplier }
+        engine.tick(lair.baseProductionSeconds / expectedMultiplier, now.plusSeconds(1))
+
+        assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
+        assertEquals(lair.incomePerCycle(1), engine.state.value.goldPieces, 0.0001)
+    }
+
+    @Test
+    fun `an expired temporary boost is pruned and stops contributing once ticked past its expiry`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        val option = TEMPORARY_BOOST_OPTIONS.first { it.category == TemporaryBoostCategory.SPEED }
+        val now = Instant.now()
+        engine.loadState(
+            GameState(
+                goldPieces = lair.baseCostGp,
+                lairs = emptyMap(),
+                activeTemporaryBoosts = listOf(ActiveTemporaryBoost(option.category, option.multiplier, now.plusSeconds(5))),
+            ),
+        )
+        engine.purchaseLair("kobold_warren")
+
+        engine.tick(1.0, now.plusSeconds(10))
+
+        assertTrue(engine.state.value.activeTemporaryBoosts.isEmpty())
+    }
+
+    @Test
+    fun `permanent Gem percent boost multiplies the per-Gem income bonus`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                goldPieces = lair.baseCostGp,
+                lairs = emptyMap(),
+                gems = 10L,
+                permanentGemBoost2xLevel = 1,
+            ),
+        )
+        engine.purchaseLair("kobold_warren")
+        engine.startLairLoad("kobold_warren")
+
+        engine.tick(lair.baseProductionSeconds)
+
+        assertEquals(
+            lair.incomePerCycle(1, gemBonusMultiplier = gemIncomeMultiplier(10L, platinumGemPercentMultiplier = 2.0)),
             engine.state.value.goldPieces,
             0.0001,
         )
@@ -361,14 +476,14 @@ class GameEngineTest {
     @Test
     fun `a load faster than the confetti threshold still pays out but doesn't mark a completion`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
-        // 1.05^84 ~= 60.85x, pushing kobold_warren's 0.6s base cycle under the
-        // 10ms confetti threshold (see GameEngine.MIN_CONFETTI_PRODUCTION_SECONDS).
-        val speedLevel = 84
+        // 100x (the 10x permanent Speed tier bought twice) pushes
+        // kobold_warren's 0.6s base cycle under the 10ms confetti threshold
+        // (see GameEngine.MIN_CONFETTI_PRODUCTION_SECONDS).
         engine.loadState(
-            GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), speedBoostLevel = speedLevel),
+            GameState(goldPieces = lair.baseCostGp, lairs = emptyMap(), permanentSpeedBoost10xLevel = 2),
         )
         engine.purchaseLair("kobold_warren")
-        val productionSeconds = lair.effectiveProductionSeconds(speedBoostMultiplier = speedBoostMultiplier(speedLevel))
+        val productionSeconds = lair.effectiveProductionSeconds(speedBoostMultiplier = 100.0)
         assertTrue(productionSeconds < 0.01)
 
         engine.startLairLoad("kobold_warren")
@@ -517,15 +632,18 @@ class GameEngineTest {
     }
 
     @Test
-    fun `performLevelUp carries over platinum, boosts, offline cap, the ad cooldown, and lifetime earnings`() {
+    fun `performLevelUp carries over platinum, permanent and temporary boosts, offline cap, the ad cooldown, and lifetime earnings`() {
         val watchedAt = Instant.now()
+        val activeBoost = ActiveTemporaryBoost(TemporaryBoostCategory.SPEED, 50.0, watchedAt.plusSeconds(300))
         engine.loadState(
             GameState(
                 lifetimeGoldEarned = 1_000_000_000_000_000.0,
                 lairs = emptyMap(),
                 platinumPieces = 42.0,
-                speedBoostLevel = 3,
-                profitBoostLevel = 5,
+                permanentSpeedBoost2xLevel = 3,
+                permanentProfitBoost2xLevel = 5,
+                permanentGemBoost15xLevel = 2,
+                activeTemporaryBoosts = listOf(activeBoost),
                 offlineCapHours = 8.0,
                 lastPlatinumAdWatchedAt = watchedAt,
             ),
@@ -534,8 +652,10 @@ class GameEngineTest {
         engine.performLevelUp()
 
         assertEquals(42.0, engine.state.value.platinumPieces, 0.0001)
-        assertEquals(3, engine.state.value.speedBoostLevel)
-        assertEquals(5, engine.state.value.profitBoostLevel)
+        assertEquals(3, engine.state.value.permanentSpeedBoost2xLevel)
+        assertEquals(5, engine.state.value.permanentProfitBoost2xLevel)
+        assertEquals(2, engine.state.value.permanentGemBoost15xLevel)
+        assertEquals(listOf(activeBoost), engine.state.value.activeTemporaryBoosts)
         assertEquals(8.0, engine.state.value.offlineCapHours, 0.0001)
         assertEquals(watchedAt, engine.state.value.lastPlatinumAdWatchedAt)
         assertEquals(1_000_000_000_000_000.0, engine.state.value.lifetimeGoldEarned, 0.0001)

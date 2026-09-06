@@ -34,12 +34,39 @@ import java.time.Instant
  * @property lastSavedAt Timestamp of the last save, used to compute offline
  *   earnings on the next launch.
  * @property totalLevelUps Number of times the player has Leveled Up (prestiged).
- * @property speedBoostLevel Permanent, account-wide production-speed boosts
- *   bought with Platinum Pieces (see `domain/model/Boosts.kt`) — not tied to
- *   any one lair, unlike the ownership milestones.
- * @property profitBoostLevel Permanent, account-wide income boosts bought
- *   with Platinum Pieces, same shape as [speedBoostLevel] but for profit
- *   instead of speed.
+ * @property permanentSpeedBoost2xLevel Times the permanent "2x Speed" tier has
+ *   been bought with Platinum Pieces (see `domain/model/Boosts.kt`) — not tied
+ *   to any one lair, unlike the ownership milestones, and unlike Gold/Gem
+ *   upgrades, survives a Level Up (see `GameEngine.performLevelUp`).
+ * @property permanentSpeedBoost5xLevel Same as [permanentSpeedBoost2xLevel] but
+ *   for the "5x Speed" tier — every permanent Speed tier compounds together,
+ *   each on its own purchase count (see [permanentSpeedMultiplier]).
+ * @property permanentSpeedBoost10xLevel Same as [permanentSpeedBoost2xLevel] but
+ *   for the "10x Speed" tier.
+ * @property permanentProfitBoost15xLevel Times the permanent "1.5x Profit" tier
+ *   has been bought — same shape as the Speed tiers above, but for income
+ *   (see [permanentProfitMultiplier]).
+ * @property permanentProfitBoost2xLevel Same as [permanentProfitBoost15xLevel]
+ *   but for the "2x Profit" tier.
+ * @property permanentProfitBoost5xLevel Same as [permanentProfitBoost15xLevel]
+ *   but for the "5x Profit" tier.
+ * @property permanentGemBoost15xLevel Times the permanent "1.5x Gem %" tier has
+ *   been bought — boosts the per-Gem income *percentage* itself (see
+ *   [permanentGemPercentMultiplier]/[gemIncomeMultiplier]), distinct from the
+ *   Gem-funded Gem Efficiency upgrade (`GemUpgrades.kt`), which resets on
+ *   Level Up while this doesn't.
+ * @property permanentGemBoost2xLevel Same as [permanentGemBoost15xLevel] but
+ *   for the "2x Gem %" tier.
+ * @property permanentGemBoost5xLevel Same as [permanentGemBoost15xLevel] but
+ *   for the "5x Gem %" tier.
+ * @property activeTemporaryBoosts Currently-running temporary Speed/Profit
+ *   boosts (`domain/model/Boosts.kt`), each with its own independent expiry —
+ *   a list rather than a single "level" per category so two overlapping
+ *   purchases (e.g. buying the 100x Speed boost while the 50x one is still
+ *   running) stack multiplicatively for their overlap instead of one
+ *   replacing the other. Pruned of expired entries once per tick (see
+ *   `GameEngine.advance`); survives a Level Up like every other
+ *   Platinum-funded boost.
  * @property lastPlatinumAdWatchedAt When the Shop's "Watch an Ad" rewarded
  *   placement was last watched to completion, or null if never — see
  *   `domain/model/AdRewards.kt` for the 24-hour cooldown this gates.
@@ -75,8 +102,16 @@ data class GameState(
     val offlineCapHours: Double = 4.0,
     val lastSavedAt: Instant = Instant.now(),
     val totalLevelUps: Int = 0,
-    val speedBoostLevel: Int = 0,
-    val profitBoostLevel: Int = 0,
+    val permanentSpeedBoost2xLevel: Int = 0,
+    val permanentSpeedBoost5xLevel: Int = 0,
+    val permanentSpeedBoost10xLevel: Int = 0,
+    val permanentProfitBoost15xLevel: Int = 0,
+    val permanentProfitBoost2xLevel: Int = 0,
+    val permanentProfitBoost5xLevel: Int = 0,
+    val permanentGemBoost15xLevel: Int = 0,
+    val permanentGemBoost2xLevel: Int = 0,
+    val permanentGemBoost5xLevel: Int = 0,
+    val activeTemporaryBoosts: List<ActiveTemporaryBoost> = emptyList(),
     val lastPlatinumAdWatchedAt: Instant? = null,
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */

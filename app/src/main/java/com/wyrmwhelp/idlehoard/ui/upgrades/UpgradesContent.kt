@@ -32,18 +32,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GEM_INCOME_BONUS_PER_GEM
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.GemUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_GEM_TIERS
+import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
+import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_SPEED_TIERS
+import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
-import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
+import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
+import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
+import com.wyrmwhelp.idlehoard.domain.model.permanentGemPercentMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.permanentProfitMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.permanentSpeedMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
+import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 import com.wyrmwhelp.idlehoard.ui.game.rarityColor
+import java.time.Duration
 
 /** The three currencies the Upgrades section is organized around — Platinum is a placeholder, see [UpgradesContent]'s class doc. */
 private enum class UpgradeTab(val label: String) {
@@ -69,11 +81,13 @@ private enum class UpgradeTab(val label: String) {
  * [gemIncomeMultiplier] grants. Resets on a Level Up alongside Gems
  * themselves, since Gems are temporary (see `domain/model/LevelUp.kt`).
  *
- * **Platinum tab** — deliberately still a [ComingSoonPlaceholder]. This
- * game already has Speed Boost/Profit Boost bought with Platinum
- * (`domain/model/Boosts.kt`); folding those into (or replacing them with)
- * a tiered Platinum upgrade shop here was explicitly deferred rather than
- * built alongside Gold and Gems.
+ * **Platinum tab** — read-only, unlike the other two: every permanent
+ * boost tier (2x/5x/10x Speed, 1.5x/2x/5x Profit, 1.5x/2x/5x Gem %) and
+ * every currently-running temporary boost (`domain/model/Boosts.kt`) is
+ * actually *bought* in the Shop (`ui/shop/ShopContent.kt`), not here —
+ * this tab only displays what's already been bought, with no buy buttons
+ * of its own. Unlike Gold/Gem upgrades, every one of these survives a
+ * Level Up (see `GameEngine.performLevelUp`).
  *
  * Pure display plus callbacks — reads [lairs]/[state] passed in by the
  * caller (`MainActivity`'s `WyrmWhelpApp`, which already holds the
@@ -112,7 +126,7 @@ fun UpgradesContent(
                     onBuyGemEfficiency = onBuyGemEfficiencyUpgrade,
                     palette = palette,
                 )
-                UpgradeTab.PLATINUM -> ComingSoonPlaceholder()
+                UpgradeTab.PLATINUM -> PlatinumUpgradesTab(state = state, palette = palette)
             }
         }
     }
@@ -437,6 +451,135 @@ private fun GemsUpgradesTab(
                     palette = palette,
                 )
             }
+        }
+    }
+}
+
+/**
+ * The Platinum tab's read-only summary — every permanent boost tier's
+ * owned count and combined contribution, plus every currently-running
+ * temporary boost with its remaining time. No buy buttons: purchases only
+ * happen in the Shop (`ui/shop/ShopContent.kt`); this tab exists purely so
+ * "once purchased, they show up in the Platinum upgrades section" holds.
+ */
+@Composable
+private fun PlatinumUpgradesTab(state: GameState, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    val activeBoosts = state.activeTemporaryBoostsRemaining()
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            ParchmentCard(palette = palette) {
+                Text(
+                    text = "Platinum Upgrades",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+                )
+                Text(
+                    text = "Permanent boosts and temporary boosts are bought with Platinum Pieces in the " +
+                        "Shop — this tab just shows what you've got. Unlike Gold and Gem upgrades, none " +
+                        "of this resets on a Level Up.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.ink.copy(alpha = 0.8f),
+                )
+            }
+        }
+        item { SectionLabel(text = "Permanent Boosts", palette = palette) }
+        item {
+            PlatinumPermanentSummaryCard(
+                title = "Speed",
+                tiers = PERMANENT_SPEED_TIERS,
+                totalMultiplier = state.permanentSpeedMultiplier(),
+                levelFor = state::permanentBoostLevel,
+                palette = palette,
+            )
+        }
+        item {
+            PlatinumPermanentSummaryCard(
+                title = "Profit",
+                tiers = PERMANENT_PROFIT_TIERS,
+                totalMultiplier = state.permanentProfitMultiplier(),
+                levelFor = state::permanentBoostLevel,
+                palette = palette,
+            )
+        }
+        item {
+            PlatinumPermanentSummaryCard(
+                title = "Gem %",
+                tiers = PERMANENT_GEM_TIERS,
+                totalMultiplier = state.permanentGemPercentMultiplier(),
+                levelFor = state::permanentBoostLevel,
+                palette = palette,
+            )
+        }
+        item { SectionLabel(text = "Active Temporary Boosts", palette = palette) }
+        if (activeBoosts.isEmpty()) {
+            item {
+                ParchmentCard(palette = palette) {
+                    Text(
+                        text = "None active right now — buy one from the Shop.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = palette.ink.copy(alpha = 0.7f),
+                    )
+                }
+            }
+        } else {
+            items(activeBoosts) { (boost, remaining) ->
+                PlatinumActiveBoostRow(boost = boost, remaining = remaining, palette = palette)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlatinumPermanentSummaryCard(
+    title: String,
+    tiers: List<PermanentBoostTier>,
+    totalMultiplier: Double,
+    levelFor: (PermanentBoostTier) -> Int,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.goldDeep.copy(alpha = 0.8f)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+            )
+            Text(
+                text = "${GoldFormat.format(totalMultiplier)}x total",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyMedium.copy(color = palette.ink),
+            )
+        }
+        tiers.forEach { tier ->
+            val level = levelFor(tier)
+            Text(
+                text = "${GoldFormat.format(tier.multiplier)}x — owned $level",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlatinumActiveBoostRow(boost: ActiveTemporaryBoost, remaining: Duration, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    val categoryLabel = if (boost.category == TemporaryBoostCategory.PROFIT) "Profit" else "Speed"
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.gemDeep.copy(alpha = 0.8f)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                text = "${GoldFormat.format(boost.multiplier)}x $categoryLabel",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+            )
+            Text(
+                text = "${DurationFormat.format(remaining)} left",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.7f),
+            )
         }
     }
 }

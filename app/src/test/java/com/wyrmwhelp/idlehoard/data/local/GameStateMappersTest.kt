@@ -1,7 +1,9 @@
 package com.wyrmwhelp.idlehoard.data.local
 
+import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import org.junit.Assert.assertEquals
@@ -45,8 +47,22 @@ class GameStateMappersTest {
             // Room stores millisecond precision, so truncate before comparing.
             lastSavedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             totalLevelUps = 2,
-            speedBoostLevel = 3,
-            profitBoostLevel = 5,
+            permanentSpeedBoost2xLevel = 3,
+            permanentSpeedBoost5xLevel = 1,
+            permanentSpeedBoost10xLevel = 0,
+            permanentProfitBoost15xLevel = 5,
+            permanentProfitBoost2xLevel = 2,
+            permanentProfitBoost5xLevel = 0,
+            permanentGemBoost15xLevel = 1,
+            permanentGemBoost2xLevel = 0,
+            permanentGemBoost5xLevel = 4,
+            activeTemporaryBoosts = listOf(
+                ActiveTemporaryBoost(
+                    category = TemporaryBoostCategory.SPEED,
+                    multiplier = 50.0,
+                    expiresAt = Instant.now().plusSeconds(300).truncatedTo(ChronoUnit.MILLIS),
+                ),
+            ),
             lastPlatinumAdWatchedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS),
         )
 

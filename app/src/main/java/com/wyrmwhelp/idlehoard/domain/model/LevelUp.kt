@@ -72,10 +72,16 @@ fun GameState.gemsEarnedFromLevelUp(): Long {
  * adds on top for [gemEfficiencyLevel] tiers bought, additive rather than
  * compounding (unlike the Platinum-bought Profit Boost in `Boosts.kt`) —
  * feeds into `CreatureLair.incomePerCycle` alongside the milestone and
- * Profit Boost multipliers. Temporary by construction: since [gems] itself
- * resets every Level Up (see this file's class doc) and so does
- * [gemEfficiencyLevel] (`GemUpgrades.kt`), so does this bonus — it's a
- * head start for the current run, not a permanent account-wide upgrade.
+ * Profit Boost multipliers. [platinumGemPercentMultiplier]
+ * (`GameState.permanentGemPercentMultiplier`, from the permanent Platinum
+ * Gem % boost tiers in `Boosts.kt`) multiplies the whole per-Gem rate —
+ * unlike [gems]/[gemEfficiencyLevel], it's Platinum-funded and permanent
+ * through a Level Up, so it keeps applying to whatever the *next* run's
+ * fresh Gem batch is worth too. Temporary by construction otherwise: since
+ * [gems] itself resets every Level Up (see this file's class doc) and so
+ * does [gemEfficiencyLevel] (`GemUpgrades.kt`), the bulk of this bonus is a
+ * head start for the current run, not a permanent account-wide upgrade —
+ * only the multiplier on top of it is.
  */
-fun gemIncomeMultiplier(gems: Long, gemEfficiencyLevel: Int = 0): Double =
-    1.0 + gems * (GEM_INCOME_BONUS_PER_GEM + GemUpgrades.bonusPerGem(gemEfficiencyLevel))
+fun gemIncomeMultiplier(gems: Long, gemEfficiencyLevel: Int = 0, platinumGemPercentMultiplier: Double = 1.0): Double =
+    1.0 + gems * (GEM_INCOME_BONUS_PER_GEM + GemUpgrades.bonusPerGem(gemEfficiencyLevel)) * platinumGemPercentMultiplier

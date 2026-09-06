@@ -7,15 +7,24 @@ import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.GemUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
+import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
+import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
 import com.wyrmwhelp.idlehoard.domain.model.canWatchPlatinumAd
+import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
-import com.wyrmwhelp.idlehoard.domain.model.profitBoostCost
-import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
-import com.wyrmwhelp.idlehoard.domain.model.speedBoostCost
-import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.multiplierFor
+import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
+import com.wyrmwhelp.idlehoard.domain.model.permanentGemPercentMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.permanentProfitMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.permanentSpeedMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.platinumProfitMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.platinumSpeedMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.withPermanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import java.time.Duration
 import java.time.Instant
@@ -98,10 +107,10 @@ class GameEngine @Inject constructor() {
     }
 
     /** Advances all owned lairs' production by [deltaSeconds] of wall-clock time. */
-    fun tick(deltaSeconds: Double) {
+    fun tick(deltaSeconds: Double, now: Instant = Instant.now()) {
         if (deltaSeconds <= 0.0) return
-        _state.update { advance(it, deltaSeconds) }
-        _lairProgress.value = computeLairProgress(_state.value)
+        _state.update { advance(it, deltaSeconds, now) }
+        _lairProgress.value = computeLairProgress(_state.value, now)
     }
 
     /**
@@ -119,10 +128,10 @@ class GameEngine @Inject constructor() {
      * completing cycles far faster than a human can watch one fill) rather
      * than an aliased, jittery one.
      */
-    private fun computeLairProgress(state: GameState): Map<String, Float> {
+    private fun computeLairProgress(state: GameState, now: Instant): Map<String, Float> {
         if (state.lairs.isEmpty()) return emptyMap()
         val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
-        val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
+        val speedMultiplier = state.platinumSpeedMultiplier(now)
         val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
         val progress = mutableMapOf<String, Float>()
         for ((lairId, owned) in state.lairs) {
@@ -224,21 +233,24 @@ class GameEngine @Inject constructor() {
     }
 
     /**
-     * Buys the next Speed Boost level with Platinum Pieces, permanently
-     * shortening every lair's cycle time (see [speedBoostMultiplier]).
-     * Returns true if bought, false if the player can't afford it.
+     * Buys one more copy of the permanent boost tier [tier] with Platinum
+     * Pieces (see `domain/model/Boosts.kt`) — a repeatable, stackable
+     * purchase, not a leveled-cap one, so this never fails on "already
+     * maxed," only on affordability. Returns true if bought, false if the
+     * player can't afford the next copy's cost
+     * ([costForPermanentBoostPurchase]).
      */
-    fun purchaseSpeedBoost(): Boolean {
+    fun purchasePermanentBoost(tier: PermanentBoostTier): Boolean {
         var bought = false
         _state.update { current ->
-            val cost = speedBoostCost(current.speedBoostLevel)
+            val currentLevel = current.permanentBoostLevel(tier)
+            val cost = costForPermanentBoostPurchase(tier, currentLevel)
             if (current.platinumPieces < cost) {
                 current
             } else {
                 bought = true
-                current.copy(
+                current.withPermanentBoostLevel(tier, currentLevel + 1).copy(
                     platinumPieces = current.platinumPieces - cost,
-                    speedBoostLevel = current.speedBoostLevel + 1,
                 )
             }
         }
@@ -246,21 +258,26 @@ class GameEngine @Inject constructor() {
     }
 
     /**
-     * Buys the next Profit Boost level with Platinum Pieces, permanently
-     * increasing every lair's income (see [profitBoostMultiplier]).
-     * Returns true if bought, false if the player can't afford it.
+     * Buys [option] with Platinum Pieces, instantly starting a running
+     * temporary boost at [TemporaryBoostOption.multiplier] for
+     * [TemporaryBoostOption.durationSeconds] — a fixed price every time,
+     * unlike [purchasePermanentBoost]'s escalating cost. Buying another
+     * temporary boost of the same category before this one expires stacks
+     * multiplicatively with it for their overlap (see
+     * [GameState.activeTemporaryBoosts]'s doc) rather than replacing it.
+     * Returns true if bought, false if the player can't afford [option].
      */
-    fun purchaseProfitBoost(): Boolean {
+    fun purchaseTemporaryBoost(option: TemporaryBoostOption, now: Instant = Instant.now()): Boolean {
         var bought = false
         _state.update { current ->
-            val cost = profitBoostCost(current.profitBoostLevel)
-            if (current.platinumPieces < cost) {
+            if (current.platinumPieces < option.costPp) {
                 current
             } else {
                 bought = true
                 current.copy(
-                    platinumPieces = current.platinumPieces - cost,
-                    profitBoostLevel = current.profitBoostLevel + 1,
+                    platinumPieces = current.platinumPieces - option.costPp,
+                    activeTemporaryBoosts = current.activeTemporaryBoosts +
+                        ActiveTemporaryBoost(option.category, option.multiplier, now.plusSeconds(option.durationSeconds)),
                 )
             }
         }
@@ -273,7 +290,7 @@ class GameEngine @Inject constructor() {
      * this doesn't just reuse [advance]. Returns true if bought, false if the
      * player can't afford [option].
      */
-    fun purchaseTimeSkip(option: TimeSkipOption): Boolean {
+    fun purchaseTimeSkip(option: TimeSkipOption, now: Instant = Instant.now()): Boolean {
         var bought = false
         _state.update { current ->
             if (current.platinumPieces < option.costPp) {
@@ -283,6 +300,7 @@ class GameEngine @Inject constructor() {
                 grantInstantProduction(
                     current.copy(platinumPieces = current.platinumPieces - option.costPp),
                     option.seconds,
+                    now,
                 )
             }
         }
@@ -390,8 +408,10 @@ class GameEngine @Inject constructor() {
      * and [GameState.gems] itself is *replaced* by the new batch, not
      * added to (Gems are a temporary head start, not an accumulating
      * currency — see `LevelUp.kt`'s class doc for why). Platinum Pieces,
-     * the boosts bought with it ([GameState.speedBoostLevel]/
-     * [GameState.profitBoostLevel]), [GameState.offlineCapHours], the
+     * every permanent boost tier bought with it
+     * ([GameState.permanentSpeedBoost2xLevel] and its eight siblings) and
+     * every currently-running [GameState.activeTemporaryBoosts] instance,
+     * [GameState.offlineCapHours], the
      * ad-watch cooldown ([GameState.lastPlatinumAdWatchedAt]), and —
      * critically — [GameState.lifetimeGoldEarned] itself all carry over
      * unchanged; only the gold side of the *current run* (and the old Gem
@@ -421,13 +441,21 @@ class GameEngine @Inject constructor() {
                     lifetimeGoldEarned = current.lifetimeGoldEarned,
                     offlineCapHours = current.offlineCapHours,
                     totalLevelUps = current.totalLevelUps + 1,
-                    speedBoostLevel = current.speedBoostLevel,
-                    profitBoostLevel = current.profitBoostLevel,
+                    permanentSpeedBoost2xLevel = current.permanentSpeedBoost2xLevel,
+                    permanentSpeedBoost5xLevel = current.permanentSpeedBoost5xLevel,
+                    permanentSpeedBoost10xLevel = current.permanentSpeedBoost10xLevel,
+                    permanentProfitBoost15xLevel = current.permanentProfitBoost15xLevel,
+                    permanentProfitBoost2xLevel = current.permanentProfitBoost2xLevel,
+                    permanentProfitBoost5xLevel = current.permanentProfitBoost5xLevel,
+                    permanentGemBoost15xLevel = current.permanentGemBoost15xLevel,
+                    permanentGemBoost2xLevel = current.permanentGemBoost2xLevel,
+                    permanentGemBoost5xLevel = current.permanentGemBoost5xLevel,
+                    activeTemporaryBoosts = current.activeTemporaryBoosts,
                     lastPlatinumAdWatchedAt = current.lastPlatinumAdWatchedAt,
                 )
             }
         }
-        _lairProgress.value = computeLairProgress(_state.value)
+        _lairProgress.value = computeLairProgress(_state.value, Instant.now())
         return gemsEarned
     }
 
@@ -451,7 +479,7 @@ class GameEngine @Inject constructor() {
             val cappedSeconds = min(elapsedSeconds, current.offlineCapHours * 3600.0)
 
             val goldBefore = current.goldPieces
-            val settled = advance(current, cappedSeconds).copy(lastSavedAt = now)
+            val settled = advance(current, cappedSeconds, now).copy(lastSavedAt = now)
             earnings = OfflineEarnings(
                 elapsedSeconds = elapsedSeconds,
                 cappedSeconds = cappedSeconds,
@@ -506,13 +534,16 @@ class GameEngine @Inject constructor() {
      * [GameState.lifetimeGoldEarned], which never resets — see
      * `domain/model/LevelUp.kt` for why that's what actually gates Gems.
      */
-    private fun advance(state: GameState, deltaSeconds: Double): GameState {
+    private fun advance(state: GameState, deltaSeconds: Double, now: Instant): GameState {
         if (deltaSeconds <= 0.0 || state.lairs.isEmpty()) return state
+        // Pruned once here, per tick, so a purchase's expiry doesn't linger
+        // in the persisted save forever — see `GameState.activeTemporaryBoosts`.
+        val activeBoosts = state.activeTemporaryBoosts.filter { it.expiresAt.isAfter(now) }
         val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
         val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
-        val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
-        val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
-        val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel)
+        val speedMultiplier = state.permanentSpeedMultiplier() * activeBoosts.multiplierFor(TemporaryBoostCategory.SPEED, now)
+        val profitMultiplier = state.permanentProfitMultiplier() * activeBoosts.multiplierFor(TemporaryBoostCategory.PROFIT, now)
+        val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
         val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
         val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
         var goldEarned = 0.0
@@ -528,6 +559,7 @@ class GameEngine @Inject constructor() {
             lairs = updatedLairs,
             lifetimeGoldEarned = state.lifetimeGoldEarned + goldEarned,
             goldPieces = state.goldPieces + goldEarned,
+            activeTemporaryBoosts = activeBoosts,
         )
     }
 
@@ -610,13 +642,13 @@ class GameEngine @Inject constructor() {
      * — using a Time Skip is a bonus on top of whatever the player is doing
      * with that lair's own tap cycle, not a substitute for tapping it.
      */
-    private fun grantInstantProduction(state: GameState, seconds: Double): GameState {
+    private fun grantInstantProduction(state: GameState, seconds: Double, now: Instant): GameState {
         if (seconds <= 0.0 || state.lairs.isEmpty()) return state
         val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
         val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
-        val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
-        val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
-        val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel)
+        val speedMultiplier = state.platinumSpeedMultiplier(now)
+        val profitMultiplier = state.platinumProfitMultiplier(now)
+        val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
         val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
         val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
 

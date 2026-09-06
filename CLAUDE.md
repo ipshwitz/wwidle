@@ -92,9 +92,11 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.25.0** (added the Upgrades menu section — 475
-     Gold-funded tiers and a 200-tier Gem Efficiency line, both resetting
-     on Level Up; Platinum tab deferred — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.26.0** (added Platinum Upgrades — nine
+     repurchasable permanent boost tiers, four instant-activation
+     temporary boost tiers, and six Time Skip sizes, all bought in the
+     Shop and permanent through a Level Up; the Upgrades screen's
+     Platinum tab now displays them — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1003,14 +1005,13 @@ These apply to every change made in this repo, however small:
       spending Gems on this upgrade correctly does **not** shrink the
       bonus from Gems still held; it only raises the rate applied to
       whatever's left.
-    - **Platinum tab deliberately deferred** — per explicit instruction
-      ("dont implement any new platinum upgrades right now. Just Gold and
-      Gems"), `UpgradesContent`'s Platinum tab renders the existing
-      `ComingSoonPlaceholder()`. The existing Platinum-funded Boosts
-      (`domain/model/Boosts.kt` — Speed Boost, Profit Boost, Time Skips)
-      are untouched by this feature and remain the only Platinum spend
-      path; they're also the only upgrade-like state that's genuinely
-      permanent through Level Up, unlike everything built here.
+    - **Platinum tab (v0.26.0)** — read-only, unlike Gold/Gems: every
+      permanent boost tier's owned count/combined multiplier and every
+      currently-running temporary boost, all actually *bought* in the
+      Shop (see the Platinum Upgrades bullet below), not here. Deferred
+      at first (v0.25.0, per "dont implement any new platinum upgrades
+      right now. Just Gold and Gems") — this tab rendered
+      `ComingSoonPlaceholder()` until built.
     - **Everything here resets on Level Up, unlike Boosts** — a lair's
       own `profitUpgradeLevel`/`speedUpgradeLevel` (new fields on
       `OwnedLair`) reset implicitly since `GameState.lairs` itself resets
@@ -1075,45 +1076,114 @@ These apply to every change made in this repo, however small:
     domain method that already existed (and was already tested) from when
     the button lived on `LairCard`.
   - **`ShopContent`** (`ui/shop/ShopContent.kt`) — the Shop section's real
-    content: a balance card, then a "Boosts" section (the actual spend path
-    for Platinum Pieces — see the Boosts bullet below and Monetization) with
-    one row each for Speed Boost, Profit Boost, and every entry in
-    `TIME_SKIP_OPTIONS` (0.19.0 added a second, cheap tier — see that
-    bullet), then the "Earn Platinum" section covered under Monetization
-    below (the real "Watch an Ad" plus the still-disabled "buy outright"
-    IAP). `FloatingMenu`'s `"Shop"` entry (its own wooden-sign art as of
-    v0.20.1) reaches it. Takes
-    `platinumPieces`/`speedBoostLevel`/`profitBoostLevel` plus
-    `onBuySpeedBoost`/`onBuyProfitBoost`/`onBuyTimeSkip` callbacks —
-    `WyrmWhelpApp` wires the callbacks straight to the matching
-    `GameViewModel` methods, same pattern as `StewardsContent`'s
-    `onHireSteward`.
-  - **Boosts** (`domain/model/Boosts.kt`) — permanent, account-wide bonuses
-    bought with Platinum Pieces, *not* tied to any one lair (unlike the
-    ownership milestones): Speed Boost (10 pp base, ×1.5 cost growth/level,
-    +5% production speed/level, compounding) and Profit Boost (same cost
-    curve, +10% income/level, compounding), plus repeatable Time Skips —
-    `TIME_SKIP_OPTIONS: List<TimeSkipOption>` (`costPp`/`seconds` pairs,
-    cheapest first: 2 pp for 10 minutes, 5 pp for 1 hour as of 0.19.0),
-    each instantly granting that much production via the same
-    `GameEngine.advance()` logic offline earnings use. Deliberately a list
-    rather than a single fixed size/cost pair — more tiers are expected
-    here over time; the 10-minute one exists specifically so the whole
-    Platinum loop (earn 2 pp from one ad watch, spend it immediately) is
-    cheaply testable end to end. Levels live on
-    `GameState.speedBoostLevel`/`profitBoostLevel`.
-    `CreatureLair.incomePerCycle` takes a third `profitBoostMultiplier`
-    parameter (default 1.0) alongside the existing global-milestone one, and
-    a new `CreatureLair.effectiveProductionSeconds(speedBoostMultiplier)`
-    (default 1.0, divides `baseProductionSeconds`) replaces raw
-    `baseProductionSeconds` everywhere a lair's actual cycle time matters —
-    `GameEngine.advance`/`advanceLair` (both the unmanaged-lair readiness
-    check and the Steward auto-collect loop), `LairCard`'s progress-bar
-    fraction, and `GameScreen`'s gold-per-second sum. `GameEngine` exposes
-    `purchaseSpeedBoost()`/`purchaseProfitBoost()`/
-    `purchaseTimeSkip(option: TimeSkipOption)` (each: check affordability,
-    deduct Platinum, apply); `GameViewModel` has matching thin wrappers,
-    same shape as `claimLair`/`hireSteward`.
+    content: a balance card, "Permanent Boosts" (one `PermanentBoostCategoryCard`
+    per category — Speed/Profit/Gem %, each stacking its own three tiers,
+    see the Platinum Upgrades bullet below), "Temporary Boosts" (an
+    `ActiveTemporaryBoostsCard` live countdown when any are running, then
+    one row per `TEMPORARY_BOOST_OPTIONS` entry), "Time Skips" (one row
+    per `TIME_SKIP_OPTIONS` entry — six tiers as of v0.26.0, up from two),
+    then the "Earn Platinum" section covered under Monetization below (the
+    real "Watch an Ad" plus the still-disabled "buy outright" IAP).
+    `FloatingMenu`'s `"Shop"` entry (its own wooden-sign art as of v0.20.1)
+    reaches it. Takes `platinumPieces`, `permanentBoostLevelFor: (PermanentBoostTier)
+    -> Int` (a bound `GameState.permanentBoostLevel` reference from the
+    caller), `activeTemporaryBoosts: List<Pair<ActiveTemporaryBoost, Duration>>`
+    (precomputed via `GameState.activeTemporaryBoostsRemaining()`, same
+    "caller computes, view just renders" convention as `platinumAdCooldownRemaining`),
+    plus `onBuyPermanentBoost`/`onBuyTemporaryBoost`/`onBuyTimeSkip`
+    callbacks — `WyrmWhelpApp` wires the callbacks straight to the
+    matching `GameViewModel` methods, same pattern as `StewardsContent`'s
+    `onHireSteward`. This is the *only* place any of it is purchased —
+    the Upgrades screen's Platinum tab only displays it (see above).
+  - **Platinum Upgrades (v0.26.0)** (`domain/model/Boosts.kt`) —
+    replaced the original Speed Boost/Profit Boost design (a single
+    compounding %-per-level line each, like the Gold/Gem upgrade lines)
+    entirely, per explicit design: "Permanent speed boosts: 2x, 5x, 10x
+    ... Permanent income boost: 1.5x, 2x, 5x ... Permanent gem percentage
+    boost: 1.5x, 2x, 5x" plus "Temporary speed boost: 50x (5 mins), 100x
+    (5 mins) ... temporary income boost: 15x (10 mins), 25x (5 mins)," all
+    "stackable" and permanent through a Level Up (unlike every Gold/Gem
+    upgrade — see `GameEngine.performLevelUp`).
+    - **Permanent tiers** (`PermanentBoostTier`/`PermanentBoostCategory`,
+      catalogs `PERMANENT_SPEED_TIERS`/`PERMANENT_PROFIT_TIERS`/`PERMANENT_GEM_TIERS`) —
+      nine named, **repeatedly repurchasable** tiers (three per category),
+      each compounding on its own purchase count: buying "5x Speed" three
+      times contributes `5^3 = 125x` from that tier alone
+      (`GameState.permanentSpeedMultiplier()` folds `tier.multiplier^level`
+      across all three Speed tiers, same shape for Profit/Gem %) — the
+      explicit "3 5x speeds... stack" requirement. Cost per repeat purchase
+      (`costForPermanentBoostPurchase(tier, currentLevel)` =
+      `basePp * costGrowthRate^currentLevel`, same closed form the
+      original Speed/Profit Boost used) grows steeply per tier
+      (`costGrowthRate` 1.5–1.8) specifically because a tier can be bought
+      unboundedly many times — there's no max-level cap, only cost, unlike
+      every Gold/Gem line. `GameState.permanentBoostLevel(tier)`/
+      `withPermanentBoostLevel(tier, level)` read/write the matching one of
+      nine flat `Int` fields (`permanentSpeedBoost2xLevel` and its eight
+      siblings) via a `when` on `(category, tier.multiplier)` — flat fields
+      rather than a map, consistent with this project's existing
+      "no Room `TypeConverter`, plain scalar columns" convention.
+    - **Temporary tiers** (`TemporaryBoostCategory`/`TemporaryBoostOption`,
+      catalog `TEMPORARY_BOOST_OPTIONS`) — a fixed-price, instant-activation
+      consumable: buying one immediately appends a
+      `GameState.activeTemporaryBoosts` entry (`ActiveTemporaryBoost(category,
+      multiplier, expiresAt)`) running for its own duration. **Buying a
+      second one of the same category before the first expires stacks
+      multiplicatively for their overlap** — the explicit confirmed answer
+      ("stack multiplicatively while both run") — which is *why* this is a
+      list of independent instances rather than one "level + one expiry"
+      pair per category: `List<ActiveTemporaryBoost>.multiplierFor(category,
+      now)` folds every not-yet-expired entry's multiplier together.
+      `GameEngine.advance` prunes expired entries once per tick (using the
+      tick's own `now`, threaded through `tick`/`advance`/`computeLairProgress`/
+      `grantInstantProduction`, all of which previously read
+      `Instant.now()` implicitly via default params) so the persisted list
+      never grows unbounded; `GameState.activeTemporaryBoostsRemaining(now)`
+      (drops expired, sorts soonest-first) is what the Shop's live
+      countdown and the Upgrades Platinum tab both render — computed by
+      the caller (`WyrmWhelpApp`), same "view doesn't touch the clock"
+      convention as `platinumAdCooldownRemaining`.
+    - **Replacing the old multiplier plumbing** — `GameState.platinumSpeedMultiplier(now)`
+      / `platinumProfitMultiplier(now)` (`permanentXMultiplier() * activeTemporaryBoosts.multiplierFor(category,
+      now)`) now feed exactly where `speedBoostMultiplier(state.speedBoostLevel)`/
+      `profitBoostMultiplier(state.profitBoostLevel)` used to —
+      `CreatureLair.incomePerCycle`'s `profitBoostMultiplier` param and
+      `effectiveProductionSeconds`'s `speedBoostMultiplier` param are
+      unchanged, only what value now computes them changed, so no call-site
+      signature changes were needed in `CreatureLair.kt` itself. The
+      permanent Gem % tiers are similar but feed a *new* third param on
+      `gemIncomeMultiplier(gems, gemEfficiencyLevel, platinumGemPercentMultiplier)`
+      — `GameState.permanentGemPercentMultiplier()` multiplies the whole
+      per-Gem rate (`GEM_INCOME_BONUS_PER_GEM + GemUpgrades.bonusPerGem(...)`),
+      so it keeps applying to whatever the *next* run's fresh Gem batch is
+      worth too, unlike the Gem-funded Gem Efficiency upgrade it stacks
+      with.
+    - **Time Skips expanded** — `TIME_SKIP_OPTIONS` grew from two tiers
+      (10 min/1 hour) to six (5 min/2 pp, 30 min/8 pp, 1 hour/15 pp,
+      12 hours/100 pp, 24 hours/180 pp, 7 days/1,000 pp) per explicit
+      request; no logic change, `purchaseTimeSkip`/`grantInstantProduction`
+      already worked generically off the list.
+    - **Persistence** — Room bumped to **version 9**: the old
+      `speedBoostLevel`/`profitBoostLevel` `GameStateEntity` columns are
+      gone, replaced by the same nine flat `Int` columns plus one
+      `activeTemporaryBoostsJson: String` column (a small JSON-encoded
+      list of `{category, multiplier, expiresAtEpochMillis}` records,
+      hand-rolled via `kotlinx.serialization` inside `GameStateMappers.kt`
+      rather than a Room `TypeConverter` — consistent with this file's
+      existing "no converter machinery" style). The Supabase
+      `GameStateDto` mirrors the same nine fields plus a genuinely nested
+      `List<ActiveTemporaryBoostDto>` (trivial for a jsonb blob, no
+      encoding trick needed there).
+    - **Verified live on-device**: seeded 5,000 pp directly into the Room
+      DB (via `adb run-as` + a local `sqlite3` checkpoint/edit/push-back,
+      since this emulator image has no on-device `sqlite3`) to get past
+      the "no way to earn Platinum without a live ad" testing gap. Buying
+      the 5x Speed tier deducted the exact 20 pp shown, moved
+      "5x — owned 1" with a "contributing 5x" sub-label, and immediately
+      shortened Kobold Warren's live cycle time from 150ms to 30ms on the
+      main game screen. Buying the 50x Speed temporary boost showed a
+      live "50x Speed — 4m left" countdown in both the Shop and the
+      Upgrades screen's Platinum tab simultaneously.
   - **Level Up** (`domain/model/LevelUp.kt`) — the prestige mechanic
     described under Core game design below, finally implemented in
     v0.23.0 and reworked twice since. **Gems are deliberately temporary,
@@ -1177,8 +1247,10 @@ These apply to every change made in this repo, however small:
     0 — a save that hasn't earned enough new lifetime Gold since its last
     Level Up can't reset for nothing — otherwise builds a fresh
     `GameState()` (the same starting shape, Kobold Warren included,
-    `GameState()`'s own defaults) with Platinum Pieces,
-    `speedBoostLevel`/`profitBoostLevel`, `offlineCapHours`, the ad-watch
+    `GameState()`'s own defaults) with Platinum Pieces, every permanent
+    boost tier and active temporary boost (`domain/model/Boosts.kt` —
+    v0.26.0 replaced the original `speedBoostLevel`/`profitBoostLevel`
+    fields these carried over), `offlineCapHours`, the ad-watch
     cooldown (`lastPlatinumAdWatchedAt`), and — critically —
     `lifetimeGoldEarned` itself explicitly carried over from the pre-reset
     state; `gems` is set directly to the new batch (not `current.gems +
@@ -1255,14 +1327,10 @@ These apply to every change made in this repo, however small:
     systems aren't built). **No real migrations exist** — `WyrmWhelpDatabase`
     has no `Migration` objects, so `DatabaseModule`'s `Room.databaseBuilder(...)`
     call adds `.fallbackToDestructiveMigration(dropAllTables = true)` and
-    the database version is bumped by 1 (currently 7, most recently for
-    v0.24.0 dropping the `totalGemsEarned` column a since-abandoned Gem
-    gating design had needed — before that, v0.23.1 added that same
-    column alongside `lifetimeGoldEarned`, v0.23.0's initial
-    `GameStateEntity` column rename (`scaleShards`/`totalMolts` →
-    `gems`/`totalLevelUps`), and before that v0.20.0's gold-collection
-    redesign `OwnedLairEntity.isReadyToCollect` → `isLoading`+
-    `completedLoads` column swap) any time a persisted field
+    the database version is bumped by 1 (currently 9, most recently for
+    v0.26.0's Platinum Upgrades — see that bullet under Tech stack; full
+    version-by-version history lives in `WyrmWhelpDatabase.kt`'s own doc
+    comment, not duplicated here) any time a persisted field
     is added or changed. This wipes existing local saves on that version
     bump rather than crashing at DB-open time — a deliberate pre-release
     trade-off (no real installs to preserve yet, and a full migration is out
@@ -1389,10 +1457,11 @@ UI) — no separate "Jewels" or other premium currency was added; platinum
 was already designed for exactly this (IAP-sourced, ad-earnable) per its
 own doc comment, it just didn't have a UI home yet. The Shop section
 (`ui/shop/ShopContent.kt`, reachable from `FloatingMenu`) is that home now
-— a balance display, the real spend path (permanent Speed/Profit boosts
-and repeatable Time Skips — see the Boosts bullet under Tech stack above),
-the real ad-earn path described above, and "buy outright" (IAP), still a
-disabled "Soon" placeholder since billing isn't integrated yet.
+— a balance display, the real spend path (nine permanent boost tiers,
+four temporary boost tiers, and six Time Skip sizes as of v0.26.0 — see
+the Platinum Upgrades bullet under Tech stack above), the real ad-earn
+path described above, and "buy outright" (IAP), still a disabled "Soon"
+placeholder since billing isn't integrated yet.
 **Only "Buy Platinum Pieces" (real money) is hidden for guests** — as of
 0.18.1, "Watch an Ad" is open to everyone, guests included: it earns no
 real money, so a guest losing that Platinum on reinstall isn't the kind of
@@ -1400,9 +1469,10 @@ loss the sign-in gate exists to prevent. "Buy Platinum Pieces" stays
 behind `ShopContent`'s `isSignedIn` param (wired from
 `GameViewModel.userEmail != null` in `MainActivity`) — a guest sees an
 explanatory note there instead, since *that* purchase is real money and
-should stay tied to a recoverable account. The Boosts section is
-unaffected either way since spending Platinum already owned isn't a
-real-money transaction. See Open Questions for what's still missing.
+should stay tied to a recoverable account. The permanent/temporary boost
+and Time Skip sections are unaffected either way since spending Platinum
+already owned isn't a real-money transaction. See Open Questions for what's
+still missing.
 
 ## Core game design
 
@@ -1465,8 +1535,9 @@ we'll pin these down as we build each system.
   it's Platinum, not a separate "Jewels," see Monetization above), and
   Gems (Level Up's *temporary* per-run currency, v0.23.0, redesigned in
   v0.24.0 — see `domain/model/LevelUp.kt`). Platinum has a real spend
-  path (Speed/Profit boosts, Time Skip — see the Boosts bullet under
-  Tech stack) and a real *earn* path (the Shop's "Watch an Ad," 2 pp, 24h
+  path (permanent/temporary boost tiers, Time Skips — see the Platinum
+  Upgrades bullet under Tech stack) and a real *earn* path (the Shop's
+  "Watch an Ad," 2 pp, 24h
   cooldown, 0.18.0); "buy outright" (IAP) is still a disabled placeholder
   since billing integration doesn't exist yet. Gems are earned solely via
   Level Up (replacing whatever batch was already held, not accumulating)
@@ -1506,17 +1577,18 @@ we'll pin these down as we build each system.
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested
-- Manual upgrade shop — **built as of v0.25.0** (the Upgrades menu
-  section: 475 Gold tiers, 200 Gem tiers — see the Upgrades bullet under
-  Tech stack). Confirms the design intent recorded here previously: both
-  the Gold and Gem sides reset on Level Up, exactly like the currencies
-  that fund them; only a future Platinum tab — deliberately deferred,
-  not yet built — would buy anything that survives a reset. What's still
-  open: the Platinum tab itself (100 tiers were originally mentioned but
-  explicitly put on hold — "dont implement any new platinum upgrades
-  right now"), and whether it should mirror this same
-  phase/tier-jump shape or do something distinct given Platinum's
-  already-permanent, real-money-adjacent nature.
+- Manual upgrade shop — **fully built as of v0.26.0** across all three
+  currencies. v0.25.0 shipped Gold (475 tiers) and Gems (200 tiers), both
+  resetting on Level Up (see the Upgrades bullet under Tech stack);
+  v0.26.0 filled in Platinum — nine repurchasable permanent boost tiers,
+  four instant temporary boost tiers, and six Time Skip sizes (see the
+  Platinum Upgrades bullet under Tech stack), all bought in the Shop and
+  the only upgrade-like state in the game that's genuinely permanent
+  through a Level Up, confirming the design intent recorded here since
+  v0.25.0. This isn't the earlier-mentioned "100 tiers, phase-jump shape"
+  idea — the user's actual follow-up request was nine named discrete
+  multiplier tiers plus flat-rate consumables instead, deliberately not
+  mirroring the Gold/Gem phase/tier-jump curve.
 - Leaderboard scope (global hoard value? fastest Level Up? per-lair records?)
 - Target device scope (phone-only vs. tablet/landscape support)
 - Cloud sync now happens on launch, every 5 minutes, on sign-up/sign-in, and

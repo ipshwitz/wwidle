@@ -3,6 +3,33 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.26.0] - 2026-09-06 6:20 PM EDT
+
+- Added Platinum Upgrades, filling in the Upgrades screen's Platinum tab
+  and replacing the old Speed Boost/Profit Boost with a bigger system,
+  all bought in the Shop:
+  - **Permanent boosts:** nine named tiers you can buy over and over —
+    2x/5x/10x Speed, 1.5x/2x/5x Profit, and 1.5x/2x/5x Gem % (raises how
+    much income bonus each Gem is worth). Buying the same tier multiple
+    times stacks — three purchases of "5x Speed" gives 125x from that
+    tier alone — with each repeat purchase costing more Platinum than
+    the last.
+  - **Temporary boosts:** four instant-activation tiers — 50x/100x Speed
+    for 5 minutes, 15x Profit for 10 minutes, 25x Profit for 5 minutes.
+    Buying a second one of the same type while the first is still
+    running stacks both together for as long as they overlap.
+  - **Time Skips** grew from two sizes to six: 5 minutes, 30 minutes,
+    1 hour, 12 hours, 24 hours, and 7 days.
+  - Everything here is permanent — none of it resets when you Level Up,
+    unlike Gold and Gem upgrades.
+  - The Upgrades screen's Platinum tab now shows what you've bought
+    (owned counts, combined multipliers, and a live countdown on any
+    active temporary boost) — buying still only happens in the Shop.
+  - Verified live on-device: a real permanent-boost purchase deducted
+    the exact cost shown and immediately sped up production on the main
+    screen, and a real temporary-boost purchase showed a live countdown
+    in both the Shop and the Upgrades screen at the same time.
+
 ## [0.25.0] - 2026-09-06 2:50 PM EDT
 
 - Added the Upgrades menu section — a permanent Gold/Gem sink on top of

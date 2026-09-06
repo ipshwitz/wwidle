@@ -19,8 +19,9 @@ import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
-import com.wyrmwhelp.idlehoard.domain.model.profitBoostMultiplier
-import com.wyrmwhelp.idlehoard.domain.model.speedBoostMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.permanentGemPercentMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.platinumProfitMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.platinumSpeedMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.AppBackground
 
 @Composable
@@ -41,9 +42,9 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     // and Income since milestone rungs are one or the other, never both.
     val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(viewModel.lairs)
     val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(viewModel.lairs)
-    val speedMultiplier = speedBoostMultiplier(state.speedBoostLevel)
-    val profitMultiplier = profitBoostMultiplier(state.profitBoostLevel)
-    val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel)
+    val speedMultiplier = state.platinumSpeedMultiplier()
+    val profitMultiplier = state.platinumProfitMultiplier()
+    val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
     val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
     val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
 
