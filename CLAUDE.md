@@ -92,11 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.26.0** (added Platinum Upgrades — nine
-     repurchasable permanent boost tiers, four instant-activation
-     temporary boost tiers, and six Time Skip sizes, all bought in the
-     Shop and permanent through a Level Up; the Upgrades screen's
-     Platinum tab now displays them — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.27.0** (added real Google Play Billing —
+     "Buy Platinum Pieces" is five actual IAP packs ($0.99–$49.99) instead
+     of a disabled placeholder; see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -152,6 +150,20 @@ These apply to every change made in this repo, however small:
   based on pre-ads timings anymore. When testing anything that needs the
   app fully up (e.g. pulling its Room database), wait 15s+ after launch,
   not the ~5s that was enough before.
+- **Google Play Billing (v0.27.0) does the same thing, worse, if
+  initialized eagerly — so it isn't.** Starting `BillingClient.startConnection()`
+  unconditionally at app launch (the same pattern `AdManager` uses for
+  ads) measured at 25-75s+ cold start on this emulator, on top of the
+  ads SDK's own ~15s — Play Store's internal handshake for an
+  unpublished/unlisted app appears to retry substantially (visible in
+  Logcat as a burst of `Finsky`/`AppInfoManager-Perf`/`ItemStore`
+  activity) before giving up. `BillingManager.connect()` is deliberately
+  **not** called from `init` — see that class's doc and
+  `GameViewModel.ensureBillingConnected()` — it's only triggered when the
+  Shop section actually opens, which brought cold start back down to the
+  pre-Billing ~15-25s baseline. If billing-related cold-start slowness
+  ever reappears, check first whether something reintroduced an eager
+  `connect()` call before assuming it's environmental.
 
 ## Tech stack & architecture
 
@@ -722,6 +734,79 @@ These apply to every change made in this repo, however small:
     countdown for both `WatchAdRow`'s button label and
     `GameViewModel.platinumAdMessage`'s cooldown text, extracted once it
     was clear both needed the identical "3h 12m" logic.
+  - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0)**
+    (`billing/BillingManager.kt`) — Google Play Billing, replacing the
+    disabled "Soon" placeholder with five actual consumable IAP packs
+    (`domain/model/PlatinumPurchases.kt`'s `PLATINUM_PURCHASE_OPTIONS`):
+    $0.99→100 pp, $4.99→550 pp, $9.99→1,200 pp, $19.99→2,600 pp,
+    $49.99→7,000 pp. **PP-per-dollar rises only mildly at higher tiers**
+    (101→140 pp/$, +~40% top to bottom) rather than the steep "whale"
+    curve common in mobile IAP — an explicit constraint ("spending 49.99
+    on PP shouldn't give so many PP that they can get like a years worth
+    of PP that they'll never use"). This alone doesn't make the top tier
+    harmless on its own — the real backstop is that permanent boost
+    tiers' escalating cost (`Boosts.kt`'s `costForPermanentBoostPurchase`)
+    already makes any finite PP amount unable to max those out; keeping
+    the packs themselves modest is what stops a single purchase from
+    trivializing the *flat-cost* consumables (Time Skips, temporary
+    boosts) that have no such built-in ceiling.
+    - **Every product id must exist as a consumable in-app product in the
+      Google Play Console** under this app's listing before any of this
+      actually works — there is no way to create these from code, the
+      same dashboard-only dependency as an AdMob ad unit id. Until they
+      exist, `BillingManager.productDetails`/`formattedPrices` simply stay
+      empty and every `PlatinumPackRow` Buy button in the Shop stays
+      disabled (showing the tier's static `priceUsd` as a fallback label)
+      rather than crashing or charging the wrong amount.
+    - **Consumable, not a permanent unlock** — `handlePurchase` calls
+      `consumeAsync` immediately once a purchase reaches
+      `Purchase.PurchaseState.PURCHASED`, which both acknowledges it and
+      clears it so the same pack can be bought again later. There's no
+      "restore purchases" button because a consumed consumable has
+      nothing to restore; `queryExistingPurchases()` (run once per
+      connection) exists specifically to catch a purchase that completed
+      but never got consumed — e.g. the app was killed mid-flow — so that
+      Platinum isn't paid for but never granted.
+    - **`connect()` is deliberately lazy, not called from `init`.**
+      Measured live on-device: letting Play Billing's connection handshake
+      run unconditionally at app launch (mirroring how `AdManager` eagerly
+      preloads ads) roughly doubled-to-quadrupled cold-start time — the
+      already-slow ~15s from `AdManager`'s own ads-SDK init (see that
+      bullet) became 25-75s+ once Billing initialized eagerly too, most of
+      it spent on Play Store's own internal handshake (visible in Logcat
+      as a burst of `Finsky`/`AppInfoManager` activity). Since buying
+      Platinum is a rare, deliberate Shop action rather than something
+      that must feel pre-loaded like a rewarded ad, `GameViewModel.ensureBillingConnected()`
+      is only called from a `LaunchedEffect(openSection)` in
+      `MainActivity`'s `WyrmWhelpApp` the moment the Shop section actually
+      opens — confirmed after the fix that subsequent cold starts return
+      to roughly the pre-Billing ~25s baseline, with the Shop itself still
+      opening instantly (only its Buy buttons wait on the connection,
+      exactly like waiting for `formattedPrices` to populate).
+    - **`GameEngine.grantPlatinum(amount: Long)`** — flat Platinum credit
+      from a completed purchase, same one-line shape as `grantGold`.
+      `GameViewModel` collects `BillingManager.purchaseEvents` (a
+      `SharedFlow`, not a `StateFlow` — purchase outcomes are one-shot
+      events, not durable state, so two identical `Granted` results in a
+      row must both be observed rather than deduplicated) in its own
+      coroutine (`runPlatinumPurchaseEventLoop`, launched independently of
+      the main init-load sequence since a purchase can complete at any
+      point in the session) and calls `grantPlatinum` on `Granted`,
+      surfacing either outcome as `platinumPurchaseMessage` — same
+      one-message-then-dismiss shape as `platinumAdMessage`.
+    - **Verified:** compiles against the real Billing Library 7.1.1 API
+      (`javap`-inspected against the actual `.aar` to confirm exact
+      callback signatures before wiring them up — `queryProductDetailsAsync`
+      still takes a plain `List<ProductDetails>` in 7.1.1, not a wrapping
+      result object). Live on-device: the Shop's guest-mode gate correctly
+      hides the five pack rows for a guest (`isSignedIn` unchanged from
+      before); an actual purchase couldn't be completed in this dev
+      environment (no products exist yet in a Google Play Console listing
+      for this unpublished app, and completing account sign-up to even
+      reach the gated rows needs a real email inbox for Supabase's
+      verification code — see the Auth section), so the end-to-end
+      charge-and-grant path is unverified beyond code review + the
+      compile-time API check above. Revisit once real products exist.
   - **No Navigation Compose** — tried it first (type-safe routes,
     `NavController`/`NavHost`), then removed it: every `FloatingMenu` section
     is a card that slides up over the still-mounted game rather than a
@@ -1082,19 +1167,28 @@ These apply to every change made in this repo, however small:
     `ActiveTemporaryBoostsCard` live countdown when any are running, then
     one row per `TEMPORARY_BOOST_OPTIONS` entry), "Time Skips" (one row
     per `TIME_SKIP_OPTIONS` entry — six tiers as of v0.26.0, up from two),
-    then the "Earn Platinum" section covered under Monetization below (the
-    real "Watch an Ad" plus the still-disabled "buy outright" IAP).
+    then "Earn Platinum" (the real "Watch an Ad") and, once signed in,
+    "Buy Platinum Pieces" — five real Google Play Billing packs as of
+    v0.27.0 (see the `BillingManager` bullet below), one `PlatinumPackRow`
+    per `PLATINUM_PURCHASE_OPTIONS` tier.
     `FloatingMenu`'s `"Shop"` entry (its own wooden-sign art as of v0.20.1)
     reaches it. Takes `platinumPieces`, `permanentBoostLevelFor: (PermanentBoostTier)
     -> Int` (a bound `GameState.permanentBoostLevel` reference from the
     caller), `activeTemporaryBoosts: List<Pair<ActiveTemporaryBoost, Duration>>`
     (precomputed via `GameState.activeTemporaryBoostsRemaining()`, same
     "caller computes, view just renders" convention as `platinumAdCooldownRemaining`),
-    plus `onBuyPermanentBoost`/`onBuyTemporaryBoost`/`onBuyTimeSkip`
+    `platinumPurchasePrices: Map<String, String>` (Play Billing's own live
+    formatted price per product id, empty until `BillingManager` resolves
+    it — a `PlatinumPackRow`'s Buy button stays disabled and shows the
+    tier's static `priceUsd` fallback until its real entry appears here,
+    since a purchase can't actually be charged without a live price),
+    `platinumPurchaseMessage`, plus `onBuyPermanentBoost`/`onBuyTemporaryBoost`/
+    `onBuyTimeSkip`/`onBuyPlatinumPack`/`onDismissPlatinumPurchaseMessage`
     callbacks — `WyrmWhelpApp` wires the callbacks straight to the
     matching `GameViewModel` methods, same pattern as `StewardsContent`'s
-    `onHireSteward`. This is the *only* place any of it is purchased —
-    the Upgrades screen's Platinum tab only displays it (see above).
+    `onHireSteward`. This is the *only* place any permanent/temporary
+    boost or Platinum pack is purchased — the Upgrades screen's Platinum
+    tab only displays what's already been bought (see above).
   - **Platinum Upgrades (v0.26.0)** (`domain/model/Boosts.kt`) —
     replaced the original Speed Boost/Profit Boost design (a single
     compounding %-per-level line each, like the Gold/Gem upgrade lines)
@@ -1460,8 +1554,10 @@ own doc comment, it just didn't have a UI home yet. The Shop section
 — a balance display, the real spend path (nine permanent boost tiers,
 four temporary boost tiers, and six Time Skip sizes as of v0.26.0 — see
 the Platinum Upgrades bullet under Tech stack above), the real ad-earn
-path described above, and "buy outright" (IAP), still a disabled "Soon"
-placeholder since billing isn't integrated yet.
+path described above, and — as of v0.27.0 — **real "Buy Platinum Pieces"
+IAP**, five Google Play Billing packs from $0.99 to $49.99 (see the
+`BillingManager` bullet under Tech stack for the pricing/PP-amount
+reasoning and what's still unverified).
 **Only "Buy Platinum Pieces" (real money) is hidden for guests** — as of
 0.18.1, "Watch an Ad" is open to everyone, guests included: it earns no
 real money, so a guest losing that Platinum on reinstall isn't the kind of
@@ -1471,8 +1567,12 @@ behind `ShopContent`'s `isSignedIn` param (wired from
 explanatory note there instead, since *that* purchase is real money and
 should stay tied to a recoverable account. The permanent/temporary boost
 and Time Skip sections are unaffected either way since spending Platinum
-already owned isn't a real-money transaction. See Open Questions for what's
-still missing.
+already owned isn't a real-money transaction. **Requires the five product
+ids in `PLATINUM_PURCHASE_OPTIONS` to exist as consumable in-app products
+in the Google Play Console** before any of it actually charges anything —
+see the `BillingManager` bullet's dashboard-dependency note, same
+category as the AdMob ad units and Supabase toggles documented elsewhere
+in this file. See Open Questions for what's still missing.
 
 ## Core game design
 
@@ -1538,8 +1638,10 @@ we'll pin these down as we build each system.
   path (permanent/temporary boost tiers, Time Skips — see the Platinum
   Upgrades bullet under Tech stack) and a real *earn* path (the Shop's
   "Watch an Ad," 2 pp, 24h
-  cooldown, 0.18.0); "buy outright" (IAP) is still a disabled placeholder
-  since billing integration doesn't exist yet. Gems are earned solely via
+  cooldown, 0.18.0), and — as of v0.27.0 — a real *buy* path (five Google
+  Play Billing packs, see the `BillingManager` bullet under Tech stack;
+  unverified end-to-end since no product exists yet in a real Play
+  Console listing). Gems are earned solely via
   Level Up (replacing whatever batch was already held, not accumulating)
   and spent nowhere yet — their only effect is `gemIncomeMultiplier`'s
   flat income bonus, itself just as temporary since it reads the live

@@ -3,6 +3,26 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.27.0] - 2026-09-06 9:10 PM EDT
+
+- Added real "Buy Platinum Pieces" — the Shop's disabled "Soon" placeholder
+  is now five actual Google Play Billing purchases:
+  - $0.99 for 100 pp, $4.99 for 550 pp, $9.99 for 1,200 pp, $19.99 for
+    2,600 pp, $49.99 for 7,000 pp. Bigger packs give a slightly better
+    rate, but only mildly — the $49.99 pack is capped well short of
+    "enough Platinum to never need more," on purpose.
+  - Still gated to signed-in players, same as before — a guest sees the
+    same explanatory note.
+  - Each purchase is a one-time consumable — buy it, get the Platinum,
+    buy it again later.
+  - Fixed a cold-start slowdown this introduced during testing: connecting
+    to Google Play Billing at app launch (the same way ads pre-load) added
+    25-60+ extra seconds on this test device. The connection now only
+    starts once the Shop is actually opened, which fixed it.
+  - Not fully testable end-to-end yet — actually charging money requires
+    setting these products up in the Google Play Console first, which
+    hasn't been done.
+
 ## [0.26.0] - 2026-09-06 6:20 PM EDT
 
 - Added Platinum Upgrades, filling in the Upgrades screen's Platinum tab

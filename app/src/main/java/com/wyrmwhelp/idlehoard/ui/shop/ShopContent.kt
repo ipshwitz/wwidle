@@ -33,7 +33,9 @@ import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_GEM_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_SPEED_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
+import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_PURCHASE_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
+import com.wyrmwhelp.idlehoard.domain.model.PlatinumPurchaseOption
 import com.wyrmwhelp.idlehoard.domain.model.TEMPORARY_BOOST_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
@@ -61,12 +63,15 @@ import java.time.Duration
  * "Watch an Ad" (see [platinumAdCooldownRemaining]/[onWatchAd]) is open to
  * guests too — it has no monetary value, so a guest losing it on reinstall
  * isn't a real loss the way losing an IAP receipt would be. "Buy Platinum
- * Pieces" (IAP, still a disabled `WoodenButton` with a "Coming soon" note
- * since billing isn't wired up yet) stays gated to signed-in players — see
- * [isSignedIn] — since that *is* real money, which should stay tied to a
- * recoverable account. Pure display plus callbacks — takes state passed in
- * by `MainActivity`'s `WyrmWhelpApp` (which already holds the
- * `GameViewModel` reference) rather than taking a ViewModel itself.
+ * Pieces" (real Play Billing IAP as of v0.27.0 — one row per
+ * [PLATINUM_PURCHASE_OPTIONS] tier, [platinumPurchasePrices] supplying
+ * Play's own live formatted price once `BillingManager` resolves it, the
+ * tier's own [PlatinumPurchaseOption.priceUsd] as a fallback before that)
+ * stays gated to signed-in players — see [isSignedIn] — since that *is*
+ * real money, which should stay tied to a recoverable account. Pure
+ * display plus callbacks — takes state passed in by `MainActivity`'s
+ * `WyrmWhelpApp` (which already holds the `GameViewModel` reference)
+ * rather than taking a ViewModel itself.
  */
 @Composable
 fun ShopContent(
@@ -76,11 +81,15 @@ fun ShopContent(
     isSignedIn: Boolean,
     platinumAdCooldownRemaining: Duration,
     platinumAdMessage: String?,
+    platinumPurchasePrices: Map<String, String>,
+    platinumPurchaseMessage: String?,
     onBuyPermanentBoost: (PermanentBoostTier) -> Unit,
     onBuyTemporaryBoost: (TemporaryBoostOption) -> Unit,
     onBuyTimeSkip: (TimeSkipOption) -> Unit,
     onWatchAd: () -> Unit,
     onDismissPlatinumAdMessage: () -> Unit,
+    onBuyPlatinumPack: (String) -> Unit,
+    onDismissPlatinumPurchaseMessage: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -172,12 +181,25 @@ fun ShopContent(
             }
         }
         if (isSignedIn) {
-            item {
-                EarnMethodRow(
-                    title = "Buy Platinum Pieces",
-                    description = "Purchase Platinum Pieces with real money.",
-                    palette = palette,
-                )
+            item { SectionLabel(text = "Buy Platinum Pieces", palette = palette) }
+            PLATINUM_PURCHASE_OPTIONS.forEach { option ->
+                item {
+                    PlatinumPackRow(
+                        option = option,
+                        formattedPrice = platinumPurchasePrices[option.productId],
+                        onBuy = { onBuyPlatinumPack(option.productId) },
+                        palette = palette,
+                    )
+                }
+            }
+            platinumPurchaseMessage?.let { message ->
+                item {
+                    PlatinumAdMessageCard(
+                        message = message,
+                        onDismiss = onDismissPlatinumPurchaseMessage,
+                        palette = palette,
+                    )
+                }
             }
         } else {
             item {
@@ -453,10 +475,23 @@ private fun PlatinumAdMessageCard(
     }
 }
 
-/** One way to earn Platinum Pieces — currently always disabled, since neither ads nor billing exist yet. */
+/**
+ * One Platinum Pieces pack — [formattedPrice] is Play Billing's own live,
+ * localized price string once `BillingManager` has resolved
+ * [PlatinumPurchaseOption.productId]; null before that (or if the product
+ * doesn't exist in the Play Console yet) falls back to
+ * [PlatinumPurchaseOption.priceUsd] and disables the button, since a
+ * purchase can't actually be charged without a real live price.
+ */
 @Composable
-private fun EarnMethodRow(title: String, description: String, palette: FantasyPalette, modifier: Modifier = Modifier) {
-    ParchmentCard(palette = palette, modifier = modifier) {
+private fun PlatinumPackRow(
+    option: PlatinumPurchaseOption,
+    formattedPrice: String?,
+    onBuy: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.goldDeep.copy(alpha = 0.8f)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -464,17 +499,22 @@ private fun EarnMethodRow(title: String, description: String, palette: FantasyPa
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
+                    text = "${GoldFormat.format(option.platinumPieces.toDouble())} Platinum Pieces",
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
                 )
                 Text(
-                    text = description,
+                    text = "One-time purchase, real money.",
                     style = MaterialTheme.typography.bodySmall,
                     color = palette.ink.copy(alpha = 0.7f),
                 )
             }
-            WoodenButton(text = "Soon", onClick = {}, enabled = false, colors = palette)
+            WoodenButton(
+                text = formattedPrice ?: "$${"%.2f".format(option.priceUsd)}",
+                onClick = onBuy,
+                enabled = formattedPrice != null,
+                colors = palette,
+            )
         }
     }
 }

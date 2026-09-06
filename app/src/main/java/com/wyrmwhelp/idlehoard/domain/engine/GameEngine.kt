@@ -504,6 +504,17 @@ class GameEngine @Inject constructor() {
     }
 
     /**
+     * Directly credits [amount] Platinum Pieces from a completed real-money
+     * IAP purchase (see `billing/BillingManager.kt`,
+     * `GameViewModel`'s collector on `BillingManager.purchaseEvents`) —
+     * same flat-grant shape as [grantGold], no separate pipeline to run.
+     */
+    fun grantPlatinum(amount: Long) {
+        if (amount <= 0L) return
+        _state.update { it.copy(platinumPieces = it.platinumPieces + amount) }
+    }
+
+    /**
      * Grants the Shop's "Watch an Ad" Platinum reward if its 24-hour
      * cooldown has elapsed (see `domain/model/AdRewards.kt`), stamping
      * [GameState.lastPlatinumAdWatchedAt] so the cooldown persists across

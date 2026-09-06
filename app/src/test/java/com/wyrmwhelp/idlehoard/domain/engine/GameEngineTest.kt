@@ -551,6 +551,25 @@ class GameEngineTest {
     }
 
     @Test
+    fun `grantPlatinum adds a flat amount of platinum pieces`() {
+        engine.loadState(GameState(platinumPieces = 10.0))
+
+        engine.grantPlatinum(550L)
+
+        assertEquals(560.0, engine.state.value.platinumPieces, 0.0001)
+    }
+
+    @Test
+    fun `grantPlatinum ignores a non-positive amount`() {
+        engine.loadState(GameState(platinumPieces = 10.0))
+
+        engine.grantPlatinum(0L)
+        engine.grantPlatinum(-5L)
+
+        assertEquals(10.0, engine.state.value.platinumPieces, 0.0001)
+    }
+
+    @Test
     fun `lifetimeGoldEarned accumulates from production but never decreases from spending`() {
         val lair = CreatureLairCatalog.get("kobold_warren")
         engine.loadState(GameState(goldPieces = lair.baseCostGp, lairs = emptyMap()))

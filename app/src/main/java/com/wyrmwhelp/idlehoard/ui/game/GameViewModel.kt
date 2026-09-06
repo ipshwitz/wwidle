@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wyrmwhelp.idlehoard.ads.AdManager
 import com.wyrmwhelp.idlehoard.ads.RewardedPlacement
+import com.wyrmwhelp.idlehoard.billing.BillingManager
+import com.wyrmwhelp.idlehoard.billing.PlatinumPurchaseResult
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.engine.OfflineEarnings
@@ -47,7 +49,8 @@ import kotlinx.coroutines.launch
  * or out directly changes which cloud row this save syncs to) —
  * [userEmail]/[signUp]/[signIn]/[signOut]/[syncNow] below — and both
  * rewarded-ad placements, [watchAdToDoubleOfflineEarnings] and
- * [watchAdForPlatinum].
+ * [watchAdForPlatinum] — plus the Shop's real-money Platinum Pieces
+ * packs, [buyPlatinumPack], via `BillingManager`.
  */
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -56,6 +59,7 @@ class GameViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val cloudSaveRepository: CloudSaveRepository,
     private val adManager: AdManager,
+    private val billingManager: BillingManager,
 ) : ViewModel() {
 
     val gameState: StateFlow<GameState> = gameEngine.state
@@ -166,6 +170,25 @@ class GameViewModel @Inject constructor(
             gameEngine.start()
             launch { runAutosaveLoop() }
             runCloudSyncLoop()
+        }
+        viewModelScope.launch { runPlatinumPurchaseEventLoop() }
+    }
+
+    /**
+     * Credits Platinum Pieces the moment a Shop purchase actually completes
+     * (see `BillingManager.purchaseEvents`) — a separate coroutine from the
+     * main load sequence above since a purchase can complete at any point
+     * in the session, not just during initial load.
+     */
+    private suspend fun runPlatinumPurchaseEventLoop() {
+        billingManager.purchaseEvents.collect { result ->
+            _platinumPurchaseMessage.value = when (result) {
+                is PlatinumPurchaseResult.Granted -> {
+                    gameEngine.grantPlatinum(result.platinumPieces)
+                    "Purchased ${GoldFormat.format(result.platinumPieces.toDouble())} Platinum Pieces!"
+                }
+                is PlatinumPurchaseResult.Failed -> result.message
+            }
         }
     }
 
@@ -429,6 +452,34 @@ class GameViewModel @Inject constructor(
 
     fun dismissPlatinumAdMessage() {
         _platinumAdMessage.value = null
+    }
+
+    /** Play Store's own formatted price per product id (e.g. "$4.99") — see `BillingManager.formattedPrices`. Empty until Play Billing resolves them. */
+    val platinumPurchasePrices: StateFlow<Map<String, String>> = billingManager.formattedPrices
+
+    // Result text from the last Shop IAP attempt — a "Purchased 550 Platinum
+    // Pieces!" confirmation or a short failure message; same one-message
+    // shape as _platinumAdMessage above, set by runPlatinumPurchaseEventLoop.
+    private val _platinumPurchaseMessage = MutableStateFlow<String?>(null)
+    val platinumPurchaseMessage: StateFlow<String?> = _platinumPurchaseMessage.asStateFlow()
+
+    /**
+     * Starts the Play Billing connection — call once when the Shop section
+     * opens (see `MainActivity`'s `WyrmWhelpApp`), not any earlier. See
+     * `BillingManager`'s class doc for why this is deliberately lazy
+     * rather than started at app launch like `AdManager`'s ad preloading.
+     */
+    fun ensureBillingConnected() {
+        billingManager.connect()
+    }
+
+    /** The Shop's "Buy Platinum Pieces" row for [productId] — launches Play's own purchase sheet. See `BillingManager.launchPurchaseFlow`. */
+    fun buyPlatinumPack(activity: Activity, productId: String) {
+        billingManager.launchPurchaseFlow(activity, productId)
+    }
+
+    fun dismissPlatinumPurchaseMessage() {
+        _platinumPurchaseMessage.value = null
     }
 
     /**

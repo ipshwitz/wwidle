@@ -10,6 +10,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -68,9 +69,18 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     val isSyncing by gameViewModel.isSyncing.collectAsStateWithLifecycle()
     val lastSyncedAt by gameViewModel.lastSyncedAt.collectAsStateWithLifecycle()
     val platinumAdMessage by gameViewModel.platinumAdMessage.collectAsStateWithLifecycle()
+    val platinumPurchasePrices by gameViewModel.platinumPurchasePrices.collectAsStateWithLifecycle()
+    val platinumPurchaseMessage by gameViewModel.platinumPurchaseMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     BackHandler(enabled = openSection != null) { openSection = null }
+
+    // Play Billing's connection handshake is slow enough to noticeably
+    // worsen cold-start time if started eagerly (see `BillingManager`'s
+    // class doc) — only connect once the player actually opens the Shop.
+    LaunchedEffect(openSection) {
+        if (openSection == "Shop") gameViewModel.ensureBillingConnected()
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         GameScreen(viewModel = gameViewModel, modifier = Modifier.fillMaxSize())
@@ -104,6 +114,8 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             isSignedIn = userEmail != null,
                             platinumAdCooldownRemaining = gameState.platinumAdCooldownRemaining(),
                             platinumAdMessage = platinumAdMessage,
+                            platinumPurchasePrices = platinumPurchasePrices,
+                            platinumPurchaseMessage = platinumPurchaseMessage,
                             onBuyPermanentBoost = gameViewModel::purchasePermanentBoost,
                             onBuyTemporaryBoost = gameViewModel::purchaseTemporaryBoost,
                             onBuyTimeSkip = gameViewModel::purchaseTimeSkip,
@@ -111,6 +123,10 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                                 (context as? Activity)?.let { gameViewModel.watchAdForPlatinum(it) }
                             },
                             onDismissPlatinumAdMessage = gameViewModel::dismissPlatinumAdMessage,
+                            onBuyPlatinumPack = { productId ->
+                                (context as? Activity)?.let { gameViewModel.buyPlatinumPack(it, productId) }
+                            },
+                            onDismissPlatinumPurchaseMessage = gameViewModel::dismissPlatinumPurchaseMessage,
                         )
                     }
                 }
