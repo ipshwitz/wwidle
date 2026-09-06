@@ -92,10 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.28.0** (reorganized the Shop into four tabs —
-     Get PP, Permanent, Temporary, Time Skips — with Get PP (the ad-watch
-     and IAP earn paths) first/default instead of one long scrolled list
-     — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.28.1** (Time Skip copy now spells out the two
+     longest tiers as "1 day"/"1 week" instead of "24h"/"168h" — see
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1204,9 +1203,16 @@ These apply to every change made in this repo, however small:
     below); "Temporary" holds an `ActiveTemporaryBoostsCard` live
     countdown when any are running, then one row per
     `TEMPORARY_BOOST_OPTIONS` entry; "Time Skips" holds one row per
-    `TIME_SKIP_OPTIONS` entry (six tiers as of v0.26.0, up from two) —
-    each of these three was previously just a `SectionLabel`-delimited
-    section in that same one long scroll, now split one-to-one into its
+    `TIME_SKIP_OPTIONS` entry (six tiers as of v0.26.0, up from two —
+    the 24h/168h tiers' title and description read "1 day"/"1 week"
+    instead as of v0.28.1, via a private `formatTimeSkipDuration` helper
+    that special-cases exactly those two durations and falls back to the
+    shared `DurationFormat.format` otherwise — that shared formatter
+    itself stayed hours/minutes-only, since it's also used for the
+    ad-cooldown and temporary-boost countdown displays, which never reach
+    a full day) — each of these three was previously just a
+    `SectionLabel`-delimited section in that same one long scroll, now
+    split one-to-one into its
     own tab now that the Shop sells five different things.
     `FloatingMenu`'s `"Shop"` entry (its own wooden-sign art as of v0.20.1)
     reaches it. Takes `platinumPieces`, `permanentBoostLevelFor: (PermanentBoostTier)

@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.28.1] - 2026-09-06 10:30 PM EDT
+
+- Changed the two longest Time Skip labels to plain language — "1 day"
+  instead of "24h" and "1 week" instead of "168h." The other four sizes
+  (5m/30m/1h/12h) are unchanged.
+
 ## [0.28.0] - 2026-09-06 10:15 PM EDT
 
 - Reorganized the Shop into four tabs instead of one long scroll:

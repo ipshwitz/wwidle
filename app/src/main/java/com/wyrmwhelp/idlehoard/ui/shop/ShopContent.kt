@@ -366,9 +366,10 @@ private fun TimeSkipsTab(
         TIME_SKIP_OPTIONS.forEach { option ->
             item {
                 val duration = Duration.ofSeconds(option.seconds.toLong())
+                val formattedDuration = formatTimeSkipDuration(duration)
                 BoostRow(
-                    title = "Time Skip — ${DurationFormat.format(duration)}",
-                    description = "Instantly grants ${DurationFormat.format(duration)} of production " +
+                    title = "Time Skip — $formattedDuration",
+                    description = "Instantly grants $formattedDuration of production " +
                         "from every owned lair. One-time use.",
                     cost = option.costPp,
                     canAfford = platinumPieces >= option.costPp,
@@ -378,6 +379,18 @@ private fun TimeSkipsTab(
             }
         }
     }
+}
+
+/**
+ * Same as [DurationFormat.format], but spells out the two longest Time
+ * Skip tiers as "1 day"/"1 week" instead of "24h"/"168h" — [DurationFormat]
+ * itself stays hours/minutes-only since it's shared with the ad-cooldown
+ * and temporary-boost countdown displays, which never need day/week units.
+ */
+private fun formatTimeSkipDuration(duration: Duration): String = when (duration) {
+    Duration.ofHours(24) -> "1 day"
+    Duration.ofHours(168) -> "1 week"
+    else -> DurationFormat.format(duration)
 }
 
 @Composable
