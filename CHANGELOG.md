@@ -3,6 +3,15 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.23.4] - 2026-09-06 12:02 PM EDT
+
+- Added a recurring 25-Gem minimum for every Level Up after the first —
+  previously any positive Gem gap unlocked it again, so a trickle of just
+  a few Gems could technically trigger a reset. Every Level Up now needs
+  to be worth at least 25 Gems (still less than the first one's 50, since
+  recurring resets shouldn't be held to as high a bar), and once that's
+  cleared the full amount is still granted, not capped at 25.
+
 ## [0.23.3] - 2026-09-06 11:55 AM EDT
 
 - Narrowed the 50-Gem minimum added in 0.23.2 to only apply to the very

@@ -54,13 +54,17 @@ class LevelUpTest {
     }
 
     @Test
-    fun `the 50-gem minimum only applies to the very first Level Up, not later ones`() {
-        // Same tiny gap (5) as a lone Level Up would need to clear the
-        // minimum for — but totalLevelUps is 1 here (already past the
-        // first), so this small top-up is allowed through in full.
-        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 145L, totalLevelUps = 1)
+    fun `recurring Level Ups use a smaller 25-gem minimum instead of the first Level Up's 50`() {
+        // Gap of 5 is below even the smaller recurring minimum — blocked.
+        val tooSmall = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 145L, totalLevelUps = 1)
+        assertEquals(0L, tooSmall.gemsEarnedFromLevelUp())
 
-        assertEquals(5L, state.gemsEarnedFromLevelUp())
+        // Gap of exactly 25 clears the recurring minimum and is granted in full —
+        // note this gap would have been blocked by the first Level Up's
+        // stricter 50-gem bar, so totalLevelUps must actually be doing the
+        // work of picking the right threshold here.
+        val exactlyEnough = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, totalGemsEarned = 125L, totalLevelUps = 1)
+        assertEquals(25L, exactlyEnough.gemsEarnedFromLevelUp())
     }
 
     @Test

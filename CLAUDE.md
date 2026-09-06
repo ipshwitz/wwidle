@@ -92,8 +92,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.23.3** (the 50-Gem Level Up minimum only applies
-     to the very first Level Up now, not every one — see
+   - Current version: **0.23.4** (recurring Level Ups now need at least
+     25 Gems too, not just any positive amount — see
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -989,9 +989,9 @@ These apply to every change made in this repo, however small:
     deduct Platinum, apply); `GameViewModel` has matching thin wrappers,
     same shape as `claimLair`/`hireSteward`.
   - **Level Up** (`domain/model/LevelUp.kt`, v0.23.0, gating reworked in
-    v0.23.1, first-Level-Up minimum added in v0.23.2 and narrowed to
-    apply only to that first one in v0.23.3) — the prestige
-    mechanic described under Core game design
+    v0.23.1, first-Level-Up minimum added in v0.23.2, narrowed to apply
+    only to that first one in v0.23.3, recurring minimum added in
+    v0.23.4) — the prestige mechanic described under Core game design
     below, finally implemented. `GameState.gemsEarnedFromLevelUp()` is
     AdVenture Capitalist's real Angel Investor formula, ported 1:1 (same
     convention as the tier-0–9 lair balance in `CreatureLairCatalog`):
@@ -1018,20 +1018,20 @@ These apply to every change made in this repo, however small:
     grants exactly 0 the second time, which *is* the "reach further
     before you can Level Up again" gate, achieved without a second
     threshold value to keep in sync with the reward.
-    **First-Level-Up minimum (v0.23.2, narrowed in v0.23.3)** — on top of
-    that stock/flow gate, `MIN_GEMS_PER_FIRST_LEVEL_UP` (50) blocks the
-    action when `GameState.totalLevelUps == 0` and the computed gap is
-    worth less than that, so the player's very first Level Up (an
-    explicit user request — "set it so a minimum of 50 gems must be
-    earned," since the un-gated formula let a brand-new save Level Up
-    for just 1 Gem at ~44 billion lifetime Gold) is a real milestone, not
-    a token amount. v0.23.2's first pass applied this minimum to *every*
-    Level Up, not just the first — a second explicit correction narrowed
-    it to `totalLevelUps == 0` only, so every Level Up after that first
-    one goes back to the plain stock/flow rule with no minimum batch
-    size at all. Either way, once the applicable bar is cleared, the
-    entire gap is granted, never capped at the minimum itself.
-    `gemIncomeMultiplier(gems:
+    **Minimum batch sizes (v0.23.2–v0.23.4)** — on top of that stock/flow
+    gate, two minimums block the action whenever the computed gap is too
+    small to be worth resetting for: `MIN_GEMS_PER_FIRST_LEVEL_UP` (50)
+    when `GameState.totalLevelUps == 0` (an explicit user request — "set
+    it so a minimum of 50 gems must be earned," since the un-gated
+    formula let a brand-new save Level Up for just 1 Gem at ~44 billion
+    lifetime Gold), and the smaller `MIN_GEMS_PER_RECURRING_LEVEL_UP`
+    (25) for every Level Up after that (also an explicit request — v0.23.1
+    through v0.23.3 left recurring Level Ups gated only by `gap > 0`, so
+    a trickle of just a few Gems could still trigger one). v0.23.2's
+    first pass applied the 50-Gem bar to *every* Level Up, not just the
+    first — v0.23.3 narrowed it to `totalLevelUps == 0` only. Whichever
+    minimum applies, clearing it grants the *entire* gap, never capped at
+    the minimum itself. `gemIncomeMultiplier(gems:
     Long)` (unchanged) is a flat +2% income bonus per Gem, *additive*
     rather than compounding (unlike the Platinum-bought Profit Boost), so
     it doesn't need its own escalating cost curve the way Boosts do. Both
