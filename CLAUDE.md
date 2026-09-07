@@ -175,10 +175,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.41.0** (a Leaderboard — All-Time/Weekly/Monthly
-     gold earned, refreshed hourly server-side — reachable from the menu;
-     see the Leaderboard bullet under Tech stack and
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.41.1** (fixed a v0.41.0 bug where guests saw an
+     empty Leaderboard instead of the real top list — see the Leaderboard
+     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1044,21 +1043,39 @@ These apply to every change made in this repo, however small:
     `MainActivity`'s `LaunchedEffect(openSection)` calls `loadLeaderboard()`
     the moment the section opens, same pattern as `markStewardOpportunitiesSeen`;
     switching tabs calls the same method with the new period.
-    **Verified live on-device**: a guest correctly sees the tab row, the
-    `GuestNoteCard`, and "No one's on this board yet" with no network call
-    made at all (confirmed via Logcat); a temporarily-forced signed-in
-    session (`_userEmail.value` overridden, since testing the real
-    signed-in path needs an actual account) correctly attempted the real
-    network call and surfaced "Couldn't load the leaderboard — try again
-    shortly." once the request failed — Logcat confirmed the *reason* was
-    exactly `NotFoundRestException: Could not find the table
-    'public.leaderboard_rankings' in the schema cache` (expected, since
-    `SQL/004_create_leaderboards.sql` hadn't been run against this
-    project yet) with the generated request URL matching exactly what was
-    intended (`leaderboard_rankings?period=eq.weekly&order=rank.asc.nullslast&limit=50`),
-    confirming the query itself is correct and only the SQL script is
-    outstanding. Full end-to-end verification (a real account actually
-    appearing on a real board) is pending the user running that script.
+    **A real bug caught via live device testing, not before the user ran
+    the SQL script (v0.41.1):** `loadLeaderboard`'s first pass
+    short-circuited the *entire* fetch for a guest ("if no `userEmail`,
+    skip straight to an empty list") — copied from `refreshUsernameState`'s
+    genuinely-nothing-to-fetch shortcut without noticing the two cases
+    differ: a guest truly has no username to look up, but
+    `leaderboard_rankings`' RLS policy is `select using (true)` — public,
+    no session required at all — so the *top list* has nothing to do with
+    whether the viewer is signed in; only `fetchCurrentUserEntry` (which
+    needs a real account to look up) should ever be guest-gated. This
+    wasn't caught before the fix shipped because verification up to that
+    point only ever exercised the guest path *before* the SQL script had
+    been run — an empty list looked like the correct "nothing to show yet"
+    state either way, masking that guests weren't fetching at all. Caught
+    once the user ran `SQL/004_create_leaderboards.sql` for real (its
+    final `select cron.schedule(...)` returned a job id, confirming the
+    whole script succeeded) and a real signed-in test account
+    ("TestName1") was already sitting in `leaderboard_rankings` from the
+    script's own immediate `refresh_leaderboards()` call — confirmed
+    directly via a plain `curl` against the Supabase REST API using only
+    the public anon key (no session at all), which correctly returned all
+    three period rows for that account. The app itself, still on the
+    pre-fix build, showed "No one's on this board yet" as a guest despite
+    that real row existing — the actual bug, not a false negative.
+    Fixed by only guarding the `fetchCurrentUserEntry` call on
+    `_userEmail.value != null`, not the whole fetch. **Verified live
+    on-device after the fix:** as a guest, the Weekly tab correctly shows
+    "#1 TestName1 — 0 gp" (accurate — their baseline was captured at
+    script-run time, so 0 earned since), and the All-Time tab correctly
+    shows "#1 TestName1 — 2.00Qa gp", matching the real
+    `lifetime_gold_earned` value read back via the same `curl` check —
+    real cross-account data, rendered correctly for a guest viewer, with
+    the `GuestNoteCard` still shown above it as intended.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,

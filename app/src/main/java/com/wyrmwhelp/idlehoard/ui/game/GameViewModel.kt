@@ -194,21 +194,23 @@ class GameViewModel @Inject constructor(
      * Fetches [period]'s top entries plus the current player's own (if
      * signed in) — called once when the Leaderboard section opens
      * (`MainActivity`'s `LaunchedEffect(openSection)`) and again on every
-     * tab switch. A guest gets an empty list with no network call at all,
-     * same "nothing to fetch" shortcut `refreshUsernameState` uses.
+     * tab switch. `leaderboard_rankings` has a public-read RLS policy, so
+     * the top list itself is fetched for guests too (a guest just never
+     * gets a [currentUserLeaderboardEntry], since there's no account for
+     * `fetchCurrentUserEntry` to look up) — only skipping the *whole*
+     * fetch for guests would be wrong here, unlike `refreshUsernameState`'s
+     * genuinely-nothing-to-fetch shortcut, since the board itself has
+     * nothing to do with whether the viewer is signed in.
      */
     fun loadLeaderboard(period: LeaderboardPeriod = _leaderboardPeriod.value) {
         _leaderboardPeriod.value = period
-        if (_userEmail.value == null) {
-            _leaderboardEntries.value = emptyList()
-            _currentUserLeaderboardEntry.value = null
-            return
-        }
         viewModelScope.launch {
             _isLeaderboardLoading.value = true
             _leaderboardError.value = null
             runCatching {
-                leaderboardRepository.fetchTop(period) to leaderboardRepository.fetchCurrentUserEntry(period)
+                val top = leaderboardRepository.fetchTop(period)
+                val own = if (_userEmail.value != null) leaderboardRepository.fetchCurrentUserEntry(period) else null
+                top to own
             }
                 .onSuccess { (top, own) ->
                     _leaderboardEntries.value = top

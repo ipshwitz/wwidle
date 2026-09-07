@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.41.1] - 2026-09-07 8:40 PM EDT
+
+- Fixed a bug from v0.41.0: guests weren't seeing the leaderboard at all,
+  just an empty "no one's here yet" — the whole list was supposed to be
+  visible to everyone, only your own highlighted rank is sign-in-only.
+  Confirmed against the real Supabase project after running the SQL
+  script: the board now correctly shows real players and real numbers.
+
 ## [0.41.0] - 2026-09-07 8:00 PM EDT
 
 - Added a Leaderboard: three boards (All-Time, Weekly, Monthly gold
