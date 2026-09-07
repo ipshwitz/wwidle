@@ -7,4 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- FantasyPalette.woodDark (ui/common/FantasyPalette.kt) — the launcher icon's adaptive background. -->
+    <color name="ic_launcher_background">#FF3E2417</color>
 </resources>

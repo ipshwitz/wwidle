@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.37.1] - 2026-09-07 10:00 AM EDT
+
+- Replaced the default Android robot app icon with the open treasure
+  chest art, on a dark wood backdrop, on the home screen and everywhere
+  else the OS shows it.
+
 ## [0.37.0] - 2026-09-07 9:49 AM EDT
 
 - Added a loading screen: a looping video of an older dragon and a baby

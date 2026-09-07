@@ -115,6 +115,37 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   screen), 6 seconds, 24fps, has an audio track (128kbps) that's
   deliberately muted on playback — see the `LoadingScreen` bullet under
   Tech stack.
+  **`open-chest.png` is also the app icon (v0.37.1)**, replacing Android
+  Studio's default robot/green-grid template
+  (`app/src/main/res/mipmap-*dpi/ic_launcher*`,
+  `mipmap-anydpi/ic_launcher.xml`/`ic_launcher_round.xml`). Since there's
+  no Android Studio Image Asset Studio available in this environment, the
+  full icon set was generated programmatically (PowerShell +
+  `System.Drawing`, script not checked in — one-off) straight from the
+  1254x1254 source: an **adaptive icon** (`mipmap-*dpi/ic_launcher_foreground.png`,
+  transparent background, the chest scaled to ~67% of the canvas so its
+  full silhouette — including the coin spill and open lid — clears the
+  ~66dp/108dp safe-zone circle every launcher mask uses) over a flat
+  `@color/ic_launcher_background` (`#3E2417`, `FantasyPalette.woodDark` —
+  see `values/colors.xml`), plus **legacy square/round PNGs**
+  (`mipmap-*dpi/ic_launcher.png`/`ic_launcher_round.png`, chest baked
+  onto an opaque wood-dark square/circle backdrop instead of relying on
+  adaptive masking, for older/other launchers that don't support it) at
+  the standard mdpi(48)→xxxhdpi(192) sizes, and a bonus
+  `assets/app-icon-512.png` for a future Play Store listing (not wired
+  into the app itself). `monochrome` in both adaptive-icon XMLs points at
+  the same full-color foreground bitmap rather than a separate
+  hand-drawn silhouette — Android 13+ themed-icon mode only ever reads
+  its *alpha channel* as a mask and paints over with the system's own
+  tint color, so a second monochrome-specific asset would render
+  identically to reusing this one. Verified live on-device: the home
+  screen, launcher, and task switcher all show the chest correctly
+  circle-masked by Pixel Launcher, with no clipping of the lid/coins —
+  the faint lighter ring some launchers draw around a dark adaptive-icon
+  background (visible here since the backdrop is dark; essentially
+  invisible on a white one, like Play Store's own icon) is the
+  launcher's own ambient-shadow chrome applied to every adaptive icon,
+  not an artifact of this asset.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -133,10 +164,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.37.0** (a looping `loading_video.mp4` now plays
-     full-screen while `GameViewModel`'s initial load is in flight — see
-     the `LoadingScreen` bullet under Tech stack and
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.37.1** (the app icon is now the open-treasure-
+     chest art on a dark wood backdrop, replacing Android Studio's
+     default robot template — see the Assets section's `open-chest.png`
+     bullet and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
