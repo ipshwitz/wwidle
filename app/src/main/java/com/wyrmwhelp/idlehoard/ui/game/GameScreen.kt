@@ -30,8 +30,6 @@ import com.wyrmwhelp.idlehoard.domain.model.permanentGemPercentMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.platinumProfitMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.platinumSpeedMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.AppBackground
-import com.wyrmwhelp.idlehoard.ui.settings.UsernamePromptDialog
-
 @Composable
 fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.gameState.collectAsStateWithLifecycle()
@@ -44,10 +42,6 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val levelUpReward by viewModel.levelUpReward.collectAsStateWithLifecycle()
     val speedBoostAdMessage by viewModel.speedBoostAdMessage.collectAsStateWithLifecycle()
     val incomeBoostAdMessage by viewModel.incomeBoostAdMessage.collectAsStateWithLifecycle()
-    val needsUsername by viewModel.needsUsername.collectAsStateWithLifecycle()
-    val username by viewModel.username.collectAsStateWithLifecycle()
-    val isUsernameActionInProgress by viewModel.isUsernameActionInProgress.collectAsStateWithLifecycle()
-    val usernameMessage by viewModel.usernameMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // The "Everything" milestone bonuses — same compounding schedule as each
@@ -176,16 +170,6 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
         LevelUpRewardDialog(
             gemsEarned = gemsEarned,
             onDismiss = viewModel::dismissLevelUpReward,
-        )
-    }
-
-    if (needsUsername) {
-        UsernamePromptDialog(
-            currentUsername = username,
-            isSubmitting = isUsernameActionInProgress,
-            errorMessage = usernameMessage,
-            onSubmit = viewModel::submitUsername,
-            onDismiss = viewModel::dismissNeedsUsername,
         )
     }
 }

@@ -84,6 +84,8 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     val isAuthActionInProgress by gameViewModel.isAuthActionInProgress.collectAsStateWithLifecycle()
     val authMessage by gameViewModel.authMessage.collectAsStateWithLifecycle()
     val username by gameViewModel.username.collectAsStateWithLifecycle()
+    val isUsernameActionInProgress by gameViewModel.isUsernameActionInProgress.collectAsStateWithLifecycle()
+    val usernameMessage by gameViewModel.usernameMessage.collectAsStateWithLifecycle()
     val isSyncing by gameViewModel.isSyncing.collectAsStateWithLifecycle()
     val lastSyncedAt by gameViewModel.lastSyncedAt.collectAsStateWithLifecycle()
     val platinumAdMessage by gameViewModel.platinumAdMessage.collectAsStateWithLifecycle()
@@ -214,7 +216,10 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             isAuthActionInProgress = isAuthActionInProgress,
                             authMessage = authMessage,
                             username = username,
-                            onEditUsername = gameViewModel::promptUsernameChange,
+                            isUsernameActionInProgress = isUsernameActionInProgress,
+                            usernameMessage = usernameMessage,
+                            onSubmitUsername = gameViewModel::submitUsername,
+                            onDismissUsernameMessage = gameViewModel::dismissUsernameMessage,
                             isSyncing = isSyncing,
                             lastSyncedAt = lastSyncedAt,
                             onSignUp = gameViewModel::signUp,

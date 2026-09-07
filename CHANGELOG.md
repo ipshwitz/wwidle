@@ -3,6 +3,13 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.39.1] - 2026-09-07 4:40 PM EDT
+
+- Reworked the leaderboard username to live right in Settings' Account
+  card instead of popping up as its own screen the moment you finish
+  signing up. It's a plain field now — type a name, tap Save — and it
+  only shows up at all once you're actually signed in.
+
 ## [0.39.0] - 2026-09-07 3:55 PM EDT
 
 - Added leaderboard usernames: right after creating an account (or signing

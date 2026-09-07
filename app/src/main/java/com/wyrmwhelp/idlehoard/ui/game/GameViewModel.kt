@@ -151,15 +151,13 @@ class GameViewModel @Inject constructor(
 
     // The signed-in player's leaderboard username (`profiles` table) — null
     // for guests, and null for a signed-in player who hasn't set one yet.
+    // Edited inline in Settings' Account card (SettingsContent.kt) rather
+    // than through a separate pop-up — there's no "needs a username" flag
+    // driving an unprompted dialog; the field just always shows whatever
+    // this currently holds, and only Settings ever renders it (gated to
+    // signed-in players there, same as the rest of the Account card).
     private val _username = MutableStateFlow<String?>(null)
     val username: StateFlow<String?> = _username.asStateFlow()
-
-    // True right after a guest finishes registering (or signs into an
-    // existing account) with no username on file yet — drives GameScreen's
-    // UsernamePromptDialog. Also flipped back on deliberately, by
-    // promptUsernameChange(), to reopen the same dialog for an edit.
-    private val _needsUsername = MutableStateFlow(false)
-    val needsUsername: StateFlow<Boolean> = _needsUsername.asStateFlow()
 
     private val _isUsernameActionInProgress = MutableStateFlow(false)
     val isUsernameActionInProgress: StateFlow<Boolean> = _isUsernameActionInProgress.asStateFlow()
@@ -416,31 +414,27 @@ class GameViewModel @Inject constructor(
     }
 
     /**
-     * Refreshes [username]/[needsUsername] to match the current session —
-     * called after every point [userEmail] changes. A guest (null email)
-     * clears both; a signed-in player with no username on file yet flips
-     * [needsUsername] so `GameScreen` pops up `UsernamePromptDialog`. Also
-     * covers a pre-existing account signing in from before this feature
-     * shipped, since it's checked fresh on every sign-in/sign-up, not just
-     * once at account creation.
+     * Refreshes [username] to match the current session — called after
+     * every point [userEmail] changes. A guest (null email) just clears it
+     * without a network call, since guests are never shown the username
+     * field at all (see `SettingsContent`'s `AccountCard`). Also covers a
+     * pre-existing account signing in from before this feature shipped,
+     * since it's checked fresh on every sign-in/sign-up, not just once at
+     * account creation.
      */
     private suspend fun refreshUsernameState() {
         if (_userEmail.value == null) {
             _username.value = null
-            _needsUsername.value = false
             return
         }
-        val name = runCatching { authRepository.currentUsername() }
+        _username.value = runCatching { authRepository.currentUsername() }
             .onFailure { Log.w(TAG, "Fetching username failed", it) }
             .getOrNull()
-        _username.value = name
-        _needsUsername.value = name == null
     }
 
     /**
-     * Sets (or changes) the signed-in player's leaderboard username —
-     * see [needsUsername]'s doc for when this is first prompted, and
-     * [promptUsernameChange] for reopening it later from Settings.
+     * Sets (or changes) the signed-in player's leaderboard username — see
+     * `SettingsContent`'s `AccountCard` for the inline field this backs.
      * Re-validated here (not just trusting the UI's own gate) since a
      * caller could pass anything.
      */
@@ -454,28 +448,13 @@ class GameViewModel @Inject constructor(
             _isUsernameActionInProgress.value = true
             _usernameMessage.value = null
             runCatching { authRepository.setUsername(username) }
-                .onSuccess {
-                    _username.value = username
-                    _needsUsername.value = false
-                }
+                .onSuccess { _username.value = username }
                 .onFailure { e ->
                     Log.w(TAG, "Setting username failed", e)
                     _usernameMessage.value = usernameErrorMessage(e)
                 }
             _isUsernameActionInProgress.value = false
         }
-    }
-
-    /** Lets the player skip the username prompt for now — they can set one later from Settings. */
-    fun dismissNeedsUsername() {
-        _needsUsername.value = false
-        _usernameMessage.value = null
-    }
-
-    /** Settings' "Change Username" button — reopens the same prompt dialog even though [username] is already set. */
-    fun promptUsernameChange() {
-        _usernameMessage.value = null
-        _needsUsername.value = true
     }
 
     fun dismissUsernameMessage() {
