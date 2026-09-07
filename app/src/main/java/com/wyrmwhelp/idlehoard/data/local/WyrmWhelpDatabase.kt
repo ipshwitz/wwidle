@@ -4,6 +4,18 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
+ * Bumped to version 14 as a deliberate one-off reset, explicitly requested
+ * to start testing this build's app-icon/loading-screen changes from a
+ * completely fresh local save — no schema change behind this bump.
+ * [DatabaseModule]'s `fallbackToDestructiveMigration` (see below) means the
+ * very next launch after updating simply wipes the local Room database and
+ * recreates it empty, same mechanism every other version bump here relies
+ * on. **Only wipes local state** — a signed-in/linked account with cloud
+ * sync will still re-download and merge its existing cloud save on that
+ * same launch (`GameViewModel`'s init sequence), which can restore the
+ * "old" progress right back if that cloud save is still ahead. For a
+ * truly blank slate on an account that's already synced, sign out (or
+ * clear the app's data / reinstall) *in addition* to this bump.
  * Bumped to version 13 for the second ad-watch reward (Income boost): one
  * new `incomeBoostAdWatchTimestampsJson` column (see `GameStateMappers.kt`)
  * — see `domain/model/AdRewards.kt`'s `INCOME_BOOST_AD_MAX_SLOTS`. Version
@@ -45,7 +57,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 13,
+    version = 14,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

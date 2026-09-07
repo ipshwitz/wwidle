@@ -4,6 +4,7 @@ import android.net.Uri
 import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.wyrmwhelp.idlehoard.BuildConfig
 import com.wyrmwhelp.idlehoard.R
 
 /**
@@ -35,6 +37,11 @@ import com.wyrmwhelp.idlehoard.R
  * track (it does, going by its bitrate) — a loading screen playing
  * unexpected sound is jarring, and there's no music/SFX anywhere else in
  * the app yet to make an exception for.
+ *
+ * A `"Version ${BuildConfig.VERSION_NAME}"` line sits under the "Loading
+ * your hoard…" title (v0.38.0) — same `BuildConfig.VERSION_NAME`
+ * `SettingsContent`'s footer already reads, just surfaced somewhere
+ * visible on every single launch instead of only inside Settings.
  */
 @Composable
 fun LoadingScreen(modifier: Modifier = Modifier) {
@@ -59,15 +66,27 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
                 }
             },
         )
-        Text(
-            text = "Loading your hoard…",
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontFamily = FontFamily.Serif,
-                color = Color.White,
-                shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 6f),
-            ),
-            modifier = Modifier.padding(bottom = 56.dp),
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(bottom = 24.dp),
+        ) {
+            Text(
+                text = "Loading your hoard…",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = FontFamily.Serif,
+                    color = Color.White,
+                    shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 6f),
+                ),
+            )
+            Text(
+                text = "Version ${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color.White.copy(alpha = 0.7f),
+                    shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 4f),
+                ),
+                modifier = Modifier.padding(top = 28.dp),
+            )
+        }
     }
 }

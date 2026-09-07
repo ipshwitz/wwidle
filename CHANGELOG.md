@@ -3,6 +3,15 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.38.0] - 2026-09-07 10:16 AM EDT
+
+- The loading screen now shows the app's version number ("Version
+  0.38.0") under the "Loading your hoard…" text.
+- This update resets local save data on next launch, for fresh testing —
+  a one-time, deliberate reset, not a bug. (An account that's already
+  syncing to the cloud will still get its progress back via cloud sync
+  unless the app's data is also cleared or you sign out first.)
+
 ## [0.37.1] - 2026-09-07 10:00 AM EDT
 
 - Replaced the default Android robot app icon with the open treasure
