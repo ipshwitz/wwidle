@@ -1,7 +1,11 @@
 package com.wyrmwhelp.idlehoard
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -28,6 +32,7 @@ import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
 import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
+import com.wyrmwhelp.idlehoard.ui.helpsocial.HelpSocialContent
 import com.wyrmwhelp.idlehoard.ui.levelup.LevelUpContent
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
 import com.wyrmwhelp.idlehoard.ui.settings.SettingsContent
@@ -98,6 +103,19 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
             onDismiss = { openSection = null },
             modifier = Modifier.fillMaxSize(),
             content = when (openSection) {
+                "Help & Social" -> {
+                    {
+                        HelpSocialContent(
+                            onOpenLink = { url ->
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                } catch (e: ActivityNotFoundException) {
+                                    Log.w("MainActivity", "No app found to handle $url", e)
+                                }
+                            },
+                        )
+                    }
+                }
                 "Unlocks" -> { { UnlocksContent(lairs = gameViewModel.lairs, state = gameState) } }
                 "Stewards" -> {
                     {

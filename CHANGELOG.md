@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.31.0] - 2026-09-06 9:15 PM EDT
+
+- Built out the "Help & Social" menu section (it just said "Coming soon"
+  before): links to the game's real Facebook, Instagram, X, TikTok, and
+  Whatnot accounts, the website, and a support email address — each with
+  its own brand-styled icon. Tapping a row opens it in your browser (or
+  your email app for the support address).
+
 ## [0.30.0] - 2026-09-06 6:40 PM EDT
 
 - Added a quick-access button in the bottom-right corner of the main game

@@ -92,10 +92,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.30.0** (added a quick-access button for the same
-     ad-watch Speed boost directly on the main game screen — see the
-     "Quick-access Speed boost button" bullet under Tech stack and
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.31.0** (built out the "Help & Social" menu
+     section with real social/contact links — see the `HelpSocialContent`
+     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1008,6 +1007,43 @@ These apply to every change made in this repo, however small:
     actual size; once the art was recropped to its true bounds (see Assets
     section) and the header moved to top-start, neither hack was needed
     anymore.
+- **`HelpSocialContent`** (`ui/helpsocial/HelpSocialContent.kt`, v0.31.0) —
+    the "Help & Social" menu section's real content, replacing the
+    `ComingSoonPlaceholder` it showed before this. One row per real,
+    live account: Facebook, Instagram, X, TikTok, Whatnot, the game's own
+    website, and a support email address — all seven in one `SOCIAL_LINKS`
+    list (`SocialLink(platform, label, handle, url)`) so adding an eighth
+    later is one line. Same pure-display-plus-callback pattern as
+    `StewardsContent`/`ShopContent`: takes one `onOpenLink: (String) ->
+    Unit` and calls it with the row's raw URL (an `https://` link, or
+    `mailto:support@wyrmandwhelp.com` for the email row) — it holds no
+    `Context` itself. `MainActivity`'s new `"Help & Social" ->` branch is
+    what actually fires the `Intent` (`ACTION_VIEW` on the URL, wrapped in
+    a try/catch for `ActivityNotFoundException` that just logs and
+    no-ops rather than crashing, matching this project's established
+    degrade-gracefully-on-external-failures convention) — `ACTION_VIEW`
+    on an `http(s)://`/`mailto:` URI needs no manifest `<queries>` entry,
+    since both are on Android's package-visibility allowlist for implicit
+    intents.
+    Each row's `SocialIcon` is hand-drawn via `Canvas` (this project's
+    stated style, "Canvas for animation, no sprite pack" — no new
+    drawable asset was added for this) rather than a generic link glyph:
+    Facebook/X/Whatnot render as bold single-letter monograms on the
+    platform's real brand color, which is literally accurate for two of
+    the three (X's current logo really is just a stylized "X"; Facebook's
+    really is a lowercase "f" in a circle) rather than an approximation.
+    Instagram and TikTok get real hand-drawn `Path` glyphs instead — a
+    camera outline with a lens circle and shutter dot on the real
+    Instagram gradient, and a musical-note shape with the signature
+    cyan/magenta offset shadow on a black disc for TikTok — since both are
+    recognized by shape more than by any single letter. Website/Email use
+    the app's own `FantasyPalette` wood/gold tones instead of a brand
+    color (a carved globe, a carved envelope), since they're first-party
+    links, not other platforms. Verified live on-device: tapping Instagram
+    opened Chrome straight to the real, live `instagram.com/wyrmandwhelp`
+    profile; tapping Email Us correctly launched Gmail as the registered
+    `mailto:` handler (its own first-run account setup blocked following
+    the compose screen further, unrelated to this app).
 - **Domain:** `GameEngine` — core tick loop, income calculation, offline-earnings
   math. `@Singleton` via Hilt. `purchaseLairs(lairId, quantity)` buys several
   units atomically in one `_state.update` (either the full
