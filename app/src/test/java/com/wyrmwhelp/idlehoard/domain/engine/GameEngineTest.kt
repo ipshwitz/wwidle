@@ -22,6 +22,8 @@ import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
+import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
+import com.wyrmwhelp.idlehoard.domain.model.unseenUpgradeOpportunities
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -237,9 +239,10 @@ class GameEngineTest {
     }
 
     @Test
-    fun `markStewardOpportunitiesSeen clears the badge for every currently-eligible lair`() {
+    fun `markStewardOpportunitiesSeen clears the badge for every currently-affordable lair`() {
         engine.loadState(
             GameState(
+                goldPieces = 20_000.0, // covers kobold_warren (1,000) and giant_rat_burrow (15,000)
                 lairs = mapOf(
                     "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1),
                     "giant_rat_burrow" to OwnedLair(lairId = "giant_rat_burrow", count = 1),
@@ -251,6 +254,16 @@ class GameEngineTest {
         engine.markStewardOpportunitiesSeen()
 
         assertFalse(engine.state.value.hasUnseenStewardOpportunity())
+    }
+
+    @Test
+    fun `markUpgradeOpportunitiesSeen clears the badge for every currently-affordable line`() {
+        engine.loadState(GameState(goldPieces = 1_000_000_000.0, gems = 1_000L))
+        assertTrue(engine.state.value.hasUnseenUpgradeOpportunity())
+
+        engine.markUpgradeOpportunitiesSeen()
+
+        assertFalse(engine.state.value.hasUnseenUpgradeOpportunity())
     }
 
     @Test
@@ -744,21 +757,28 @@ class GameEngineTest {
     }
 
     @Test
-    fun `performLevelUp does not carry over seen Steward opportunities`() {
-        // Unlike device/grind state (the ad cooldown above), this resets
-        // alongside `lairs` itself — a fresh run's opportunities are new again.
+    fun `performLevelUp does not carry over seen Steward or upgrade opportunities`() {
+        // Unlike device/grind state (the ad cooldown above), these reset
+        // alongside `lairs`/`goldPieces`/`gems` themselves — a fresh run's
+        // opportunities are new again. Gold resets to 0 (so nothing Gold-
+        // priced is affordable right after), but a Level Up mints a fresh
+        // Gem batch off `lifetimeGoldEarned` — a genuinely new Gem
+        // Efficiency opportunity is the *correct* outcome here, not a bug.
         engine.loadState(
             GameState(
                 lifetimeGoldEarned = 1_000_000_000_000_000.0,
                 lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
                 seenStewardOpportunities = setOf("kobold_warren"),
+                seenUpgradeOpportunities = setOf("kobold_warren:profit"),
             ),
         )
 
         engine.performLevelUp()
 
         assertEquals(emptySet<String>(), engine.state.value.seenStewardOpportunities)
-        assertTrue(engine.state.value.hasUnseenStewardOpportunity())
+        assertEquals(emptySet<String>(), engine.state.value.seenUpgradeOpportunities)
+        assertFalse(engine.state.value.hasUnseenStewardOpportunity())
+        assertEquals(setOf("gem_efficiency"), engine.state.value.unseenUpgradeOpportunities())
     }
 
     @Test

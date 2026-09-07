@@ -114,9 +114,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.32.0** (real art for the Speed-boost ad button
-     plus a "new feature" notification badge system — see the
-     `QuickSpeedBoostAdButton`/`FloatingMenu` bullets under Tech stack and
+   - Current version: **0.33.0** (the "new feature" badge is now
+     availability-gated and covers Upgrades too, not just Stewards — see
+     the "'New feature' notification badge" bullet under Tech stack and
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -871,50 +871,82 @@ These apply to every change made in this repo, however small:
     boost from a prior watch — Kobold Warren's live cycle time visibly
     halved again (150ms → 75ms) on the main screen itself, confirming both
     entry points feed the exact same `ActiveTemporaryBoost` state.
-  - **"New feature" notification badge (v0.32.0)** — a small ornate gold
-    star (`new_notification.png`) that floats over `FloatingMenu`'s chest
+  - **"New feature" notification badge (v0.32.0, "new" redefined by
+    availability in v0.33.0)** — a small ornate gold star
+    (`new_notification.png`) that floats over `FloatingMenu`'s chest
     toggle whenever there's something new/unviewed to look at, and over
     the specific menu plank(s) responsible once the menu is expanded.
-    Scope confirmed via explicit design questions before building: only
-    Stewards drives this badge for now (a second candidate trigger, "a
-    new upgrade," was explicitly deferred — Upgrades shows every lair's
-    lines regardless of ownership, so there's no clean "newly unlocked"
-    moment the way a new Steward row appears only once a lair is owned),
-    and the "seen" state is persisted (Room + Supabase), not
-    session-only, so a dismissed badge stays dismissed across restarts.
-    `GameState.seenStewardOpportunities: Set<String>`
-    (`domain/model/GameState.kt`) records which owned, Steward-less lair
-    ids the player has already had a chance to notice — three pure
-    functions in `domain/model/GameStateExtensions.kt` do the actual
-    logic: `stewardOpportunities()` (private — owned lairs without a
-    Steward right now), `unseenStewardOpportunities()`/
-    `hasUnseenStewardOpportunity()` (that set minus
-    `seenStewardOpportunities` — what actually drives the badge), and
-    `withStewardOpportunitiesSeen()` (folds every *currently* eligible
-    lair into `seenStewardOpportunities`, called once when the player
-    opens Stewards — `GameEngine.markStewardOpportunitiesSeen()` /
-    `GameViewModel.markStewardOpportunitiesSeen()` — via a
-    `LaunchedEffect(openSection)` in `MainActivity`, the same pattern
-    already used there for `ensureBillingConnected()`). **Not** carried
-    over in `GameEngine.performLevelUp()` — unlike device/grind state
-    (the ad-watch cooldowns), this resets alongside `GameState.lairs`
-    itself, since a fresh run's Steward opportunities are genuinely new
-    again. `FloatingMenu` gained one new param,
-    `itemsWithNewBadge: Set<String>` (menu labels currently flagged;
-    `MainActivity` computes this as `setOf("Stewards")` or empty from
-    `gameState.hasUnseenStewardOpportunity()`) — pure read, the
-    composable never clears it itself. Persistence: Room bumped to
-    **database version 11** for one new
-    `seenStewardOpportunitiesJson` column (`GameStateEntity`, same
-    JSON-encode-a-list-into-one-column pattern as
-    `speedBoostAdWatchTimestampsJson`), and the Supabase `GameStateDto`
-    got a matching `seen_steward_opportunities` field with an
-    empty-list default for older cloud saves. Verified live on-device:
-    claiming a brand-new lair (Ogre's Cave) immediately showed the star
-    on both the chest and the expanded menu's "Stewards" plank; opening
-    Stewards made both copies of the badge disappear, while the other
-    seven owned-and-staffed lairs (already hired in earlier testing)
-    correctly showed no badge the whole time.
+    "Seen" state is persisted (Room + Supabase), not session-only, so a
+    dismissed badge stays dismissed across restarts.
+    **What counts as "new" (v0.33.0, explicit correction to v0.32.0's
+    launch design): availability, not visibility.** v0.32.0 originally
+    gated the Stewards badge on ownership alone (owned + Steward-less)
+    and skipped Upgrades entirely (every lair's upgrade lines are always
+    visible regardless of ownership, so "newly visible" never applied
+    there). The real intent, given directly: a Steward or upgrade only
+    counts as "new" once it's actually *affordable* — an owned
+    Steward-less lair sitting unaffordable for hours shouldn't light up
+    the badge the instant it's claimed, and Upgrades gets the exact same
+    treatment now that affordability (not ownership) is the trigger,
+    since every line being always-visible stops being a blocker once
+    visibility isn't what's being checked.
+    Two parallel seen-sets on `GameState`
+    (`domain/model/GameState.kt`): `seenStewardOpportunities: Set<String>`
+    (lair ids) and `seenUpgradeOpportunities: Set<String>` (upgrade line
+    ids — `"<lairId>:profit"`/`"<lairId>:speed"` for the 28 per-lair
+    lines, `"everything:profit"`/`"everything:speed"`, or
+    `"gem_efficiency"`). `domain/model/GameStateExtensions.kt` has two
+    parallel triples of pure functions, one per badge:
+    `stewardOpportunities()`/`upgradeOpportunities()` (private —
+    everything currently affordable and not yet maxed: for Stewards,
+    `goldPieces >= catalog lair's stewardCostGp`; for Upgrades, a loop
+    over every lair's Profit/Speed line plus the two Everything lines and
+    Gem Efficiency, each checked against its own `GpUpgrades`/
+    `GemUpgrades` cost-for-next-tier function), `unseenStewardOpportunities()`/
+    `unseenUpgradeOpportunities()` plus `hasUnseenStewardOpportunity()`/
+    `hasUnseenUpgradeOpportunity()` (that set minus the matching
+    `seen*Opportunities` field — what actually drives each badge), and
+    `withStewardOpportunitiesSeen()`/`withUpgradeOpportunitiesSeen()`
+    (folds every *currently* affordable item into the matching seen-set,
+    called once when the player opens that section —
+    `GameEngine.markStewardOpportunitiesSeen()`/
+    `markUpgradeOpportunitiesSeen()`, `GameViewModel` thin wrappers of
+    the same names — via a `LaunchedEffect(openSection)` in
+    `MainActivity`, the same pattern already used there for
+    `ensureBillingConnected()`). Since the seen-set is a plain "once
+    marked, stays marked" set rather than re-derived every check, an
+    opportunity that becomes unaffordable again (gold spent elsewhere)
+    and later becomes affordable again does *not* re-flag — matches
+    "dismissed once viewed," not "dismissed until it flickers." Neither
+    set is carried over in `GameEngine.performLevelUp()` — unlike
+    device/grind state (the ad-watch cooldowns), both reset alongside
+    `GameState.lairs`/`goldPieces`/`gems` themselves, since a fresh run's
+    opportunities (and what's affordable) are genuinely new again — a
+    fresh Gem batch minted off `lifetimeGoldEarned` immediately re-flags
+    Gem Efficiency as new in the same reset, which is correct, not a
+    residual bug (see `GameEngineTest`'s Level Up test for this exact
+    case). `FloatingMenu`'s `itemsWithNewBadge: Set<String>` param is
+    unchanged in shape from v0.32.0 — `MainActivity` just unions in a
+    second flag now (`buildSet { if (...) add("Stewards"); if (...)
+    add("Upgrades") }`). Persistence: Room bumped to **database version
+    12** for one new `seenUpgradeOpportunitiesJson` column
+    (`GameStateEntity`, same JSON-encode-a-list-into-one-column pattern
+    as `seenStewardOpportunitiesJson`/`speedBoostAdWatchTimestampsJson`),
+    and the Supabase `GameStateDto` got a matching
+    `seen_upgrade_opportunities` field with an empty-list default for
+    older cloud saves. Verified live on-device (via a direct Room DB
+    edit to set a controlled gold amount and clear both seen-sets, since
+    this save's own continuous Steward-managed production made
+    organically holding gold at a precise unaffordable level impractical
+    to test through the UI alone): claiming a lair whose Steward cost
+    was already covered by cash on hand (Owlbear Roost, 10B gp Steward
+    cost against ~86B gp held) immediately lit up both the chest and,
+    once expanded, both the "Stewards" *and* "Upgrades" planks
+    simultaneously (Upgrades lighting up purely from gold crossing
+    various lines' next-tier costs, unrelated to the Owlbear claim
+    itself); opening each section cleared exactly that section's badge
+    independently, and the chest's aggregate badge only fully cleared
+    once both had been viewed.
   - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0, price/PP
     curve revised twice since — v0.27.1, then v0.27.2)**
     (`billing/BillingManager.kt`) — Google Play Billing, replacing the

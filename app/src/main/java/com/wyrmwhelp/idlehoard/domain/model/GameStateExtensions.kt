@@ -100,29 +100,104 @@ private fun GameState.isMoreAdvancedThan(other: GameState): Boolean {
     return estimatedNetWorth() > other.estimatedNetWorth()
 }
 
-/** Ids of owned, Steward-less lairs — a fresh "you could hire a Steward here" opportunity. */
-private fun GameState.stewardOpportunities(): Set<String> =
-    lairs.values.filter { it.count > 0 && !it.hasSteward }.map { it.lairId }.toSet()
+/**
+ * Ids of owned, Steward-less lairs the player can *afford* to hire right
+ * now — "new" is determined by availability, not just visibility (an
+ * owned Steward-less lair can sit there a long time before it's actually
+ * affordable; that shouldn't count as a "new" opportunity until it is).
+ */
+private fun GameState.stewardOpportunities(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Set<String> =
+    lairs.values.filter { owned ->
+        owned.count > 0 && !owned.hasSteward && goldPieces >= catalog.first { it.id == owned.lairId }.stewardCostGp
+    }.map { it.lairId }.toSet()
 
 /**
- * Owned, Steward-less lairs the player hasn't had a chance to notice yet —
- * i.e. not already in [GameState.seenStewardOpportunities]. Drives the
- * "new feature" star badge on `FloatingMenu`'s chest toggle and its
- * "Stewards" plank (`ui/menu/FloatingMenu.kt`); [withStewardOpportunitiesSeen]
- * is what clears it once the player actually opens that section.
+ * Owned, Steward-less, currently-affordable lairs the player hasn't had a
+ * chance to notice yet — i.e. not already in
+ * [GameState.seenStewardOpportunities]. Drives the "new feature" star
+ * badge on `FloatingMenu`'s chest toggle and its "Stewards" plank
+ * (`ui/menu/FloatingMenu.kt`); [withStewardOpportunitiesSeen] is what
+ * clears it once the player actually opens that section.
  */
-fun GameState.unseenStewardOpportunities(): Set<String> = stewardOpportunities() - seenStewardOpportunities
+fun GameState.unseenStewardOpportunities(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Set<String> =
+    stewardOpportunities(catalog) - seenStewardOpportunities
 
 /** Whether the Stewards badge should show at all — see [unseenStewardOpportunities]. */
-fun GameState.hasUnseenStewardOpportunity(): Boolean = unseenStewardOpportunities().isNotEmpty()
+fun GameState.hasUnseenStewardOpportunity(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Boolean =
+    unseenStewardOpportunities(catalog).isNotEmpty()
 
 /**
- * Marks every *currently* eligible Steward opportunity as seen — called
+ * Marks every *currently* affordable Steward opportunity as seen — called
  * once when the player opens the Stewards section
  * (`GameViewModel.markStewardOpportunitiesSeen`), so the badge won't come
- * back for those same lairs until a Level Up resets [GameState.lairs] (and,
- * with it, [GameState.seenStewardOpportunities] — see that field's doc)
- * or a newly-owned lair creates a fresh opportunity.
+ * back for those same lairs until a Level Up resets [GameState.lairs]/
+ * [GameState.goldPieces] (and, with them,
+ * [GameState.seenStewardOpportunities] — see that field's doc), the gold
+ * is spent and re-earned, or a newly-affordable lair creates a fresh
+ * opportunity.
  */
-fun GameState.withStewardOpportunitiesSeen(): GameState =
-    copy(seenStewardOpportunities = seenStewardOpportunities + stewardOpportunities())
+fun GameState.withStewardOpportunitiesSeen(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): GameState =
+    copy(seenStewardOpportunities = seenStewardOpportunities + stewardOpportunities(catalog))
+
+/**
+ * Ids of every Gold/Gem upgrade line whose *next* tier the player can
+ * currently afford and hasn't maxed out — `"<lairId>:profit"`/
+ * `"<lairId>:speed"` for the 28 per-lair lines, `"everything:profit"`/
+ * `"everything:speed"` for the two Everything lines, and
+ * `"gem_efficiency"` for the single Gem line. Same "availability, not
+ * visibility" rule as [stewardOpportunities] — every line is always
+ * *visible* in the Upgrades menu regardless of ownership, so affordability
+ * is the only meaningful "new" signal here.
+ */
+private fun GameState.upgradeOpportunities(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Set<String> {
+    val ids = mutableSetOf<String>()
+    for (lair in catalog) {
+        val owned = ownedLair(lair.id)
+        val profitTier = owned.profitUpgradeLevel + 1
+        if (profitTier <= GpUpgrades.LAIR_LINE_PHASES.totalTiers &&
+            goldPieces >= GpUpgrades.costForLairTier(lair.id, UpgradeCategory.PROFIT, profitTier)
+        ) {
+            ids += "${lair.id}:profit"
+        }
+        val speedTier = owned.speedUpgradeLevel + 1
+        if (speedTier <= GpUpgrades.LAIR_LINE_PHASES.totalTiers &&
+            goldPieces >= GpUpgrades.costForLairTier(lair.id, UpgradeCategory.SPEED, speedTier)
+        ) {
+            ids += "${lair.id}:speed"
+        }
+    }
+    val everythingProfitTier = everythingProfitUpgradeLevel + 1
+    if (everythingProfitTier <= GpUpgrades.EVERYTHING_PROFIT_PHASES.totalTiers &&
+        goldPieces >= GpUpgrades.costForEverythingTier(UpgradeCategory.PROFIT, everythingProfitTier)
+    ) {
+        ids += "everything:profit"
+    }
+    val everythingSpeedTier = everythingSpeedUpgradeLevel + 1
+    if (everythingSpeedTier <= GpUpgrades.EVERYTHING_SPEED_PHASES.totalTiers &&
+        goldPieces >= GpUpgrades.costForEverythingTier(UpgradeCategory.SPEED, everythingSpeedTier)
+    ) {
+        ids += "everything:speed"
+    }
+    val gemTier = gemEfficiencyLevel + 1
+    if (gemTier <= GemUpgrades.PHASES.totalTiers && gems >= GemUpgrades.costForTierGems(gemTier)) {
+        ids += "gem_efficiency"
+    }
+    return ids
+}
+
+/** Currently-affordable upgrade lines the player hasn't had a chance to notice yet — see [upgradeOpportunities]. */
+fun GameState.unseenUpgradeOpportunities(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Set<String> =
+    upgradeOpportunities(catalog) - seenUpgradeOpportunities
+
+/** Whether the Upgrades badge should show at all — see [unseenUpgradeOpportunities]. */
+fun GameState.hasUnseenUpgradeOpportunity(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Boolean =
+    unseenUpgradeOpportunities(catalog).isNotEmpty()
+
+/**
+ * Marks every *currently* affordable upgrade line as seen — called once
+ * when the player opens the Upgrades section
+ * (`GameViewModel.markUpgradeOpportunitiesSeen`), same shape as
+ * [withStewardOpportunitiesSeen].
+ */
+fun GameState.withUpgradeOpportunitiesSeen(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): GameState =
+    copy(seenUpgradeOpportunities = seenUpgradeOpportunities + upgradeOpportunities(catalog))

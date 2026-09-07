@@ -571,6 +571,11 @@ class GameViewModel @Inject constructor(
         gameEngine.markStewardOpportunitiesSeen()
     }
 
+    /** Dismisses the Upgrades "new feature" badge — see `GameEngine.markUpgradeOpportunitiesSeen`. */
+    fun markUpgradeOpportunitiesSeen() {
+        gameEngine.markUpgradeOpportunitiesSeen()
+    }
+
     /** The player tapping a lair to start its production cycle — see `GameEngine.startLairLoad`. */
     fun startLairLoad(lairId: String) {
         gameEngine.startLairLoad(lairId)

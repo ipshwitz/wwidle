@@ -27,6 +27,7 @@ import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
 import com.wyrmwhelp.idlehoard.domain.model.availableSpeedBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
+import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
@@ -90,13 +91,17 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     // class doc) — only connect once the player actually opens the Shop.
     LaunchedEffect(openSection) {
         if (openSection == "Shop") gameViewModel.ensureBillingConnected()
-        // Opening Stewards is what "views" its new-feature notification —
+        // Opening a section is what "views" its new-feature notification —
         // see `FloatingMenu`'s `itemsWithNewBadge` doc.
         if (openSection == "Stewards") gameViewModel.markStewardOpportunitiesSeen()
+        if (openSection == "Upgrades") gameViewModel.markUpgradeOpportunitiesSeen()
     }
 
     val itemsWithNewBadge = remember(gameState) {
-        if (gameState.hasUnseenStewardOpportunity()) setOf("Stewards") else emptySet()
+        buildSet {
+            if (gameState.hasUnseenStewardOpportunity()) add("Stewards")
+            if (gameState.hasUnseenUpgradeOpportunity()) add("Upgrades")
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

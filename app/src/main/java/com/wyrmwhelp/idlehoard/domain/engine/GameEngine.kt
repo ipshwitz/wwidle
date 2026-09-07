@@ -30,6 +30,7 @@ import com.wyrmwhelp.idlehoard.domain.model.platinumProfitMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.platinumSpeedMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.withPermanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.withStewardOpportunitiesSeen
+import com.wyrmwhelp.idlehoard.domain.model.withUpgradeOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import java.time.Duration
 import java.time.Instant
@@ -222,6 +223,17 @@ class GameEngine @Inject constructor() {
      */
     fun markStewardOpportunitiesSeen() {
         _state.update { it.withStewardOpportunitiesSeen() }
+    }
+
+    /**
+     * Marks every currently-affordable Gold/Gem upgrade line as seen —
+     * called once when the player opens the Upgrades menu section
+     * (`GameViewModel.markUpgradeOpportunitiesSeen`), so `FloatingMenu`'s
+     * "new feature" star badge stops showing for those lines. See
+     * `GameStateExtensions.kt`'s `withUpgradeOpportunitiesSeen`.
+     */
+    fun markUpgradeOpportunitiesSeen() {
+        _state.update { it.withUpgradeOpportunitiesSeen() }
     }
 
     /**

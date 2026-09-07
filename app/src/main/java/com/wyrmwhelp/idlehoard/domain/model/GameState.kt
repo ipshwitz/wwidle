@@ -93,14 +93,25 @@ import java.time.Instant
  *   Up alongside [gems] itself, since Gems are temporary (see this class's
  *   [gems] doc) — a Gem-bought upgrade to their value can't outlive them.
  * @property seenStewardOpportunities Lair ids the player has already had a
- *   chance to notice could hire a Steward (i.e. owned, Steward-less, and
- *   the Stewards menu section has been opened since) — see
+ *   chance to notice can *afford* a Steward hire right now (i.e. owned,
+ *   Steward-less, and [goldPieces] covers the cost — not just "owned and
+ *   Steward-less," which could sit unaffordable for a long time — and the
+ *   Stewards menu section has been opened since) — see
  *   `GameStateExtensions.kt`'s `hasUnseenStewardOpportunity`/
  *   `withStewardOpportunitiesSeen`. Drives the "new feature" star badge on
  *   `FloatingMenu`'s chest toggle and its "Stewards" plank; not carried
  *   over on a Level Up (unlike device/grind state such as
- *   [lastPlatinumAdWatchedAt]) since it resets alongside [lairs] itself —
- *   a fresh run's Steward opportunities are genuinely new again.
+ *   [lastPlatinumAdWatchedAt]) since it resets alongside [lairs]/[goldPieces]
+ *   themselves — a fresh run's opportunities are genuinely new again.
+ * @property seenUpgradeOpportunities Upgrade line ids (`"<lairId>:profit"`/
+ *   `"<lairId>:speed"`, `"everything:profit"`/`"everything:speed"`, or
+ *   `"gem_efficiency"`) the player has already had a chance to notice can
+ *   afford their next tier right now — same affordability-gated,
+ *   opened-the-section-since shape as [seenStewardOpportunities], see
+ *   `GameStateExtensions.kt`'s `hasUnseenUpgradeOpportunity`/
+ *   `withUpgradeOpportunitiesSeen`. Drives the same star badge on the
+ *   "Upgrades" plank; also not carried over on a Level Up, since every
+ *   Gold/Gem upgrade line resets then too.
  */
 data class GameState(
     val goldPieces: Double = 0.0,
@@ -132,6 +143,7 @@ data class GameState(
     val lastPlatinumAdWatchedAt: Instant? = null,
     val speedBoostAdWatchTimestamps: List<Instant> = emptyList(),
     val seenStewardOpportunities: Set<String> = emptySet(),
+    val seenUpgradeOpportunities: Set<String> = emptySet(),
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

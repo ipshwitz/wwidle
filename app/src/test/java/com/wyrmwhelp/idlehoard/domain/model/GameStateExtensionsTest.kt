@@ -174,8 +174,18 @@ class GameStateExtensionsTest {
     }
 
     @Test
-    fun `an owned lair without a Steward is an unseen opportunity by default`() {
-        val state = GameState(lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)))
+    fun `an owned, unaffordable, Steward-less lair is not an opportunity yet`() {
+        // kobold_warren's real stewardCostGp is 1,000 gp — availability, not
+        // just visibility, is what should gate the badge.
+        val state = GameState(goldPieces = 1.0, lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)))
+
+        assertEquals(emptySet<String>(), state.unseenStewardOpportunities())
+        assertFalse(state.hasUnseenStewardOpportunity())
+    }
+
+    @Test
+    fun `an owned, affordable, Steward-less lair is an unseen opportunity`() {
+        val state = GameState(goldPieces = 1_000.0, lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)))
 
         assertEquals(setOf("kobold_warren"), state.unseenStewardOpportunities())
         assertTrue(state.hasUnseenStewardOpportunity())
@@ -184,6 +194,7 @@ class GameStateExtensionsTest {
     @Test
     fun `a hired Steward is never an opportunity, seen or not`() {
         val state = GameState(
+            goldPieces = 1_000_000.0,
             lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = true)),
         )
 
@@ -193,14 +204,15 @@ class GameStateExtensionsTest {
 
     @Test
     fun `an unowned lair is never an opportunity`() {
-        val state = GameState(lairs = emptyMap())
+        val state = GameState(goldPieces = 1_000_000.0, lairs = emptyMap())
 
         assertFalse(state.hasUnseenStewardOpportunity())
     }
 
     @Test
-    fun `marking opportunities seen clears the badge for exactly those lairs`() {
+    fun `marking opportunities seen clears the badge for exactly the currently-affordable lairs`() {
         val state = GameState(
+            goldPieces = 20_000.0, // covers kobold_warren (1,000) and giant_rat_burrow (15,000)
             lairs = mapOf(
                 "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1),
                 "giant_rat_burrow" to OwnedLair(lairId = "giant_rat_burrow", count = 1),
@@ -214,21 +226,26 @@ class GameStateExtensionsTest {
     }
 
     @Test
-    fun `newly owning another lair after seeing the first surfaces only the new one`() {
+    fun `newly affording another lair's Steward after seeing the first surfaces only the new one`() {
         val afterSeeingFirst = GameState(
-            lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+            goldPieces = 1_000.0,
+            lairs = mapOf(
+                "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1),
+                "giant_rat_burrow" to OwnedLair(lairId = "giant_rat_burrow", count = 1),
+            ),
         ).withStewardOpportunitiesSeen()
+        // Not yet affordable at 1,000 gp — confirms it wasn't marked seen above.
+        assertEquals(emptySet<String>(), afterSeeingFirst.unseenStewardOpportunities().minus("kobold_warren"))
 
-        val afterClaimingSecond = afterSeeingFirst.copy(
-            lairs = afterSeeingFirst.lairs + ("giant_rat_burrow" to OwnedLair(lairId = "giant_rat_burrow", count = 1)),
-        )
+        val afterEarningMore = afterSeeingFirst.copy(goldPieces = 20_000.0)
 
-        assertEquals(setOf("giant_rat_burrow"), afterClaimingSecond.unseenStewardOpportunities())
+        assertEquals(setOf("giant_rat_burrow"), afterEarningMore.unseenStewardOpportunities())
     }
 
     @Test
     fun `hiring a Steward for an already-seen lair leaves it seen`() {
         val seen = GameState(
+            goldPieces = 1_000.0,
             lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
         ).withStewardOpportunitiesSeen()
 
@@ -237,6 +254,55 @@ class GameStateExtensionsTest {
         )
 
         assertFalse(hired.hasUnseenStewardOpportunity())
+    }
+
+    @Test
+    fun `no upgrade line is an opportunity when nothing is affordable`() {
+        val state = GameState(goldPieces = 0.0, gems = 0L, lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)))
+
+        assertFalse(state.hasUnseenUpgradeOpportunity())
+    }
+
+    @Test
+    fun `an affordable lair upgrade tier is an unseen opportunity`() {
+        val state = GameState(goldPieces = 1_000_000_000.0)
+
+        val unseen = state.unseenUpgradeOpportunities()
+
+        assertTrue("kobold_warren:profit" in unseen)
+        assertTrue("kobold_warren:speed" in unseen)
+        assertTrue(state.hasUnseenUpgradeOpportunity())
+    }
+
+    @Test
+    fun `an affordable Gem Efficiency tier is an unseen opportunity`() {
+        val state = GameState(gems = 1_000L)
+
+        assertEquals(setOf("gem_efficiency"), state.unseenUpgradeOpportunities())
+    }
+
+    @Test
+    fun `marking upgrade opportunities seen clears exactly the currently-affordable lines`() {
+        val state = GameState(goldPieces = 1_000_000_000.0, gems = 1_000L)
+        val unseenBefore = state.unseenUpgradeOpportunities()
+        assertTrue(unseenBefore.isNotEmpty())
+
+        val seen = state.withUpgradeOpportunitiesSeen()
+
+        assertFalse(seen.hasUnseenUpgradeOpportunity())
+        assertEquals(unseenBefore, seen.seenUpgradeOpportunities)
+    }
+
+    @Test
+    fun `buying the seen tier of an upgrade line still leaves it seen even though a costlier tier is now unaffordable`() {
+        val state = GameState(goldPieces = 1_000_000_000.0).withUpgradeOpportunitiesSeen()
+
+        val afterSpending = state.copy(
+            goldPieces = 0.0,
+            lairs = state.lairs + ("kobold_warren" to state.ownedLair("kobold_warren").copy(profitUpgradeLevel = 1)),
+        )
+
+        assertFalse("kobold_warren:profit" in afterSpending.unseenUpgradeOpportunities())
     }
 
     private fun testLair(id: String) = CreatureLair(

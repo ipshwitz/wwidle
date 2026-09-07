@@ -69,6 +69,7 @@ class GameStateMappersTest {
                 Instant.now().truncatedTo(ChronoUnit.MILLIS),
             ),
             seenStewardOpportunities = setOf("kobold_warren", "goblin_camp"),
+            seenUpgradeOpportunities = setOf("kobold_warren:profit", "everything:speed", "gem_efficiency"),
         )
 
         val (stateEntity, lairEntities) = original.toEntities()

@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.33.0] - 2026-09-06 10:45 PM EDT
+
+- Changed how the "new feature" star badge decides what's new: it's now
+  based on what you can actually afford, not just what's technically
+  available. A Steward hire only lights up once you have enough gold for
+  it, and the same badge now covers Upgrades too — any Gold or Gem
+  upgrade line lights up the moment you can afford its next tier.
+
 ## [0.32.0] - 2026-09-06 10:15 PM EDT
 
 - Swapped the main game screen's Speed-boost ad-watch button to the new
