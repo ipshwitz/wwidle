@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.41.0] - 2026-09-07 8:00 PM EDT
+
+- Added a Leaderboard: three boards (All-Time, Weekly, Monthly gold
+  earned) reachable from the menu. Only players who've signed up and set
+  a username compete on it; a guest can still look, they just won't see
+  themselves. Rankings refresh once an hour, not live. Weekly resets
+  every Sunday night; Monthly resets at the end of the month.
+
 ## [0.40.1] - 2026-09-07 7:10 PM EDT
 
 - Made the avatar medallion in the header bigger and its gold border

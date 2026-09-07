@@ -175,10 +175,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.40.1** (the avatar medallion is bigger with a
-     thinner gold border, per explicit follow-up feedback right after
-     v0.40.0 shipped — see the Avatar selection bullet under Tech stack
-     and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.41.0** (a Leaderboard — All-Time/Weekly/Monthly
+     gold earned, refreshed hourly server-side — reachable from the menu;
+     see the Leaderboard bullet under Tech stack and
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -970,6 +970,95 @@ These apply to every change made in this repo, however small:
     `NotFoundRestException` above (surfaced honestly, not silently) —
     expected, not a regression, until the script is applied. Already
     run and confirmed working as of v0.39.1.
+  - **Leaderboard (v0.41.0)** — three ranked boards (All-Time / Weekly /
+    Monthly gold earned), reachable from the menu as "Leaderboard" (no
+    sign art yet — falls back to `FloatingMenu`'s plain-`Surface`
+    treatment, same as every section added before its own art exists).
+    Built from an explicit 3-question design pass: ranked by
+    `GameState.lifetimeGoldEarned` deltas over each window (the user's own
+    answer, plus the exact reset times — "Monthly resets the last day of
+    every month at 11:59pm EST. Weekly resets every Sunday night at
+    11:59pm EST. The rankings update once every hour"); guests excluded
+    entirely (only players with a `profiles` username ever appear); the
+    screen shows a top-50 list plus the current player's own rank pinned
+    below it if they're outside that top 50.
+    **Rankings are computed server-side, once an hour — never live, and
+    never by the client.** `SQL/004_create_leaderboards.sql` (run once,
+    same manual-dashboard-script category as `001`/`003`) creates:
+    - `leaderboard_baselines(user_id, period, period_start, baseline_gold)`
+      — each player's `lifetime_gold_earned` as of the start of the
+      *current* week/month, so "earned this period" is just current value
+      minus this baseline. A row only rolls over once the stored
+      `period_start` is older than the real current period's start
+      (`on conflict ... do update ... where period_start < excluded.period_start`)
+      — a player who creates their account mid-period simply starts
+      counting from whenever they were first observed, not retroactively
+      to the period's actual boundary. No client-facing RLS policy at all
+      — only `refresh_leaderboards()` ever touches this table.
+    - `leaderboard_rankings(period, user_id, username, gold_earned, rank,
+      computed_at)` — what the app actually reads (`order by rank limit
+      50`, publicly readable via one `select using (true)` policy, same
+      shape as `profiles`'s own public-read policy). `period` is one of
+      `all_time`/`weekly`/`monthly`; `all_time` needs no baseline since
+      it's `lifetime_gold_earned` itself.
+    - `refresh_leaderboards()` — a `SECURITY DEFINER` function (so it can
+      read every player's `cloud_saves` row despite its own-row-only RLS —
+      only this function, owned by postgres and never exposed to
+      clients, needs that access) that rolls over baselines where due,
+      then rebuilds all three `leaderboard_rankings` sets from scratch via
+      `row_number() over (order by ... desc)`, joined against `profiles`
+      (an inner join — this is the actual mechanism that excludes guests,
+      since a guest has no `profiles` row at all). Scheduled hourly via
+      **pg_cron** (`cron.schedule('refresh-leaderboards', '0 * * * *',
+      ...)`) — the script unschedules any existing job of the same name
+      first so re-running it doesn't stack duplicates, and also runs the
+      function once immediately so the boards aren't empty until the
+      first scheduled tick. **Needs the pg_cron extension enabled** — the
+      script's own `create extension if not exists pg_cron` handles this
+      on most Supabase projects; if it errors, enable "pg_cron" via
+      Dashboard > Database > Extensions first, then re-run the script.
+    `domain/model/Leaderboard.kt` (`LeaderboardPeriod` enum —
+    `wireName`/`label` pairs matching the SQL `period` values —
+    `LeaderboardEntry(rank, username, goldEarned, isCurrentUser)`),
+    `domain/repository/LeaderboardRepository.kt` (`fetchTop`/
+    `fetchCurrentUserEntry`), `data/remote/SupabaseLeaderboardRepository.kt`
+    (plain `.from("leaderboard_rankings").select { filter {...}; order("rank",
+    Order.ASCENDING); limit(...) }`, same Postgrest-kt DSL
+    `SupabaseAuthRepository` already established — `fetchTop` marks
+    `isCurrentUser` by comparing each row's `user_id` against the live
+    session's own id, no separate flag needed from the server) — bound in
+    `SupabaseModule.kt`'s existing `SupabaseRepositoryModule`.
+    `GameViewModel.loadLeaderboard(period)` fetches both the top list and
+    the player's own entry together; a guest short-circuits with an empty
+    list and no network call at all, same "nothing to fetch" shortcut
+    `refreshUsernameState` already uses. `ui/leaderboard/LeaderboardContent.kt`
+    is the section's real content — a `LeaderboardTabRow` (same
+    `CutCornerShape` tab-button look as `ShopContent`'s `ShopTabRow`/
+    `UpgradesContent`'s `UpgradeTabButton`, duplicated per this project's
+    established per-file-duplication convention) over a `LazyColumn` of
+    `LeaderboardRow`s (rank, username, gold earned via `GoldFormat`,
+    highlighted gold when `isCurrentUser`); a guest sees the same board
+    everyone else does (never hidden outright) plus a `GuestNoteCard`
+    explaining they won't see themselves in it, matching `ShopContent`'s
+    "look, don't touch" treatment for its own guest-gated IAP section.
+    `MainActivity`'s `LaunchedEffect(openSection)` calls `loadLeaderboard()`
+    the moment the section opens, same pattern as `markStewardOpportunitiesSeen`;
+    switching tabs calls the same method with the new period.
+    **Verified live on-device**: a guest correctly sees the tab row, the
+    `GuestNoteCard`, and "No one's on this board yet" with no network call
+    made at all (confirmed via Logcat); a temporarily-forced signed-in
+    session (`_userEmail.value` overridden, since testing the real
+    signed-in path needs an actual account) correctly attempted the real
+    network call and surfaced "Couldn't load the leaderboard — try again
+    shortly." once the request failed — Logcat confirmed the *reason* was
+    exactly `NotFoundRestException: Could not find the table
+    'public.leaderboard_rankings' in the schema cache` (expected, since
+    `SQL/004_create_leaderboards.sql` hadn't been run against this
+    project yet) with the generated request URL matching exactly what was
+    intended (`leaderboard_rankings?period=eq.weekly&order=rank.asc.nullslast&limit=50`),
+    confirming the query itself is correct and only the SQL script is
+    outstanding. Full end-to-end verification (a real account actually
+    appearing on a real board) is pending the user running that script.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,
@@ -2429,12 +2518,13 @@ we'll pin these down as we build each system.
   idea — the user's actual follow-up request was nine named discrete
   multiplier tiers plus flat-rate consumables instead, deliberately not
   mirroring the Gold/Gem phase/tier-jump curve.
-- Leaderboard scope (global hoard value? fastest Level Up? per-lair
-  records?) — still undecided, but the identity piece it needs is now
-  built: a `public.profiles` table holds each signed-in player's chosen
-  username (v0.39.0, prompted right after registration — see the
-  `UsernamePromptDialog` bullet under Tech stack). No leaderboard
-  screen/query exists yet, just the username itself.
+- **Leaderboard — built as of v0.41.0**: three boards (All-Time / Weekly /
+  Monthly gold earned), reachable from the menu. See the Leaderboard
+  bullet under Tech stack for the full design; `SQL/004_create_leaderboards.sql`
+  must be run once (and needs the pg_cron extension) before any of it
+  actually populates. Not yet decided: any *other* leaderboard metric
+  (net worth, fastest Level Up, per-lair records) — this only covers
+  gold earned.
 - Target device scope (phone-only vs. tablet/landscape support)
 - Cloud sync now happens on launch, every 5 minutes, on sign-up/sign-in, and
   via a manual "Sync Now" button (see the Account/sync bullet under Tech

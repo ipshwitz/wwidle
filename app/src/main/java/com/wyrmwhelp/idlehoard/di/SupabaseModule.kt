@@ -3,8 +3,10 @@ package com.wyrmwhelp.idlehoard.di
 import com.wyrmwhelp.idlehoard.BuildConfig
 import com.wyrmwhelp.idlehoard.data.remote.SupabaseAuthRepository
 import com.wyrmwhelp.idlehoard.data.remote.SupabaseCloudSaveRepository
+import com.wyrmwhelp.idlehoard.data.remote.SupabaseLeaderboardRepository
 import com.wyrmwhelp.idlehoard.domain.repository.AuthRepository
 import com.wyrmwhelp.idlehoard.domain.repository.CloudSaveRepository
+import com.wyrmwhelp.idlehoard.domain.repository.LeaderboardRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -42,4 +44,8 @@ abstract class SupabaseRepositoryModule {
     @Binds
     @Singleton
     abstract fun bindCloudSaveRepository(impl: SupabaseCloudSaveRepository): CloudSaveRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLeaderboardRepository(impl: SupabaseLeaderboardRepository): LeaderboardRepository
 }

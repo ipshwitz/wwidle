@@ -32,6 +32,9 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 import com.wyrmwhelp.idlehoard.domain.repository.AuthRepository
 import com.wyrmwhelp.idlehoard.domain.repository.CloudSaveRepository
 import com.wyrmwhelp.idlehoard.domain.repository.GameRepository
+import com.wyrmwhelp.idlehoard.domain.repository.LeaderboardRepository
+import com.wyrmwhelp.idlehoard.domain.model.LeaderboardEntry
+import com.wyrmwhelp.idlehoard.domain.model.LeaderboardPeriod
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.exceptions.RestException
 import java.time.Instant
@@ -64,6 +67,7 @@ class GameViewModel @Inject constructor(
     private val gameRepository: GameRepository,
     private val authRepository: AuthRepository,
     private val cloudSaveRepository: CloudSaveRepository,
+    private val leaderboardRepository: LeaderboardRepository,
     private val adManager: AdManager,
     private val billingManager: BillingManager,
 ) : ViewModel() {
@@ -164,6 +168,59 @@ class GameViewModel @Inject constructor(
 
     private val _usernameMessage = MutableStateFlow<String?>(null)
     val usernameMessage: StateFlow<String?> = _usernameMessage.asStateFlow()
+
+    // The Leaderboard menu section's state — see `loadLeaderboard`. Guests
+    // are excluded from the boards entirely (only players with a `profiles`
+    // username ever appear — see SQL/004_create_leaderboards.sql), but can
+    // still view them; there's just never a [currentUserLeaderboardEntry]
+    // for one. Rankings are precomputed hourly server-side, not live, so
+    // this is a plain fetch-on-open, not something the tick loop touches.
+    private val _leaderboardPeriod = MutableStateFlow(LeaderboardPeriod.WEEKLY)
+    val leaderboardPeriod: StateFlow<LeaderboardPeriod> = _leaderboardPeriod.asStateFlow()
+
+    private val _leaderboardEntries = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
+    val leaderboardEntries: StateFlow<List<LeaderboardEntry>> = _leaderboardEntries.asStateFlow()
+
+    private val _currentUserLeaderboardEntry = MutableStateFlow<LeaderboardEntry?>(null)
+    val currentUserLeaderboardEntry: StateFlow<LeaderboardEntry?> = _currentUserLeaderboardEntry.asStateFlow()
+
+    private val _isLeaderboardLoading = MutableStateFlow(false)
+    val isLeaderboardLoading: StateFlow<Boolean> = _isLeaderboardLoading.asStateFlow()
+
+    private val _leaderboardError = MutableStateFlow<String?>(null)
+    val leaderboardError: StateFlow<String?> = _leaderboardError.asStateFlow()
+
+    /**
+     * Fetches [period]'s top entries plus the current player's own (if
+     * signed in) — called once when the Leaderboard section opens
+     * (`MainActivity`'s `LaunchedEffect(openSection)`) and again on every
+     * tab switch. A guest gets an empty list with no network call at all,
+     * same "nothing to fetch" shortcut `refreshUsernameState` uses.
+     */
+    fun loadLeaderboard(period: LeaderboardPeriod = _leaderboardPeriod.value) {
+        _leaderboardPeriod.value = period
+        if (_userEmail.value == null) {
+            _leaderboardEntries.value = emptyList()
+            _currentUserLeaderboardEntry.value = null
+            return
+        }
+        viewModelScope.launch {
+            _isLeaderboardLoading.value = true
+            _leaderboardError.value = null
+            runCatching {
+                leaderboardRepository.fetchTop(period) to leaderboardRepository.fetchCurrentUserEntry(period)
+            }
+                .onSuccess { (top, own) ->
+                    _leaderboardEntries.value = top
+                    _currentUserLeaderboardEntry.value = own
+                }
+                .onFailure { e ->
+                    Log.w(TAG, "Loading the leaderboard failed", e)
+                    _leaderboardError.value = "Couldn't load the leaderboard — try again shortly."
+                }
+            _isLeaderboardLoading.value = false
+        }
+    }
 
     init {
         viewModelScope.launch {

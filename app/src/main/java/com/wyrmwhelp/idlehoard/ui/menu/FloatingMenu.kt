@@ -48,6 +48,7 @@ val floatingMenuItems: List<MenuItem> = listOf(
     MenuItem("Upgrades", R.drawable.menu_upgrades),
     MenuItem("Stewards", R.drawable.menu_stewards),
     MenuItem("Level Up", R.drawable.menu_level_up),
+    MenuItem("Leaderboard"), // no sign art yet — falls back to MenuItemPlank's plain Surface
     MenuItem("Shop", R.drawable.menu_shop),
     MenuItem("Settings", R.drawable.menu_settings),
 )

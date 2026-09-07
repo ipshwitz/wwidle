@@ -37,6 +37,7 @@ import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
 import com.wyrmwhelp.idlehoard.ui.helpsocial.HelpSocialContent
+import com.wyrmwhelp.idlehoard.ui.leaderboard.LeaderboardContent
 import com.wyrmwhelp.idlehoard.ui.levelup.LevelUpContent
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
 import com.wyrmwhelp.idlehoard.ui.settings.SettingsContent
@@ -92,6 +93,11 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     val platinumPurchasePrices by gameViewModel.platinumPurchasePrices.collectAsStateWithLifecycle()
     val platinumPurchaseMessage by gameViewModel.platinumPurchaseMessage.collectAsStateWithLifecycle()
     val levelUpReward by gameViewModel.levelUpReward.collectAsStateWithLifecycle()
+    val leaderboardPeriod by gameViewModel.leaderboardPeriod.collectAsStateWithLifecycle()
+    val leaderboardEntries by gameViewModel.leaderboardEntries.collectAsStateWithLifecycle()
+    val currentUserLeaderboardEntry by gameViewModel.currentUserLeaderboardEntry.collectAsStateWithLifecycle()
+    val isLeaderboardLoading by gameViewModel.isLeaderboardLoading.collectAsStateWithLifecycle()
+    val leaderboardError by gameViewModel.leaderboardError.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     BackHandler(enabled = openSection != null) { openSection = null }
@@ -114,6 +120,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
         // see `FloatingMenu`'s `itemsWithNewBadge` doc.
         if (openSection == "Stewards") gameViewModel.markStewardOpportunitiesSeen()
         if (openSection == "Upgrades") gameViewModel.markUpgradeOpportunitiesSeen()
+        if (openSection == "Leaderboard") gameViewModel.loadLeaderboard()
     }
 
     val itemsWithNewBadge = remember(gameState) {
@@ -193,6 +200,19 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             onBuyGpLairUpgrade = gameViewModel::purchaseGpLairUpgrade,
                             onBuyGpEverythingUpgrade = gameViewModel::purchaseGpEverythingUpgrade,
                             onBuyGemEfficiencyUpgrade = gameViewModel::purchaseGemEfficiencyUpgrade,
+                        )
+                    }
+                }
+                "Leaderboard" -> {
+                    {
+                        LeaderboardContent(
+                            isSignedIn = userEmail != null,
+                            period = leaderboardPeriod,
+                            entries = leaderboardEntries,
+                            currentUserEntry = currentUserLeaderboardEntry,
+                            isLoading = isLeaderboardLoading,
+                            errorMessage = leaderboardError,
+                            onSelectPeriod = gameViewModel::loadLeaderboard,
                         )
                     }
                 }
