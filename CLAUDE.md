@@ -116,8 +116,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.34.1** (the ad-watch popup now fronts itself
-     and each bonus option with the `tv.png` art — see the
+   - Current version: **0.34.2** (the ad-watch popup's `tv.png` art is
+     bigger and shows just once at the top now, not per option — see the
      `QuickAdBoostButton` bullet under Tech stack and
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
@@ -833,7 +833,8 @@ These apply to every change made in this repo, however small:
     an empty-list default so an older cloud save without this field still
     decodes.
   - **Quick-access ad-watch popup (v0.30.0, redesigned into a two-option
-    popup in v0.34.0, fronted with `tv.png` art in v0.34.1)** — a
+    popup in v0.34.0, fronted with `tv.png` art in v0.34.1, tuned to a
+    single larger TV in v0.34.2)** — a
     persistent button fixed in the main
     `GameScreen`'s bottom-right corner, per the original explicit
     request: players shouldn't have to "hunt" for an ad-watch reward.
@@ -862,15 +863,17 @@ These apply to every change made in this repo, however small:
     button) with its own dismissible `AdBoostMessage` underneath it (same
     "✕" affordance used throughout the app) — the two options never share
     state, so watching one never affects the other's cooldown or message.
-    **The popup itself is fronted with `tv.png`** (v0.34.1, per explicit
-    request) — once large (96.dp) above the "Watch an Ad" title, and
-    once more, smaller (48.dp), on each individual `AdBoostOptionRow` —
-    the same "scrying TV" art `WelcomeBackDialog` already uses for its
-    own ad prompt, establishing it as this app's consistent motif for
-    "you're about to watch a video ad" wherever that happens, distinct
-    from `media_play.png` which stays specifically the main screen's own
-    trigger-button icon (the thing you tap to *open* this popup, not what
-    fronts the reward once you're in it).
+    **The popup itself is fronted with `tv.png`** (v0.34.1, tuned in
+    v0.34.2) — the same "scrying TV" art `WelcomeBackDialog` already uses
+    for its own ad prompt, shown once, large (140.dp — v0.34.1 first
+    tried it smaller at 96.dp plus a second, smaller copy on each
+    individual `AdBoostOptionRow`, but that read as cluttered; explicit
+    follow-up feedback was to keep it to one bigger TV at the top and
+    drop it from both rows entirely, which is what shipped in v0.34.2)
+    above the "Watch an Ad" title. `media_play.png` stays specifically
+    the main screen's own trigger-button icon (the thing you tap to
+    *open* this popup), distinct from the TV motif used once you're
+    actually looking at the ad-watch choices themselves.
     `GameScreen.kt` wraps its `AppBackground`/`Scaffold` content in an
     outer `Box` so this button (and the popup it opens) can be aligned
     `BottomEnd` as a sibling overlay, matching how

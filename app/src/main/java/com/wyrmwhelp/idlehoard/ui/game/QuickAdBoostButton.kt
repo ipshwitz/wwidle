@@ -141,12 +141,11 @@ fun QuickAdBoostButton(
  * The popup itself — same parchment-scroll `Dialog` chrome as
  * `WelcomeBackDialog`/`MilestoneReachedDialog` (plain `Dialog`, not
  * `AlertDialog`, `usePlatformDefaultWidth = false`), with one
- * [AdBoostOptionRow] per ad type stacked in a `Column`. Uses the same
- * `tv.png` "scrying TV" art `WelcomeBackDialog` fronts its own ad prompt
- * with, both here in the header and once more per [AdBoostOptionRow] —
- * `media_play.png` stays the main screen's own trigger-button icon, but
- * once inside a screen that's actually about watching a video ad, the TV
- * is this app's established motif for that, not the play button.
+ * [AdBoostOptionRow] per ad type stacked in a `Column`. Fronted once, at
+ * the top, with the same `tv.png` "scrying TV" art `WelcomeBackDialog`
+ * uses for its own ad prompt — `media_play.png` stays the main screen's
+ * own trigger-button icon; the two [AdBoostOptionRow]s below stay
+ * text-only rather than repeating the TV a second and third time.
  */
 @Composable
 private fun AdBoostPopup(
@@ -180,7 +179,7 @@ private fun AdBoostPopup(
             Image(
                 painter = painterResource(R.drawable.tv),
                 contentDescription = null,
-                modifier = Modifier.size(96.dp),
+                modifier = Modifier.size(140.dp),
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -252,12 +251,6 @@ private fun AdBoostOptionRow(
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Image(
-            painter = painterResource(R.drawable.tv),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-        )
-        Spacer(Modifier.height(6.dp))
         Text(
             text = title,
             fontWeight = FontWeight.Bold,

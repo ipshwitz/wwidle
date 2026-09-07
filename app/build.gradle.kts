@@ -27,8 +27,8 @@ android {
         applicationId = "com.wyrmwhelp.idlehoard"
         minSdk = 26
         targetSdk = 36
-        versionCode = 81
-        versionName = "0.34.1"
+        versionCode = 82
+        versionName = "0.34.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

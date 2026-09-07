@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.34.2] - 2026-09-07 12:35 AM EDT
+
+- Simplified the ad-watch popup's look: the TV art is bigger and now
+  shows just once at the top instead of also repeating on each of the
+  two bonus options.
+
 ## [0.34.1] - 2026-09-07 12:25 AM EDT
 
 - Added the magical TV art to the ad-watch popup — once at the top, and
