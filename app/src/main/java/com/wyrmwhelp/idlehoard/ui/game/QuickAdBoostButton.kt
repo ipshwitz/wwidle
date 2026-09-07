@@ -39,12 +39,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.wyrmwhelp.idlehoard.R
+import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
 import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_DURATION
 import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_MAX_SLOTS
 import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MAX_SLOTS
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
+import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
@@ -78,6 +80,27 @@ import java.time.Duration
  * all is available, same as before, but stays tappable regardless so a tap
  * during a dry spell still opens the popup and shows each option's own
  * cooldown instead of doing nothing.
+ *
+ * **Live "active" countdown, not a static message (bug fix, v0.38.1).**
+ * Each option used to show a one-shot message like "2x Speed active for
+ * 4h!" the instant an ad finished — always naming that ad's own fixed
+ * duration, never the *actual* remaining time once a second, third, or
+ * fourth video stacked on top. [activeTemporaryBoosts]
+ * (`GameState.activeTemporaryBoostsRemaining()`, the same source
+ * `ShopContent`'s own "Active" card already reads) is threaded down to
+ * each [AdBoostOptionRow], filtered to that row's own
+ * [TemporaryBoostCategory], and summed into one "Active — Xh Ym left
+ * total" line — recomputed every tick alongside the rest of `GameState`,
+ * so it actually climbs with every video watched and counts back down
+ * live, rather than freezing at whatever it said the moment an ad
+ * finished. Deliberately a single *combined* total rather than one line
+ * per stacked instance (each really does expire independently, at its
+ * own watch-time-plus-duration) — per explicit direction, since "watch 4
+ * videos, get a total of Xh" reads far more clearly than several
+ * near-identical countdown lines. The post-watch message itself no
+ * longer claims a duration ("Reward earned! ... stacked in — see the
+ * live countdown below.") since this live total is now the source of
+ * truth for "how much time is left."
  */
 @Composable
 fun QuickAdBoostButton(
@@ -91,6 +114,7 @@ fun QuickAdBoostButton(
     incomeMessage: String?,
     onWatchIncomeAd: () -> Unit,
     onDismissIncomeMessage: () -> Unit,
+    activeTemporaryBoosts: List<Pair<ActiveTemporaryBoost, Duration>>,
     modifier: Modifier = Modifier,
     colors: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -131,6 +155,7 @@ fun QuickAdBoostButton(
             incomeMessage = incomeMessage,
             onWatchIncomeAd = onWatchIncomeAd,
             onDismissIncomeMessage = onDismissIncomeMessage,
+            activeTemporaryBoosts = activeTemporaryBoosts,
             onDismiss = { showPopup = false },
             colors = colors,
         )
@@ -159,6 +184,7 @@ private fun AdBoostPopup(
     incomeMessage: String?,
     onWatchIncomeAd: () -> Unit,
     onDismissIncomeMessage: () -> Unit,
+    activeTemporaryBoosts: List<Pair<ActiveTemporaryBoost, Duration>>,
     onDismiss: () -> Unit,
     colors: FantasyPalette,
 ) {
@@ -202,6 +228,9 @@ private fun AdBoostPopup(
                 description = "Stacks with itself — up to $SPEED_BOOST_AD_MAX_SLOTS at once " +
                     "($speedSlots/$SPEED_BOOST_AD_MAX_SLOTS available now, each slot free again 24h after its own watch).",
                 cooldownRemaining = speedCooldownRemaining,
+                activeDurations = activeTemporaryBoosts.mapNotNull { (boost, remaining) ->
+                    remaining.takeIf { boost.category == TemporaryBoostCategory.SPEED }
+                },
                 onWatchAd = onWatchSpeedAd,
                 colors = colors,
             )
@@ -217,6 +246,9 @@ private fun AdBoostPopup(
                 description = "Stacks with itself — up to $INCOME_BOOST_AD_MAX_SLOTS at once " +
                     "($incomeSlots/$INCOME_BOOST_AD_MAX_SLOTS available now, each slot free again 24h after its own watch).",
                 cooldownRemaining = incomeCooldownRemaining,
+                activeDurations = activeTemporaryBoosts.mapNotNull { (boost, remaining) ->
+                    remaining.takeIf { boost.category == TemporaryBoostCategory.PROFIT }
+                },
                 onWatchAd = onWatchIncomeAd,
                 colors = colors,
             )
@@ -231,12 +263,19 @@ private fun AdBoostPopup(
     }
 }
 
-/** One ad-watch option's card — title, stacking description, and a Watch/cooldown button. */
+/**
+ * One ad-watch option's card — title, stacking description, a live
+ * combined "time left" total summed across every currently-running
+ * stacked instance ([activeDurations] — see this file's class doc for why
+ * this replaced a static "active for Xh!" message), and a Watch/cooldown
+ * button.
+ */
 @Composable
 private fun AdBoostOptionRow(
     title: String,
     description: String,
     cooldownRemaining: Duration,
+    activeDurations: List<Duration>,
     onWatchAd: () -> Unit,
     colors: FantasyPalette,
     modifier: Modifier = Modifier,
@@ -262,6 +301,16 @@ private fun AdBoostOptionRow(
             style = MaterialTheme.typography.bodySmall,
             color = colors.ink.copy(alpha = 0.75f),
         )
+        if (activeDurations.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            val totalRemaining = activeDurations.fold(Duration.ZERO) { acc, remaining -> acc.plus(remaining) }
+            Text(
+                text = "Active — ${DurationFormat.format(totalRemaining)} left total",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = colors.goldDeep,
+            )
+        }
         Spacer(Modifier.height(10.dp))
         WoodenButton(
             text = if (available) "Watch" else "In ${DurationFormat.format(cooldownRemaining)}",

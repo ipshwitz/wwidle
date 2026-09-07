@@ -15,9 +15,7 @@ import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.MilestoneAnnouncement
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
-import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
-import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_DURATION
 import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
 import com.wyrmwhelp.idlehoard.domain.model.milestonesCrossed
@@ -499,7 +497,7 @@ class GameViewModel @Inject constructor(
             activity = activity,
             onRewardEarned = {
                 _speedBoostAdMessage.value = if (gameEngine.grantSpeedBoostAdReward()) {
-                    "${GoldFormat.format(SPEED_BOOST_AD_MULTIPLIER)}x Speed active for ${DurationFormat.format(SPEED_BOOST_AD_DURATION)}!"
+                    "Reward earned! ${GoldFormat.format(SPEED_BOOST_AD_MULTIPLIER)}x Speed stacked in — see the live countdown below."
                 } else {
                     "Come back later to watch again."
                 }
@@ -532,7 +530,7 @@ class GameViewModel @Inject constructor(
             activity = activity,
             onRewardEarned = {
                 _incomeBoostAdMessage.value = if (gameEngine.grantIncomeBoostAdReward()) {
-                    "${GoldFormat.format(INCOME_BOOST_AD_MULTIPLIER)}x Income active for ${DurationFormat.format(INCOME_BOOST_AD_DURATION)}!"
+                    "Reward earned! ${GoldFormat.format(INCOME_BOOST_AD_MULTIPLIER)}x Income stacked in — see the live countdown below."
                 } else {
                     "Come back later to watch again."
                 }

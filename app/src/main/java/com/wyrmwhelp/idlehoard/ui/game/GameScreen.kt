@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
+import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
 import com.wyrmwhelp.idlehoard.domain.model.availableSpeedBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.availableIncomeBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
@@ -137,6 +138,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                 (context as? Activity)?.let { viewModel.watchAdForIncomeBoost(it) }
             },
             onDismissIncomeMessage = viewModel::dismissIncomeBoostAdMessage,
+            activeTemporaryBoosts = state.activeTemporaryBoostsRemaining(),
             // bottom = 24.dp matches FloatingMenu's chest toggle exactly (same
             // 72.dp touch target, same bottom inset) so the two sit at the same
             // height rather than one looking higher/lower than the other.

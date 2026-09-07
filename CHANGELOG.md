@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.38.1] - 2026-09-07 2:51 PM EDT
+
+- Fixed a bug in the "Watch an Ad" popup's Speed and Income bonuses: the
+  message after watching always said a fixed "active for 4h!" (or "2h!")
+  no matter how many videos you'd stacked. It now shows one live,
+  combined "time left" total that grows with every video you watch and
+  counts back down in real time, instead of a number that never changes.
+
 ## [0.38.0] - 2026-09-07 10:16 AM EDT
 
 - The loading screen now shows the app's version number ("Version

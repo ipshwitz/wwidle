@@ -164,11 +164,11 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.38.0** (`LoadingScreen` now shows "Version
-     X.Y.Z" under its "Loading your hoard…" text, and this bump
-     deliberately forces a local-save reset for fresh testing — see the
-     `LoadingScreen` bullet under Tech stack, `WyrmWhelpDatabase`'s own
-     doc comment, and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.38.1** (the ad-boost popup's post-watch message
+     no longer claims a fixed duration that never updates — it now shows
+     a real, live, per-instance countdown for every stacked video watch —
+     see the `QuickAdBoostButton` bullet under Tech stack and
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -964,6 +964,34 @@ These apply to every change made in this repo, however small:
     `BottomEnd` as a sibling overlay, matching how
     `FloatingMenu`/`SectionOverlayCard` already float over the game in
     `MainActivity`.
+    **Live combined "Active" countdown, not a static message (bug fix,
+    v0.38.1)** — the post-watch `AdBoostMessage` used to read "2x Speed
+    active for 4h!" (or "...Income active for 2h!"), always naming that
+    one ad's own fixed duration no matter how many videos were actually
+    stacked — a user-reported bug, confirmed live: after watching all 4
+    Income slots back to back, the message still just said "2h!" instead
+    of reflecting the real combined state. Fixed by threading
+    `GameState.activeTemporaryBoostsRemaining()` — the same source
+    `ShopContent`'s "Active" card already reads — down through
+    `QuickAdBoostButton` → `AdBoostPopup` → `AdBoostOptionRow`, filtered
+    per row by `TemporaryBoostCategory` (`SPEED` for the Speed row,
+    `PROFIT` for the Income row) and **summed into one "Active — Xh Ym
+    left total" line** (an early pass showed one line per stacked
+    instance instead — technically accurate, since each watch really
+    does expire independently, but per explicit follow-up direction a
+    single combined total reads far more clearly than several
+    near-identical countdown lines), recomputed every tick so it
+    actually climbs with every video watched and counts back down live,
+    rather than freezing at whatever it said when the ad finished. The
+    post-watch message itself was reworded to stop claiming a duration
+    ("Reward earned! ... stacked in — see the live countdown below.")
+    now that the live total is the source of truth. Verified live
+    on-device via a direct Room DB edit seeding 3 stacked Speed boosts
+    and 2 stacked Income boosts with different expiry times: the popup
+    correctly showed one combined "Active — 6h 56m left total" line
+    under Speed (the sum of ~55m/2h25m/3h55m) and one "Active — 1h 27m
+    left total" under Income — confirmed both totals ticking down
+    correctly over a real ~65-second wait.
   - **Second ad-watch reward: temporary Income boost (v0.34.0)** — a
     2x Income (Profit) boost for 2 hours, added alongside the existing
     2x-Speed-for-4h reward specifically so `QuickAdBoostButton`'s popup
