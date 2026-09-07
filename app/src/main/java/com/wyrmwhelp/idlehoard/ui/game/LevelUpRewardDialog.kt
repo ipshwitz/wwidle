@@ -34,12 +34,14 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 /**
  * The pop-up shown right after a successful Level Up — same cozy-fantasy
  * chrome as [WelcomeBackDialog]/[MilestoneReachedDialog] (plain `Dialog`,
- * parchment-gradient card with a carved wood border, `open_chest` art, a
- * `WoodenButton` to dismiss), reused here rather than inventing a third
- * dialog look. [GlowingGoldText]'s glow is overridden to
- * [FantasyPalette.gemBright]/[FantasyPalette.gemDeep] (amethyst, not gold)
- * since this is celebrating Gems, not Gold Pieces — the one visual
- * difference from the other two reward dialogs.
+ * parchment-gradient card with a carved wood border, a `WoodenButton` to
+ * dismiss), reused here rather than inventing a third dialog look.
+ * [GlowingGoldText]'s glow is overridden to [FantasyPalette.gemBright]/
+ * [FantasyPalette.gemDeep] (amethyst, not gold) since this is celebrating
+ * Gems, not Gold Pieces. Uses `gems.png` (v0.36.0) instead of the
+ * `open_chest` art the other two reward dialogs share — this one's reward
+ * literally *is* Gems, so the real Gem art reads better than the generic
+ * chest.
  */
 @Composable
 fun LevelUpRewardDialog(
@@ -62,7 +64,7 @@ fun LevelUpRewardDialog(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Image(
-                painter = painterResource(R.drawable.open_chest),
+                painter = painterResource(R.drawable.gems),
                 contentDescription = null,
                 modifier = Modifier.size(72.dp),
             )

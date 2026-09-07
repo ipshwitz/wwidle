@@ -19,6 +19,7 @@ import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_DURATION
 import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.canWatchPlatinumAd
 import com.wyrmwhelp.idlehoard.domain.model.canWatchSpeedBoostAd
+import com.wyrmwhelp.idlehoard.domain.model.canLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.canWatchIncomeBoostAd
 import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
@@ -454,19 +455,20 @@ class GameEngine @Inject constructor() {
      * naming them below (a fresh [GameState]'s own defaults are 0) — and
      * [GameState.gemEfficiencyLevel] (`GemUpgrades.kt`), for the same reason
      * Gems themselves reset. Returns the size of the new Gem batch; if
-     * [GameState.lifetimeGoldEarned] hasn't grown enough since the last
-     * Level Up to clear the applicable minimum, nothing is reset and this
-     * returns 0 (checked and applied atomically inside the same [_state]
-     * update, so two rapid calls can't both reset off a stale "earns
-     * enough" read).
+     * `current.canLevelUp()` is false — either the applicable minimum
+     * hasn't been cleared, or (see that function's doc) the resulting
+     * batch wouldn't beat the Gems already held — nothing is reset and
+     * this returns 0 (checked and applied atomically inside the same
+     * [_state] update, so two rapid calls can't both reset off a stale
+     * "can Level Up" read).
      */
     fun performLevelUp(): Long {
         var gemsEarned = 0L
         _state.update { current ->
-            gemsEarned = current.gemsEarnedFromLevelUp()
-            if (gemsEarned <= 0L) {
+            if (!current.canLevelUp()) {
                 current
             } else {
+                gemsEarned = current.gemsEarnedFromLevelUp()
                 GameState(
                     platinumPieces = current.platinumPieces,
                     gems = gemsEarned,

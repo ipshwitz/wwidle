@@ -3,6 +3,21 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.36.0] - 2026-09-07 9:29 AM EDT
+
+- Added the gems art to the Level Up screen, next to your Gems total and a
+  new "Currently earning" line that shows, live, how many Gems you'd get
+  if you Leveled Up right now — it barely moves early on, but climbs
+  faster the more Level Ups you've done.
+- Fixed a bug where you could tap Level Up over and over with no new
+  progress in between, each time wiping your current Gold and lairs for a
+  Gems batch no bigger than what you already had. Leveling up again now
+  only unlocks once you've genuinely earned enough more to beat what
+  you're already holding.
+- A successful Level Up now takes you back to the main game screen
+  automatically instead of leaving you sitting on the (now freshly reset)
+  Level Up screen.
+
 ## [0.35.0] - 2026-09-07 1:00 AM EDT
 
 - Added a progress bar to the Level Up screen showing exactly how close

@@ -98,6 +98,13 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   (v0.32.0), an ornate gold star — real transparent background, square
   (754x754) — the "something new to look at" badge on `FloatingMenu`'s
   chest toggle and menu planks; see that bullet under Tech stack.
+  `gems.png` → `drawable-nodpi/gems.png` (v0.36.0), a leather pouch
+  spilling colorful gems — real transparent background, square
+  (754x754) — used on the Level Up screen next to the Gems balance and
+  the new "Currently earning" counter, and by `LevelUpRewardDialog` in
+  place of the generic `open_chest` art the other reward dialogs share
+  (this reward literally *is* Gems); see the `LevelUpContent` bullet
+  under Tech stack.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -116,10 +123,11 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.35.0** (the Level Up screen now shows a linear
-     progress bar toward the next Level Up instead of a bare disabled
-     button — see the `LevelUpContent` bullet under Tech stack and
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.36.0** (the Level Up screen now shows `gems.png`
+     art and a live "Currently earning" counter, and a real
+     `GameState.canLevelUp()` gate stops repeat Level Ups with no new
+     progress from wiping the run for nothing — see the `LevelUpContent`
+     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1768,6 +1776,58 @@ These apply to every change made in this repo, however small:
     minimum (150 raw Gems) correctly hid the bar entirely and switched to
     "Get a fresh batch of 150 Gems, replacing any you're holding now."
     with the button enabled.
+    **Real "eligible" gate + live earning counter + auto-return to the
+    main screen (v0.36.0)**, three explicit follow-up requests after
+    v0.35.0 shipped:
+    - **`GameState.canLevelUp()`** (`domain/model/LevelUp.kt`) —
+      `gemsEarnedFromLevelUp() > gems`, not just `> 0`. Without this, a
+      player who'd already cleared the minimum once could tap Level Up
+      over and over: `lifetimeGoldEarned` doesn't move between rapid
+      taps, so `gemsEarnedFromLevelUp()` kept returning the exact same
+      already-cleared batch forever, and every repeat tap happily wiped
+      the fresh run's Gold/lairs for a Gems batch no bigger than what was
+      already banked — a real bug the user caught by testing, not a
+      hypothetical. `GameEngine.performLevelUp()`'s gate switched from
+      `gemsEarned <= 0L` to `!current.canLevelUp()`; `LevelUpContent`'s
+      local `canLevelUp` does the same (`gemsEarnable > gems`). A repeat
+      Level Up now stays blocked until genuinely new lifetime earnings
+      push the formula's result past what's already held.
+      `LevelUpCard`'s progress-bar target follows suit — once at least
+      one Gem is already banked, the bar tracks toward `gems + 1`
+      (`maxOf(minGemsRequired, gems + 1)`) instead of the flat minimum,
+      so it doesn't render full while the button correctly stays
+      disabled.
+    - **`gems.png` art** (see Assets) replaces the icon-less Gems balance
+      display and `LevelUpRewardDialog`'s `open_chest` art.
+    - **A live "Currently earning" counter** (`EarningCounterCard`) —
+      shows `rawGemsFromLevelUpFormula()` on its own, separate from the
+      Gems-balance card (what's currently *held*) and the progress bar
+      (which only shows while blocked) — per the explicit ask for
+      something that "won't do much in the beginning, but after a
+      handful of level ups, you should see it climbing steadily."
+      Recomposes every tick alongside the rest of the screen's
+      `GameState`-derived params, no polling needed.
+    - **Auto-return to the main screen** — `MainActivity`'s `WyrmWhelpApp`
+      now collects `GameViewModel.levelUpReward` and clears `openSection`
+      the moment it goes non-null (`LaunchedEffect(levelUpReward)`), so a
+      successful Level Up drops the player back onto the main game screen
+      (where `LevelUpRewardDialog` then pops up) instead of leaving them
+      parked on the Level Up section showing its own just-reset state.
+    Verified live on-device via a direct Room DB edit (with the emulator's
+    wifi/data radios disabled first — cloud sync was otherwise overwriting
+    the local edit with the still-unmodified cloud save on launch, the
+    same merge-picks-the-whole-state gotcha noted elsewhere in this file):
+    starting from a real dev save already sitting at exactly the blocked
+    case (`lifetimeGoldEarned` giving 150 raw Gems, `gems` already at 150
+    from an earlier Level Up) correctly showed a disabled button, "150 /
+    151 Gems to Level Up," and "Currently earning: 150 gems" — confirming
+    the bug this was fixed for. Raising `lifetimeGoldEarned` to yield 212
+    raw Gems correctly re-enabled the button ("Get a fresh batch of 212
+    Gems…") and updated the live counter to "212 gems" with the bar
+    hidden. Confirming the Level Up landed on the main game screen (Gold
+    Pieces and every lair reset, Gems at 212) with `LevelUpRewardDialog`
+    showing the new `gems.png` art and "212 Gems" — not left sitting on
+    the Level Up section.
     **Gems currency plumbing**: `GameState.gems: Long` and
     `GameState.totalLevelUps: Int` are a rename of two fields that existed
     since early in the project as an unused prestige scaffold

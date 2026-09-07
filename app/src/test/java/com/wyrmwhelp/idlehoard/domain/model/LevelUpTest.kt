@@ -105,6 +105,38 @@ class LevelUpTest {
     }
 
     @Test
+    fun `canLevelUp is false for a brand-new save below the first minimum`() {
+        val state = GameState(lifetimeGoldEarned = 4_444_444_444_444.0)
+
+        assertEquals(false, state.canLevelUp())
+    }
+
+    @Test
+    fun `canLevelUp is true the first time the minimum is cleared`() {
+        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, gems = 0L, totalLevelUps = 0)
+
+        assertEquals(true, state.canLevelUp())
+    }
+
+    @Test
+    fun `canLevelUp is false immediately after a Level Up with no new lifetime earnings`() {
+        // Same lifetime earnings as the batch already held (150) — repeating
+        // right away would just regrant the identical batch while still
+        // wiping the fresh run's Gold/lairs, so it must stay blocked.
+        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, gems = 150L, totalLevelUps = 1)
+
+        assertEquals(false, state.canLevelUp())
+    }
+
+    @Test
+    fun `canLevelUp is true again once lifetime earnings would grant more than what's already held`() {
+        val state = GameState(lifetimeGoldEarned = 4_000_000_000_000_000.0, gems = 150L, totalLevelUps = 1)
+
+        assertEquals(true, state.canLevelUp())
+        assertEquals(300L, state.gemsEarnedFromLevelUp())
+    }
+
+    @Test
     fun `gemIncomeMultiplier is 1x with no gems`() {
         assertEquals(1.0, gemIncomeMultiplier(0), 0.0001)
     }

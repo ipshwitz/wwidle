@@ -81,9 +81,19 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     val platinumAdMessage by gameViewModel.platinumAdMessage.collectAsStateWithLifecycle()
     val platinumPurchasePrices by gameViewModel.platinumPurchasePrices.collectAsStateWithLifecycle()
     val platinumPurchaseMessage by gameViewModel.platinumPurchaseMessage.collectAsStateWithLifecycle()
+    val levelUpReward by gameViewModel.levelUpReward.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     BackHandler(enabled = openSection != null) { openSection = null }
+
+    // A successful Level Up resets the current run — drop back to the main
+    // game screen (where `GameScreen` pops up `LevelUpRewardDialog` off this
+    // same flow) instead of leaving the player parked on the now-reset Level
+    // Up section. Keyed on the reward itself, not just "non-null", so this
+    // only fires once per Level Up rather than on every recomposition.
+    LaunchedEffect(levelUpReward) {
+        if (levelUpReward != null) openSection = null
+    }
 
     // Play Billing's connection handshake is slow enough to noticeably
     // worsen cold-start time if started eagerly (see `BillingManager`'s

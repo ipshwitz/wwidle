@@ -25,20 +25,27 @@ import kotlin.math.sqrt
  * `GameState.gemsEarnedFromLevelUp()` is `floor(150 * sqrt(lifetimeGoldEarned
  * / 10^15))` — since [GameState.lifetimeGoldEarned] never resets and only
  * ever grows, this number only ever grows too: leveling up can never hand
- * back *fewer* Gems than the player already had, and leveling up twice in a
- * row without any new lifetime earnings in between simply regrants the same
- * size batch (replacing the identical one, so nothing is lost or gained
- * either way) rather than compounding into something bigger.
+ * back *fewer* Gems than the player already had.
  *
  * A minimum batch size blocks the action outright whenever it wouldn't be
  * worth resetting for: [MIN_GEMS_PER_FIRST_LEVEL_UP] (50) for the very
  * first Level Up ([GameState.totalLevelUps] `== 0` — a bigger bar so that
  * milestone is meaningful, not a reset for 1 or 2 Gems), and the smaller
- * [MIN_GEMS_PER_RECURRING_LEVEL_UP] (25) for every one after — in practice
- * this second bar rarely binds once the first has already been cleared,
- * since the batch size only ever grows from there, but it stays in place
- * as a floor regardless. Clearing whichever minimum applies grants the
- * *entire* batch, never just the minimum itself.
+ * [MIN_GEMS_PER_RECURRING_LEVEL_UP] (25) for every one after. Clearing
+ * whichever minimum applies grants the *entire* batch, never just the
+ * minimum itself.
+ *
+ * **[canLevelUp] additionally requires the new batch to beat the one
+ * already held (v0.36.0, a correction to the earlier design above).**
+ * Since `lifetimeGoldEarned` doesn't move between rapid taps,
+ * `gemsEarnedFromLevelUp()` alone would keep returning the same
+ * already-cleared-the-minimum batch forever after the first successful
+ * Level Up — letting a player Level Up over and over with zero new
+ * progress, each tap wiping the current run's Gold and lairs for a Gem
+ * batch no bigger than what they already had. Requiring the fresh batch
+ * to be strictly greater than [GameState.gems] closes that: a repeat
+ * Level Up now only becomes available again once enough *new* lifetime
+ * earnings have pushed the formula's result past what's already banked.
  */
 private const val GEM_FORMULA_COEFFICIENT = 150.0
 private const val LIFETIME_EARNINGS_DIVISOR = 1_000_000_000_000_000.0 // 10^15
@@ -85,6 +92,22 @@ fun GameState.gemsEarnedFromLevelUp(): Long {
     val minimum = minGemsForLevelUp()
     return if (totalGems < minimum) 0L else totalGems
 }
+
+/**
+ * Whether a Level Up is actually allowed right now — not just
+ * [gemsEarnedFromLevelUp] clearing its minimum, but the resulting batch
+ * being *strictly bigger* than [GameState.gems] already held. Without this,
+ * a player who just Leveled Up could immediately Level Up again and again:
+ * [GameState.lifetimeGoldEarned] doesn't change between rapid taps, so
+ * [gemsEarnedFromLevelUp] keeps returning the exact same batch — always
+ * `> 0` once the minimum has been cleared once — which would otherwise let
+ * every repeat tap wipe the current run's Gold and lairs for a Gem batch
+ * that's no bigger than the one already banked. Requiring genuinely new
+ * lifetime earnings since the last Level Up (or, for a fresh save with
+ * `gems == 0`, simply clearing the first-time minimum) closes that gap
+ * while still never blocking a Level Up that would actually pay out more.
+ */
+fun GameState.canLevelUp(): Boolean = gemsEarnedFromLevelUp() > gems
 
 /**
  * The income bonus from [gems] currently held — each Gem is worth a flat

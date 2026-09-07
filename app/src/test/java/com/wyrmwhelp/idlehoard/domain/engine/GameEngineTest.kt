@@ -840,19 +840,44 @@ class GameEngineTest {
     }
 
     @Test
-    fun `performLevelUp grants the same batch again if lifetime earnings haven't grown`() {
-        // Unlike a typical accumulating prestige currency, repeating a
-        // Level Up with no new lifetime earnings isn't blocked — it just
-        // regrants the identical batch (replacing, not adding), so nothing
-        // is gained or lost by doing it again.
+    fun `performLevelUp is blocked on an immediate repeat call with no new lifetime earnings`() {
+        // v0.36.0 correction: a repeat Level Up with no new lifetime
+        // earnings in between used to regrant the identical batch (since
+        // it's never smaller) — but that let a player spam the button and
+        // wipe their fresh Gold/lairs over and over for zero gain. Now it's
+        // blocked outright until the batch would actually beat what's
+        // already held — see `GameState.canLevelUp`.
         engine.loadState(GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, lairs = emptyMap()))
         val firstGemsEarned = engine.performLevelUp()
         assertEquals(150L, firstGemsEarned)
+        assertEquals(1, engine.state.value.totalLevelUps)
 
         val secondGemsEarned = engine.performLevelUp()
 
-        assertEquals(150L, secondGemsEarned)
+        assertEquals(0L, secondGemsEarned)
         assertEquals(150L, engine.state.value.gems)
+        assertEquals(1, engine.state.value.totalLevelUps)
+        // Unchanged from the post-first-Level-Up starting shape (one Kobold
+        // Warren) — the blocked second call must not touch state at all.
+        assertEquals(1, engine.state.value.ownedLair("kobold_warren").count)
+    }
+
+    @Test
+    fun `performLevelUp unblocks again once lifetime earnings push the batch past what's already held`() {
+        engine.loadState(GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0, lairs = emptyMap()))
+        engine.performLevelUp()
+        assertEquals(150L, engine.state.value.gems)
+
+        // Blocked immediately after (no new earnings).
+        assertEquals(0L, engine.performLevelUp())
+
+        // Growing lifetime earnings enough to raise the formula's result
+        // past the 150 already held (150 * sqrt(4) = 300) unblocks it again.
+        engine.loadState(engine.state.value.copy(lifetimeGoldEarned = 4_000_000_000_000_000.0))
+        val gemsEarned = engine.performLevelUp()
+
+        assertEquals(300L, gemsEarned)
+        assertEquals(300L, engine.state.value.gems)
         assertEquals(2, engine.state.value.totalLevelUps)
     }
 

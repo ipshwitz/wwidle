@@ -1,6 +1,7 @@
 package com.wyrmwhelp.idlehoard.ui.levelup
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.GlowingGoldText
@@ -65,8 +69,40 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * [LevelUpCard]'s bar — deliberately a *linear* fill toward the gem
  * minimum (not the underlying gold formula, which is square-root-scaled
  * and would visually crawl in the same discouraging way even while
- * real progress is being made) — hidden once [canLevelUp] is true, since
- * the button itself is the "you're done" signal at that point.
+ * real progress is being made) — hidden once eligible, since the button
+ * itself is the "you're done" signal at that point.
+ *
+ * **Fixes in v0.36.0, per explicit follow-up feedback:**
+ * - **Real "eligible" gate.** `gemsEarnable > 0` alone let a player Level
+ *   Up over and over with no new progress between taps — Gems replace
+ *   rather than accumulate, so a repeat tap right after a Level Up would
+ *   still report the same already-cleared-the-minimum batch and happily
+ *   wipe the fresh run's Gold/lairs for a batch no bigger than what was
+ *   already held. `canLevelUp` here is now `gemsEarnable > gems` (mirrors
+ *   `GameState.canLevelUp()` — see `domain/model/LevelUp.kt`), so a
+ *   repeat Level Up only unlocks again once genuinely new lifetime
+ *   earnings have pushed the formula's result past what's already
+ *   banked. [LevelUpCard]'s progress-bar target follows the same rule:
+ *   once at least one Gem is already held, the bar tracks toward
+ *   `gems + 1` (whichever is larger, that or [minGemsRequired]) instead
+ *   of the flat minimum, so it doesn't render full while the button
+ *   stays disabled.
+ * - **`gems.png` art** (real transparent background, 754x754 — see
+ *   Assets in CLAUDE.md) — used by [GemsBalanceCard] next to the Gems
+ *   total (mirroring `GameHeader`'s `coin.png` treatment) and by the new
+ *   [EarningCounterCard].
+ * - **A dedicated "currently earning" counter** ([EarningCounterCard]) —
+ *   shows [rawGemsProgress] live, separate from the balance card and the
+ *   progress bar (which only appears while blocked): the point is to let
+ *   a player watch this number visibly climb over a session, especially
+ *   once income is high enough (after a handful of Level Ups) that it
+ *   moves noticeably instead of sitting still for a long time.
+ * - **Closing this section on a successful Level Up** is handled by the
+ *   caller, not here — see `MainActivity`'s `WyrmWhelpApp`, which watches
+ *   `GameViewModel.levelUpReward` and clears `openSection` the moment a
+ *   Level Up actually goes through, so the player lands back on the main
+ *   game screen (where [com.wyrmwhelp.idlehoard.ui.game.LevelUpRewardDialog]
+ *   then pops up) instead of staying parked on this now-reset section.
  */
 @Composable
 fun LevelUpContent(
@@ -80,7 +116,14 @@ fun LevelUpContent(
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
     var showConfirm by remember { mutableStateOf(false) }
-    val canLevelUp = gemsEarnable > 0
+    // Must beat what's already held, not just clear the minimum — see this
+    // file's class doc's "Fixes in v0.36.0" paragraph and
+    // `GameState.canLevelUp()` for why gemsEarnable > 0 alone isn't enough.
+    val canLevelUp = gemsEarnable > gems
+    // Once at least one Gem is already banked, the bar should track toward
+    // beating that amount, not the (already-cleared) flat minimum — otherwise
+    // it would render full while the button stays correctly disabled.
+    val progressTarget = maxOf(minGemsRequired, gems + 1)
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -88,11 +131,12 @@ fun LevelUpContent(
     ) {
         item { IntroCard(palette = palette) }
         item { GemsBalanceCard(gems = gems, gemEfficiencyLevel = gemEfficiencyLevel, palette = palette) }
+        item { EarningCounterCard(rawGemsProgress = rawGemsProgress, palette = palette) }
         item {
             LevelUpCard(
                 gemsEarnable = gemsEarnable,
                 rawGemsProgress = rawGemsProgress,
-                minGemsRequired = minGemsRequired,
+                progressTarget = progressTarget,
                 canLevelUp = canLevelUp,
                 onClick = { showConfirm = true },
                 palette = palette,
@@ -157,13 +201,20 @@ private fun IntroCard(palette: FantasyPalette, modifier: Modifier = Modifier) {
 @Composable
 private fun GemsBalanceCard(gems: Long, gemEfficiencyLevel: Int, palette: FantasyPalette, modifier: Modifier = Modifier) {
     ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.gemDeep.copy(alpha = 0.8f)) {
-        GlowingGoldText(
-            text = "${GoldFormat.format(gems.toDouble())} gems",
-            colors = palette,
-            style = MaterialTheme.typography.titleLarge,
-            glowBright = palette.gemBright,
-            glowDeep = palette.gemDeep,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Image(
+                painter = painterResource(R.drawable.gems),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+            )
+            GlowingGoldText(
+                text = "${GoldFormat.format(gems.toDouble())} gems",
+                colors = palette,
+                style = MaterialTheme.typography.titleLarge,
+                glowBright = palette.gemBright,
+                glowDeep = palette.gemDeep,
+            )
+        }
         Spacer(Modifier.height(2.dp))
         val bonusPercent = (gemIncomeMultiplier(gems, gemEfficiencyLevel) - 1.0) * 100.0
         Text(
@@ -174,11 +225,46 @@ private fun GemsBalanceCard(gems: Long, gemEfficiencyLevel: Int, palette: Fantas
     }
 }
 
+/**
+ * A live counter of [rawGemsProgress] — the Gem batch a Level Up would
+ * grant *right now*, unclamped by [com.wyrmwhelp.idlehoard.domain.model.minGemsForLevelUp]
+ * (see `domain/model/LevelUp.kt`'s `rawGemsFromLevelUpFormula`) — shown
+ * separately from [GemsBalanceCard] (the currently-*held* batch) and the
+ * progress bar (which only appears while blocked). Recomposes every tick
+ * alongside the rest of this screen's `GameState`-derived params, so it
+ * visibly climbs on its own with no polling here; barely moves early on,
+ * but becomes noticeable once a handful of Level Ups have raised income
+ * enough for lifetime earnings to climb quickly.
+ */
+@Composable
+private fun EarningCounterCard(rawGemsProgress: Long, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.gemDeep.copy(alpha = 0.5f)) {
+        Text(
+            text = "Currently earning",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+        )
+        Spacer(Modifier.height(2.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Image(
+                painter = painterResource(R.drawable.gems),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = "${GoldFormat.format(rawGemsProgress.toDouble())} gems, if you Leveled Up right now",
+                style = MaterialTheme.typography.bodyMedium,
+                color = palette.gemDeep,
+            )
+        }
+    }
+}
+
 @Composable
 private fun LevelUpCard(
     gemsEarnable: Long,
     rawGemsProgress: Long,
-    minGemsRequired: Long,
+    progressTarget: Long,
     canLevelUp: Boolean,
     onClick: () -> Unit,
     palette: FantasyPalette,
@@ -215,7 +301,7 @@ private fun LevelUpCard(
         }
         if (!canLevelUp) {
             Spacer(Modifier.height(10.dp))
-            LevelUpProgressBar(current = rawGemsProgress, target = minGemsRequired, palette = palette)
+            LevelUpProgressBar(current = rawGemsProgress, target = progressTarget, palette = palette)
         }
     }
 }
