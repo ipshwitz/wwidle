@@ -87,7 +87,15 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   wizard scene on-screen) — real transparent background, square
   (754x754) — used by the redesigned `WelcomeBackDialog` to front its
   rewarded-ad prompt instead of a plain button; see that bullet under
-  Tech stack.
+  Tech stack. `media-play.png` → `drawable-nodpi/media_play.png`
+  (v0.32.0), a carved wooden circular play button (silver triangle, blue
+  gem inlay, studded rim) — real transparent background, square
+  (754x754) — replaces `QuickSpeedBoostAdButton`'s earlier hand-drawn
+  Canvas medallion+triangle; see that bullet under Tech stack.
+  `new-notification.png` → `drawable-nodpi/new_notification.png`
+  (v0.32.0), an ornate gold star — real transparent background, square
+  (754x754) — the "something new to look at" badge on `FloatingMenu`'s
+  chest toggle and menu planks; see that bullet under Tech stack.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -106,9 +114,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.31.2** (redesigned `WelcomeBackDialog` with the
-     new `tv.png` art fronting the ad-watch prompt — see the
-     `WelcomeBackDialog` bullet under Tech stack and
+   - Current version: **0.32.0** (real art for the Speed-boost ad button
+     plus a "new feature" notification badge system — see the
+     `QuickSpeedBoostAdButton`/`FloatingMenu` bullets under Tech stack and
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -828,15 +836,19 @@ These apply to every change made in this repo, however small:
     `dismissSpeedBoostAdMessage` `ShopContent`'s row already used — there's
     no separate cooldown or state for this button, and watching from here
     counts against the same four daily slots as watching from the Shop.
-    Visually it's a small carved gold-ringed medallion (the same
-    Canvas-drawn sweep-gradient ring/embossed-disc language as
-    `GameHeader`'s `MedallionEmblem`) with a hand-drawn play-triangle glyph
-    standing in for a "watch video" icon — no ad-specific art asset exists,
-    and the project's style is Canvas drawing over a new sprite for
-    something this small. A small gold `SlotBadge` overlapping the rim
-    shows how many of the four daily slots are still free (hidden once
-    all four are on cooldown, at which point the medallion itself just
-    dims to `0.55f` alpha rather than disappearing) — confirmed design
+    Visually it's the real `media_play.png` art (v0.32.0 — a carved
+    wooden circular play button; replaced an earlier hand-drawn Canvas
+    medallion+triangle once real ad-specific art existed), **sized and
+    bottom-aligned to exactly match `FloatingMenu`'s chest toggle**: same
+    72.dp touch target around a 64.dp image, same 24.dp inset from the
+    screen's bottom edge (`GameScreen`'s modifier bumped from
+    `bottom = 16.dp` to `bottom = 24.dp` to make this line up) — per
+    explicit request that the two read as a matched pair rather than one
+    looking randomly bigger/higher than the other. A small gold
+    `SlotBadge` overlapping the rim shows how many of the four daily
+    slots are still free (hidden once all four are on cooldown, at which
+    point the play icon itself just dims to `0.55f` alpha rather than
+    disappearing) — confirmed design
     (asked the user to disambiguate before building): "small icon button
     with a badge," Speed-boost-only rather than a combined
     Speed-and-Platinum popup, since the Speed boost is "the one most
@@ -859,6 +871,50 @@ These apply to every change made in this repo, however small:
     boost from a prior watch — Kobold Warren's live cycle time visibly
     halved again (150ms → 75ms) on the main screen itself, confirming both
     entry points feed the exact same `ActiveTemporaryBoost` state.
+  - **"New feature" notification badge (v0.32.0)** — a small ornate gold
+    star (`new_notification.png`) that floats over `FloatingMenu`'s chest
+    toggle whenever there's something new/unviewed to look at, and over
+    the specific menu plank(s) responsible once the menu is expanded.
+    Scope confirmed via explicit design questions before building: only
+    Stewards drives this badge for now (a second candidate trigger, "a
+    new upgrade," was explicitly deferred — Upgrades shows every lair's
+    lines regardless of ownership, so there's no clean "newly unlocked"
+    moment the way a new Steward row appears only once a lair is owned),
+    and the "seen" state is persisted (Room + Supabase), not
+    session-only, so a dismissed badge stays dismissed across restarts.
+    `GameState.seenStewardOpportunities: Set<String>`
+    (`domain/model/GameState.kt`) records which owned, Steward-less lair
+    ids the player has already had a chance to notice — three pure
+    functions in `domain/model/GameStateExtensions.kt` do the actual
+    logic: `stewardOpportunities()` (private — owned lairs without a
+    Steward right now), `unseenStewardOpportunities()`/
+    `hasUnseenStewardOpportunity()` (that set minus
+    `seenStewardOpportunities` — what actually drives the badge), and
+    `withStewardOpportunitiesSeen()` (folds every *currently* eligible
+    lair into `seenStewardOpportunities`, called once when the player
+    opens Stewards — `GameEngine.markStewardOpportunitiesSeen()` /
+    `GameViewModel.markStewardOpportunitiesSeen()` — via a
+    `LaunchedEffect(openSection)` in `MainActivity`, the same pattern
+    already used there for `ensureBillingConnected()`). **Not** carried
+    over in `GameEngine.performLevelUp()` — unlike device/grind state
+    (the ad-watch cooldowns), this resets alongside `GameState.lairs`
+    itself, since a fresh run's Steward opportunities are genuinely new
+    again. `FloatingMenu` gained one new param,
+    `itemsWithNewBadge: Set<String>` (menu labels currently flagged;
+    `MainActivity` computes this as `setOf("Stewards")` or empty from
+    `gameState.hasUnseenStewardOpportunity()`) — pure read, the
+    composable never clears it itself. Persistence: Room bumped to
+    **database version 11** for one new
+    `seenStewardOpportunitiesJson` column (`GameStateEntity`, same
+    JSON-encode-a-list-into-one-column pattern as
+    `speedBoostAdWatchTimestampsJson`), and the Supabase `GameStateDto`
+    got a matching `seen_steward_opportunities` field with an
+    empty-list default for older cloud saves. Verified live on-device:
+    claiming a brand-new lair (Ogre's Cave) immediately showed the star
+    on both the chest and the expanded menu's "Stewards" plank; opening
+    Stewards made both copies of the badge disappear, while the other
+    seven owned-and-staffed lairs (already hired in earlier testing)
+    correctly showed no badge the whole time.
   - **`BillingManager` / real "Buy Platinum Pieces" (v0.27.0, price/PP
     curve revised twice since — v0.27.1, then v0.27.2)**
     (`billing/BillingManager.kt`) — Google Play Billing, replacing the

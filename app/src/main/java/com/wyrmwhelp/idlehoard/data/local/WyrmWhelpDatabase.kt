@@ -4,7 +4,10 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 10 for the Shop's ad-watch Speed-boost reward: one new
+ * Bumped to version 11 for the "new feature" notification badge: one new
+ * `seenStewardOpportunitiesJson` column (see `GameStateMappers.kt`) — see
+ * `domain/model/GameStateExtensions.kt`'s `withStewardOpportunitiesSeen`.
+ * Version 10 was the Shop's ad-watch Speed-boost reward: one new
  * `speedBoostAdWatchTimestampsJson` column (see `GameStateMappers.kt`) —
  * see `domain/model/AdRewards.kt`. Version 9 was the Platinum Upgrades
  * feature: replaced
@@ -35,7 +38,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

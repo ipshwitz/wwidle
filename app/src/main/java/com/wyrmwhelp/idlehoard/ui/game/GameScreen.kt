@@ -125,9 +125,12 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                 (context as? Activity)?.let { viewModel.watchAdForSpeedBoost(it) }
             },
             onDismissMessage = viewModel::dismissSpeedBoostAdMessage,
+            // bottom = 24.dp matches FloatingMenu's chest toggle exactly (same
+            // 72.dp touch target, same bottom inset) so the two sit at the same
+            // height rather than one looking higher/lower than the other.
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 16.dp),
+                .padding(end = 16.dp, bottom = 24.dp),
         )
     }
 

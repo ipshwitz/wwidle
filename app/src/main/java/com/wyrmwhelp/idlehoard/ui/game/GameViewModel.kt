@@ -566,6 +566,11 @@ class GameViewModel @Inject constructor(
         gameEngine.hireSteward(lairId)
     }
 
+    /** Dismisses the Stewards "new feature" badge — see `GameEngine.markStewardOpportunitiesSeen`. */
+    fun markStewardOpportunitiesSeen() {
+        gameEngine.markStewardOpportunitiesSeen()
+    }
+
     /** The player tapping a lair to start its production cycle — see `GameEngine.startLairLoad`. */
     fun startLairLoad(lairId: String) {
         gameEngine.startLairLoad(lairId)

@@ -59,6 +59,7 @@ class GameStateDtoMappersTest {
                 Instant.now().minusSeconds(3600).truncatedTo(ChronoUnit.MILLIS),
                 Instant.now().truncatedTo(ChronoUnit.MILLIS),
             ),
+            seenStewardOpportunities = setOf("kobold_warren", "goblin_camp"),
         )
 
         val restored = original.toDto().toDomain()
@@ -92,6 +93,7 @@ class GameStateDtoMappersTest {
         assertEquals(emptyList<Any>(), decoded.activeTemporaryBoosts)
         assertEquals(null, decoded.lastPlatinumAdWatchedAtEpochMillis)
         assertEquals(emptyList<Long>(), decoded.speedBoostAdWatchTimestampsEpochMillis)
+        assertEquals(emptyList<String>(), decoded.seenStewardOpportunities)
         assertEquals(0L, decoded.gems)
         assertEquals(0, decoded.totalLevelUps)
         assertEquals(0.0, decoded.lifetimeGoldEarned, 0.0001)

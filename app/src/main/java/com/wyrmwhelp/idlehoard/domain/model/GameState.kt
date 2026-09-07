@@ -92,6 +92,15 @@ import java.time.Instant
  *   per-Gem income bonus [gemIncomeMultiplier] grants. Resets on a Level
  *   Up alongside [gems] itself, since Gems are temporary (see this class's
  *   [gems] doc) — a Gem-bought upgrade to their value can't outlive them.
+ * @property seenStewardOpportunities Lair ids the player has already had a
+ *   chance to notice could hire a Steward (i.e. owned, Steward-less, and
+ *   the Stewards menu section has been opened since) — see
+ *   `GameStateExtensions.kt`'s `hasUnseenStewardOpportunity`/
+ *   `withStewardOpportunitiesSeen`. Drives the "new feature" star badge on
+ *   `FloatingMenu`'s chest toggle and its "Stewards" plank; not carried
+ *   over on a Level Up (unlike device/grind state such as
+ *   [lastPlatinumAdWatchedAt]) since it resets alongside [lairs] itself —
+ *   a fresh run's Steward opportunities are genuinely new again.
  */
 data class GameState(
     val goldPieces: Double = 0.0,
@@ -122,6 +131,7 @@ data class GameState(
     val activeTemporaryBoosts: List<ActiveTemporaryBoost> = emptyList(),
     val lastPlatinumAdWatchedAt: Instant? = null,
     val speedBoostAdWatchTimestamps: List<Instant> = emptyList(),
+    val seenStewardOpportunities: Set<String> = emptySet(),
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

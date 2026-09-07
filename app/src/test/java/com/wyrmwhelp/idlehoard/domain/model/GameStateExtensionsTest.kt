@@ -1,7 +1,9 @@
 package com.wyrmwhelp.idlehoard.domain.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GameStateExtensionsTest {
@@ -169,6 +171,72 @@ class GameStateExtensionsTest {
 
         assertEquals(listOf(25), crossed.map { it.threshold })
         assertEquals(listOf(false), crossed.map { it.isGlobal })
+    }
+
+    @Test
+    fun `an owned lair without a Steward is an unseen opportunity by default`() {
+        val state = GameState(lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)))
+
+        assertEquals(setOf("kobold_warren"), state.unseenStewardOpportunities())
+        assertTrue(state.hasUnseenStewardOpportunity())
+    }
+
+    @Test
+    fun `a hired Steward is never an opportunity, seen or not`() {
+        val state = GameState(
+            lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = true)),
+        )
+
+        assertEquals(emptySet<String>(), state.unseenStewardOpportunities())
+        assertFalse(state.hasUnseenStewardOpportunity())
+    }
+
+    @Test
+    fun `an unowned lair is never an opportunity`() {
+        val state = GameState(lairs = emptyMap())
+
+        assertFalse(state.hasUnseenStewardOpportunity())
+    }
+
+    @Test
+    fun `marking opportunities seen clears the badge for exactly those lairs`() {
+        val state = GameState(
+            lairs = mapOf(
+                "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1),
+                "giant_rat_burrow" to OwnedLair(lairId = "giant_rat_burrow", count = 1),
+            ),
+        )
+
+        val seen = state.withStewardOpportunitiesSeen()
+
+        assertFalse(seen.hasUnseenStewardOpportunity())
+        assertEquals(setOf("kobold_warren", "giant_rat_burrow"), seen.seenStewardOpportunities)
+    }
+
+    @Test
+    fun `newly owning another lair after seeing the first surfaces only the new one`() {
+        val afterSeeingFirst = GameState(
+            lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+        ).withStewardOpportunitiesSeen()
+
+        val afterClaimingSecond = afterSeeingFirst.copy(
+            lairs = afterSeeingFirst.lairs + ("giant_rat_burrow" to OwnedLair(lairId = "giant_rat_burrow", count = 1)),
+        )
+
+        assertEquals(setOf("giant_rat_burrow"), afterClaimingSecond.unseenStewardOpportunities())
+    }
+
+    @Test
+    fun `hiring a Steward for an already-seen lair leaves it seen`() {
+        val seen = GameState(
+            lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+        ).withStewardOpportunitiesSeen()
+
+        val hired = seen.copy(
+            lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = true)),
+        )
+
+        assertFalse(hired.hasUnseenStewardOpportunity())
     }
 
     private fun testLair(id: String) = CreatureLair(

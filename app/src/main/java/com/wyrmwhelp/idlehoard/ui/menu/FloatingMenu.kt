@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -73,9 +74,23 @@ const val SIGN_ASPECT_RATIO = 1626f / 536f
  * is one) — every entry has its own sign now; the plain labeled `Surface`
  * fallback in [MenuItemPlank] stays in place for any future section added
  * before its own art exists.
+ *
+ * [itemsWithNewBadge] (v0.32.0) is the set of menu labels that currently have
+ * something new/unviewed worth flagging (so far, just "Stewards" — see
+ * `GameState.hasUnseenStewardOpportunity`) — a small gold `new_notification.png`
+ * star floats over that plank when the menu is expanded, and over the chest
+ * toggle itself whenever the set is non-empty (collapsed or not), so the
+ * player never has to expand the menu just to notice something's new.
+ * Dismissing one is the caller's job (`MainActivity` marks it seen once the
+ * matching section is actually opened) — this composable only ever reads the
+ * set, it doesn't clear it.
  */
 @Composable
-fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier) {
+fun FloatingMenu(
+    onItemSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    itemsWithNewBadge: Set<String> = emptySet(),
+) {
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -114,28 +129,46 @@ fun FloatingMenu(onItemSelected: (String) -> Unit, modifier: Modifier = Modifier
                     modifier = Modifier.padding(bottom = 12.dp),
                 ) {
                     floatingMenuItems.forEach { item ->
-                        MenuItemPlank(
-                            item = item,
-                            onClick = {
-                                expanded = false
-                                onItemSelected(item.label)
-                            },
-                        )
+                        Box {
+                            MenuItemPlank(
+                                item = item,
+                                onClick = {
+                                    expanded = false
+                                    onItemSelected(item.label)
+                                },
+                            )
+                            if (item.label in itemsWithNewBadge) {
+                                NewFeatureBadge(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = (-10).dp, y = 2.dp),
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            IconButton(
-                onClick = { expanded = !expanded },
-                modifier = Modifier.size(72.dp),
-            ) {
-                Image(
-                    painter = painterResource(
-                        if (expanded) R.drawable.open_chest else R.drawable.closed_chest,
-                    ),
-                    contentDescription = if (expanded) "Close menu" else "Open menu",
-                    modifier = Modifier.size(64.dp),
-                )
+            Box {
+                IconButton(
+                    onClick = { expanded = !expanded },
+                    modifier = Modifier.size(72.dp),
+                ) {
+                    Image(
+                        painter = painterResource(
+                            if (expanded) R.drawable.open_chest else R.drawable.closed_chest,
+                        ),
+                        contentDescription = if (expanded) "Close menu" else "Open menu",
+                        modifier = Modifier.size(64.dp),
+                    )
+                }
+                if (itemsWithNewBadge.isNotEmpty()) {
+                    NewFeatureBadge(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = (-6).dp, y = 6.dp),
+                    )
+                }
             }
         }
     }
@@ -170,4 +203,14 @@ private fun MenuItemPlank(item: MenuItem, onClick: () -> Unit) {
             }
         }
     }
+}
+
+/** The small ornate gold star flagging unviewed new content — see [FloatingMenu]'s [itemsWithNewBadge] doc. */
+@Composable
+private fun NewFeatureBadge(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(R.drawable.new_notification),
+        contentDescription = "New",
+        modifier = modifier.size(22.dp),
+    )
 }

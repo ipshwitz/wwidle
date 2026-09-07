@@ -3,6 +3,17 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.32.0] - 2026-09-06 10:15 PM EDT
+
+- Swapped the main game screen's Speed-boost ad-watch button to the new
+  hand-illustrated play-button icon, sized and aligned to match the
+  treasure-chest menu button exactly.
+- Added a "new feature" notification: a small gold star badge appears on
+  the treasure chest (and, once the menu's open, on the specific menu
+  item) whenever there's something new to look at — right now, whenever
+  a newly-owned lair can have a Steward hired for the first time. The
+  badge disappears once you actually open that section.
+
 ## [0.31.2] - 2026-09-06 9:40 PM EDT
 
 - Redesigned the "While You Were Away" pop-up: the bottom half now shows

@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
 import com.wyrmwhelp.idlehoard.domain.model.availableSpeedBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
+import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
@@ -88,6 +90,13 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     // class doc) — only connect once the player actually opens the Shop.
     LaunchedEffect(openSection) {
         if (openSection == "Shop") gameViewModel.ensureBillingConnected()
+        // Opening Stewards is what "views" its new-feature notification —
+        // see `FloatingMenu`'s `itemsWithNewBadge` doc.
+        if (openSection == "Stewards") gameViewModel.markStewardOpportunitiesSeen()
+    }
+
+    val itemsWithNewBadge = remember(gameState) {
+        if (gameState.hasUnseenStewardOpportunity()) setOf("Stewards") else emptySet()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -95,6 +104,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
 
         FloatingMenu(
             onItemSelected = { label -> openSection = label },
+            itemsWithNewBadge = itemsWithNewBadge,
             modifier = Modifier.fillMaxSize(),
         )
 

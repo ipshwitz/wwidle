@@ -21,6 +21,7 @@ import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
 import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
+import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -233,6 +234,23 @@ class GameEngineTest {
         assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
         // Steward cycles collect silently and never touch this counter.
         assertEquals(0, engine.state.value.ownedLair("kobold_warren").completedLoads)
+    }
+
+    @Test
+    fun `markStewardOpportunitiesSeen clears the badge for every currently-eligible lair`() {
+        engine.loadState(
+            GameState(
+                lairs = mapOf(
+                    "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1),
+                    "giant_rat_burrow" to OwnedLair(lairId = "giant_rat_burrow", count = 1),
+                ),
+            ),
+        )
+        assertTrue(engine.state.value.hasUnseenStewardOpportunity())
+
+        engine.markStewardOpportunitiesSeen()
+
+        assertFalse(engine.state.value.hasUnseenStewardOpportunity())
     }
 
     @Test
@@ -723,6 +741,24 @@ class GameEngineTest {
         assertEquals(watchedAt, engine.state.value.lastPlatinumAdWatchedAt)
         assertEquals(listOf(watchedAt), engine.state.value.speedBoostAdWatchTimestamps)
         assertEquals(1_000_000_000_000_000.0, engine.state.value.lifetimeGoldEarned, 0.0001)
+    }
+
+    @Test
+    fun `performLevelUp does not carry over seen Steward opportunities`() {
+        // Unlike device/grind state (the ad cooldown above), this resets
+        // alongside `lairs` itself — a fresh run's opportunities are new again.
+        engine.loadState(
+            GameState(
+                lifetimeGoldEarned = 1_000_000_000_000_000.0,
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+                seenStewardOpportunities = setOf("kobold_warren"),
+            ),
+        )
+
+        engine.performLevelUp()
+
+        assertEquals(emptySet<String>(), engine.state.value.seenStewardOpportunities)
+        assertTrue(engine.state.value.hasUnseenStewardOpportunity())
     }
 
     @Test

@@ -30,6 +30,7 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     activeTemporaryBoosts = activeTemporaryBoosts.map { it.toDto() },
     lastPlatinumAdWatchedAtEpochMillis = lastPlatinumAdWatchedAt?.toEpochMilli(),
     speedBoostAdWatchTimestampsEpochMillis = speedBoostAdWatchTimestamps.map { it.toEpochMilli() },
+    seenStewardOpportunities = seenStewardOpportunities.toList(),
 )
 
 private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
@@ -72,6 +73,7 @@ fun GameStateDto.toDomain(): GameState = GameState(
     activeTemporaryBoosts = activeTemporaryBoosts.map { it.toDomain() },
     lastPlatinumAdWatchedAt = lastPlatinumAdWatchedAtEpochMillis?.let { Instant.ofEpochMilli(it) },
     speedBoostAdWatchTimestamps = speedBoostAdWatchTimestampsEpochMillis.map { Instant.ofEpochMilli(it) },
+    seenStewardOpportunities = seenStewardOpportunities.toSet(),
 )
 
 private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(

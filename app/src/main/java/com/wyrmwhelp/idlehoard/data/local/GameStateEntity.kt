@@ -48,6 +48,14 @@ data class GameStateEntity(
      * blank/null.
      */
     val speedBoostAdWatchTimestampsJson: String = "[]",
+    /**
+     * [com.wyrmwhelp.idlehoard.domain.model.GameState.seenStewardOpportunities]
+     * JSON-encoded as a single column (a small list of lair id strings —
+     * see `GameStateMappers.kt`'s (de)serialization), same reasoning as
+     * [activeTemporaryBoostsJson]. `"[]"` for an empty set, never
+     * blank/null.
+     */
+    val seenStewardOpportunitiesJson: String = "[]",
 ) {
     companion object {
         const val SINGLETON_ID = 0

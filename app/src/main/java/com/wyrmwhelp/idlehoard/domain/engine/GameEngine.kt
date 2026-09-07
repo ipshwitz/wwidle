@@ -29,6 +29,7 @@ import com.wyrmwhelp.idlehoard.domain.model.permanentSpeedMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.platinumProfitMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.platinumSpeedMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.withPermanentBoostLevel
+import com.wyrmwhelp.idlehoard.domain.model.withStewardOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import java.time.Duration
 import java.time.Instant
@@ -210,6 +211,17 @@ class GameEngine @Inject constructor() {
             }
         }
         return hired
+    }
+
+    /**
+     * Marks every currently-eligible "you could hire a Steward here"
+     * opportunity as seen — called once when the player opens the Stewards
+     * menu section (`GameViewModel.markStewardOpportunitiesSeen`), so
+     * `FloatingMenu`'s "new feature" star badge stops showing for those
+     * lairs. See `GameStateExtensions.kt`'s `withStewardOpportunitiesSeen`.
+     */
+    fun markStewardOpportunitiesSeen() {
+        _state.update { it.withStewardOpportunitiesSeen() }
     }
 
     /**

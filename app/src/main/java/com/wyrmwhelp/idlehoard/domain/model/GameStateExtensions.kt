@@ -99,3 +99,30 @@ private fun GameState.isMoreAdvancedThan(other: GameState): Boolean {
     if (totalLevelUps != other.totalLevelUps) return totalLevelUps > other.totalLevelUps
     return estimatedNetWorth() > other.estimatedNetWorth()
 }
+
+/** Ids of owned, Steward-less lairs — a fresh "you could hire a Steward here" opportunity. */
+private fun GameState.stewardOpportunities(): Set<String> =
+    lairs.values.filter { it.count > 0 && !it.hasSteward }.map { it.lairId }.toSet()
+
+/**
+ * Owned, Steward-less lairs the player hasn't had a chance to notice yet —
+ * i.e. not already in [GameState.seenStewardOpportunities]. Drives the
+ * "new feature" star badge on `FloatingMenu`'s chest toggle and its
+ * "Stewards" plank (`ui/menu/FloatingMenu.kt`); [withStewardOpportunitiesSeen]
+ * is what clears it once the player actually opens that section.
+ */
+fun GameState.unseenStewardOpportunities(): Set<String> = stewardOpportunities() - seenStewardOpportunities
+
+/** Whether the Stewards badge should show at all — see [unseenStewardOpportunities]. */
+fun GameState.hasUnseenStewardOpportunity(): Boolean = unseenStewardOpportunities().isNotEmpty()
+
+/**
+ * Marks every *currently* eligible Steward opportunity as seen — called
+ * once when the player opens the Stewards section
+ * (`GameViewModel.markStewardOpportunitiesSeen`), so the badge won't come
+ * back for those same lairs until a Level Up resets [GameState.lairs] (and,
+ * with it, [GameState.seenStewardOpportunities] — see that field's doc)
+ * or a newly-owned lair creates a fresh opportunity.
+ */
+fun GameState.withStewardOpportunitiesSeen(): GameState =
+    copy(seenStewardOpportunities = seenStewardOpportunities + stewardOpportunities())
