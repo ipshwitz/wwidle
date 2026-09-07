@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.34.1] - 2026-09-07 12:25 AM EDT
+
+- Added the magical TV art to the ad-watch popup — once at the top, and
+  once more on each of the two bonus options — matching the same look
+  used on the "While You Were Away" screen's ad prompt.
+
 ## [0.34.0] - 2026-09-07 12:15 AM EDT
 
 - The main game screen's play-button now opens a popup with two free
