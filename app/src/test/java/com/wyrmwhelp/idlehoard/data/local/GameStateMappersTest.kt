@@ -68,6 +68,9 @@ class GameStateMappersTest {
                 Instant.now().minusSeconds(3600).truncatedTo(ChronoUnit.MILLIS),
                 Instant.now().truncatedTo(ChronoUnit.MILLIS),
             ),
+            incomeBoostAdWatchTimestamps = listOf(
+                Instant.now().minusSeconds(1800).truncatedTo(ChronoUnit.MILLIS),
+            ),
             seenStewardOpportunities = setOf("kobold_warren", "goblin_camp"),
             seenUpgradeOpportunities = setOf("kobold_warren:profit", "everything:speed", "gem_efficiency"),
         )

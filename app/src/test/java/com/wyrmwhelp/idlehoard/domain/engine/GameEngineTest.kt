@@ -12,6 +12,9 @@ import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_COOLDOWN
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MAX_SLOTS
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
+import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_DURATION
+import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_MAX_SLOTS
+import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.TEMPORARY_BOOST_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
@@ -698,6 +701,46 @@ class GameEngineTest {
     }
 
     @Test
+    fun `grantIncomeBoostAdReward starts a fresh 2x Income boost and stamps a watch when never watched`() {
+        engine.loadState(GameState())
+        val now = Instant.now()
+
+        val granted = engine.grantIncomeBoostAdReward(now)
+
+        assertTrue(granted)
+        assertEquals(listOf(now), engine.state.value.incomeBoostAdWatchTimestamps)
+        val active = engine.state.value.activeTemporaryBoosts.single()
+        assertEquals(TemporaryBoostCategory.PROFIT, active.category)
+        assertEquals(INCOME_BOOST_AD_MULTIPLIER, active.multiplier, 0.0001)
+        assertEquals(now.plus(INCOME_BOOST_AD_DURATION), active.expiresAt)
+    }
+
+    @Test
+    fun `grantIncomeBoostAdReward can be granted up to four times before running out of slots`() {
+        engine.loadState(GameState())
+        val now = Instant.now()
+
+        repeat(INCOME_BOOST_AD_MAX_SLOTS) { assertTrue(engine.grantIncomeBoostAdReward(now)) }
+        val fifthGranted = engine.grantIncomeBoostAdReward(now)
+
+        assertFalse(fifthGranted)
+        assertEquals(INCOME_BOOST_AD_MAX_SLOTS, engine.state.value.incomeBoostAdWatchTimestamps.size)
+        assertEquals(INCOME_BOOST_AD_MAX_SLOTS, engine.state.value.activeTemporaryBoosts.size)
+    }
+
+    @Test
+    fun `grantIncomeBoostAdReward and grantSpeedBoostAdReward don't consume each other's slots`() {
+        engine.loadState(GameState())
+        val now = Instant.now()
+
+        repeat(SPEED_BOOST_AD_MAX_SLOTS) { assertTrue(engine.grantSpeedBoostAdReward(now)) }
+
+        assertTrue(engine.grantIncomeBoostAdReward(now))
+        assertEquals(4, engine.state.value.activeTemporaryBoosts.count { it.category == TemporaryBoostCategory.SPEED })
+        assertEquals(1, engine.state.value.activeTemporaryBoosts.count { it.category == TemporaryBoostCategory.PROFIT })
+    }
+
+    @Test
     fun `performLevelUp does nothing and earns no gems from a brand-new save`() {
         engine.loadState(GameState())
 
@@ -740,6 +783,7 @@ class GameEngineTest {
                 offlineCapHours = 8.0,
                 lastPlatinumAdWatchedAt = watchedAt,
                 speedBoostAdWatchTimestamps = listOf(watchedAt),
+                incomeBoostAdWatchTimestamps = listOf(watchedAt),
             ),
         )
 
@@ -753,6 +797,7 @@ class GameEngineTest {
         assertEquals(8.0, engine.state.value.offlineCapHours, 0.0001)
         assertEquals(watchedAt, engine.state.value.lastPlatinumAdWatchedAt)
         assertEquals(listOf(watchedAt), engine.state.value.speedBoostAdWatchTimestamps)
+        assertEquals(listOf(watchedAt), engine.state.value.incomeBoostAdWatchTimestamps)
         assertEquals(1_000_000_000_000_000.0, engine.state.value.lifetimeGoldEarned, 0.0001)
     }
 

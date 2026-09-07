@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.availableSpeedBoostAdSlots
+import com.wyrmwhelp.idlehoard.domain.model.availableIncomeBoostAdSlots
+import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
+import com.wyrmwhelp.idlehoard.domain.model.incomeBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
@@ -38,6 +41,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val lairProgress by viewModel.lairProgress.collectAsStateWithLifecycle()
     val levelUpReward by viewModel.levelUpReward.collectAsStateWithLifecycle()
     val speedBoostAdMessage by viewModel.speedBoostAdMessage.collectAsStateWithLifecycle()
+    val incomeBoostAdMessage by viewModel.incomeBoostAdMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // The "Everything" milestone bonuses — same compounding schedule as each
@@ -118,13 +122,21 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        QuickSpeedBoostAdButton(
-            availableSlots = state.availableSpeedBoostAdSlots(),
-            message = speedBoostAdMessage,
-            onWatchAd = {
+        QuickAdBoostButton(
+            speedSlots = state.availableSpeedBoostAdSlots(),
+            speedCooldownRemaining = state.speedBoostAdCooldownRemaining(),
+            speedMessage = speedBoostAdMessage,
+            onWatchSpeedAd = {
                 (context as? Activity)?.let { viewModel.watchAdForSpeedBoost(it) }
             },
-            onDismissMessage = viewModel::dismissSpeedBoostAdMessage,
+            onDismissSpeedMessage = viewModel::dismissSpeedBoostAdMessage,
+            incomeSlots = state.availableIncomeBoostAdSlots(),
+            incomeCooldownRemaining = state.incomeBoostAdCooldownRemaining(),
+            incomeMessage = incomeBoostAdMessage,
+            onWatchIncomeAd = {
+                (context as? Activity)?.let { viewModel.watchAdForIncomeBoost(it) }
+            },
+            onDismissIncomeMessage = viewModel::dismissIncomeBoostAdMessage,
             // bottom = 24.dp matches FloatingMenu's chest toggle exactly (same
             // 72.dp touch target, same bottom inset) so the two sit at the same
             // height rather than one looking higher/lower than the other.

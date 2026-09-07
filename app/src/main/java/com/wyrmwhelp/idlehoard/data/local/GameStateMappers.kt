@@ -34,6 +34,7 @@ fun GameState.toEntities(): Pair<GameStateEntity, List<OwnedLairEntity>> {
         activeTemporaryBoostsJson = activeTemporaryBoosts.toJson(),
         lastPlatinumAdWatchedAtEpochMillis = lastPlatinumAdWatchedAt?.toEpochMilli(),
         speedBoostAdWatchTimestampsJson = Json.encodeToString(speedBoostAdWatchTimestamps.map { it.toEpochMilli() }),
+        incomeBoostAdWatchTimestampsJson = Json.encodeToString(incomeBoostAdWatchTimestamps.map { it.toEpochMilli() }),
         seenStewardOpportunitiesJson = Json.encodeToString(seenStewardOpportunities.toList()),
         seenUpgradeOpportunitiesJson = Json.encodeToString(seenUpgradeOpportunities.toList()),
     )
@@ -76,6 +77,7 @@ fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = G
     activeTemporaryBoosts = activeTemporaryBoostsJson.toActiveTemporaryBoosts(),
     lastPlatinumAdWatchedAt = lastPlatinumAdWatchedAtEpochMillis?.let { Instant.ofEpochMilli(it) },
     speedBoostAdWatchTimestamps = Json.decodeFromString<List<Long>>(speedBoostAdWatchTimestampsJson).map { Instant.ofEpochMilli(it) },
+    incomeBoostAdWatchTimestamps = Json.decodeFromString<List<Long>>(incomeBoostAdWatchTimestampsJson).map { Instant.ofEpochMilli(it) },
     seenStewardOpportunities = Json.decodeFromString<List<String>>(seenStewardOpportunitiesJson).toSet(),
     seenUpgradeOpportunities = Json.decodeFromString<List<String>>(seenUpgradeOpportunitiesJson).toSet(),
 )

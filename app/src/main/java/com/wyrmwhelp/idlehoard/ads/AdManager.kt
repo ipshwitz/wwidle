@@ -28,8 +28,11 @@ enum class RewardedPlacement(val adUnitId: String) {
     /** Shop's "Watch an Ad" for Platinum Pieces — see `GameViewModel.watchAdForPlatinum`. */
     SHOP_PLATINUM("ca-app-pub-1913393601233746/9425192707"),
 
-    /** Shop's "Watch an Ad" for a temporary 2x Speed boost — see `GameViewModel.watchAdForSpeedBoost`. */
+    /** Quick-access ad-watch popup's "Watch an Ad" for a temporary 2x Speed boost — see `GameViewModel.watchAdForSpeedBoost`. */
     SHOP_SPEED_BOOST("ca-app-pub-1913393601233746/7941856119"),
+
+    /** Quick-access ad-watch popup's "Watch an Ad" for a temporary 2x Income boost — see `GameViewModel.watchAdForIncomeBoost`. */
+    AD_BOOST_INCOME("ca-app-pub-1913393601233746/9610995150"),
 }
 
 /**

@@ -49,6 +49,13 @@ data class GameStateEntity(
      */
     val speedBoostAdWatchTimestampsJson: String = "[]",
     /**
+     * [com.wyrmwhelp.idlehoard.domain.model.GameState.incomeBoostAdWatchTimestamps]
+     * JSON-encoded as a single column, same shape as
+     * [speedBoostAdWatchTimestampsJson] but for the Income-boost ad-watch
+     * reward. `"[]"` for an empty list, never blank/null.
+     */
+    val incomeBoostAdWatchTimestampsJson: String = "[]",
+    /**
      * [com.wyrmwhelp.idlehoard.domain.model.GameState.seenStewardOpportunities]
      * JSON-encoded as a single column (a small list of lair id strings —
      * see `GameStateMappers.kt`'s (de)serialization), same reasoning as

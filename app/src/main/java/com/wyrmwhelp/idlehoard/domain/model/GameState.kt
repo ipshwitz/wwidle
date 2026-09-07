@@ -78,6 +78,12 @@ import java.time.Instant
  *   hours after its own timestamp rather than sharing one cooldown, which
  *   is what lets watching all 4 back-to-back stack four concurrent 2x
  *   Speed boosts (16x) instead of only ever allowing one.
+ * @property incomeBoostAdWatchTimestamps Same shape as
+ *   [speedBoostAdWatchTimestamps] but for the second ad-watch reward
+ *   (v0.34.0) — a temporary Income boost — see `domain/model/AdRewards.kt`'s
+ *   `INCOME_BOOST_AD_MAX_SLOTS`/`availableIncomeBoostAdSlots`. Kept as its
+ *   own independent ledger so watching Speed-boost ads never uses up or
+ *   interferes with Income-boost ad slots, or vice versa.
  * @property everythingProfitUpgradeLevel Tiers bought of the Gold Pieces
  *   "Everything Profit" upgrade line (`domain/model/GpUpgrades.kt`) —
  *   boosts every owned lair's income at once. Resets on a Level Up, same
@@ -142,6 +148,7 @@ data class GameState(
     val activeTemporaryBoosts: List<ActiveTemporaryBoost> = emptyList(),
     val lastPlatinumAdWatchedAt: Instant? = null,
     val speedBoostAdWatchTimestamps: List<Instant> = emptyList(),
+    val incomeBoostAdWatchTimestamps: List<Instant> = emptyList(),
     val seenStewardOpportunities: Set<String> = emptySet(),
     val seenUpgradeOpportunities: Set<String> = emptySet(),
 ) {

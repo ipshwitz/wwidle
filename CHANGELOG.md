@@ -3,6 +3,16 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.34.0] - 2026-09-07 12:15 AM EDT
+
+- The main game screen's play-button now opens a popup with two free
+  ad-watch bonuses to pick from: the existing 2x Speed for 4 hours, and a
+  new 2x Income for 2 hours — both stack with themselves up to 4 times,
+  each on its own 24-hour-per-watch cooldown.
+- Moved both of these ad-watch bonuses out of the Shop's Temporary tab —
+  they're now offered exclusively from the play-button popup, so there's
+  one place to find them instead of two.
+
 ## [0.33.1] - 2026-09-06 11:10 PM EDT
 
 - Updated the Speed-boost ad button's art with a refined version of the

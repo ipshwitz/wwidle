@@ -30,6 +30,7 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     activeTemporaryBoosts = activeTemporaryBoosts.map { it.toDto() },
     lastPlatinumAdWatchedAtEpochMillis = lastPlatinumAdWatchedAt?.toEpochMilli(),
     speedBoostAdWatchTimestampsEpochMillis = speedBoostAdWatchTimestamps.map { it.toEpochMilli() },
+    incomeBoostAdWatchTimestampsEpochMillis = incomeBoostAdWatchTimestamps.map { it.toEpochMilli() },
     seenStewardOpportunities = seenStewardOpportunities.toList(),
     seenUpgradeOpportunities = seenUpgradeOpportunities.toList(),
 )
@@ -74,6 +75,7 @@ fun GameStateDto.toDomain(): GameState = GameState(
     activeTemporaryBoosts = activeTemporaryBoosts.map { it.toDomain() },
     lastPlatinumAdWatchedAt = lastPlatinumAdWatchedAtEpochMillis?.let { Instant.ofEpochMilli(it) },
     speedBoostAdWatchTimestamps = speedBoostAdWatchTimestampsEpochMillis.map { Instant.ofEpochMilli(it) },
+    incomeBoostAdWatchTimestamps = incomeBoostAdWatchTimestampsEpochMillis.map { Instant.ofEpochMilli(it) },
     seenStewardOpportunities = seenStewardOpportunities.toSet(),
     seenUpgradeOpportunities = seenUpgradeOpportunities.toSet(),
 )

@@ -14,8 +14,12 @@ import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_COOLDOWN
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
+import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_COOLDOWN
+import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_DURATION
+import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.canWatchPlatinumAd
 import com.wyrmwhelp.idlehoard.domain.model.canWatchSpeedBoostAd
+import com.wyrmwhelp.idlehoard.domain.model.canWatchIncomeBoostAd
 import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
@@ -481,6 +485,7 @@ class GameEngine @Inject constructor() {
                     activeTemporaryBoosts = current.activeTemporaryBoosts,
                     lastPlatinumAdWatchedAt = current.lastPlatinumAdWatchedAt,
                     speedBoostAdWatchTimestamps = current.speedBoostAdWatchTimestamps,
+                    incomeBoostAdWatchTimestamps = current.incomeBoostAdWatchTimestamps,
                 )
             }
         }
@@ -593,6 +598,25 @@ class GameEngine @Inject constructor() {
                     speedBoostAdWatchTimestamps = prunedWatches + now,
                     activeTemporaryBoosts = current.activeTemporaryBoosts +
                         ActiveTemporaryBoost(TemporaryBoostCategory.SPEED, SPEED_BOOST_AD_MULTIPLIER, now.plus(SPEED_BOOST_AD_DURATION)),
+                )
+            }
+        }
+        return granted
+    }
+
+    /** Same as [grantSpeedBoostAdReward] but for the Income-boost ad-watch reward — see `domain/model/AdRewards.kt`. */
+    fun grantIncomeBoostAdReward(now: Instant = Instant.now()): Boolean {
+        var granted = false
+        _state.update { current ->
+            if (!current.canWatchIncomeBoostAd(now)) {
+                current
+            } else {
+                granted = true
+                val prunedWatches = current.incomeBoostAdWatchTimestamps.filter { Duration.between(it, now) < INCOME_BOOST_AD_COOLDOWN }
+                current.copy(
+                    incomeBoostAdWatchTimestamps = prunedWatches + now,
+                    activeTemporaryBoosts = current.activeTemporaryBoosts +
+                        ActiveTemporaryBoost(TemporaryBoostCategory.PROFIT, INCOME_BOOST_AD_MULTIPLIER, now.plus(INCOME_BOOST_AD_DURATION)),
                 )
             }
         }

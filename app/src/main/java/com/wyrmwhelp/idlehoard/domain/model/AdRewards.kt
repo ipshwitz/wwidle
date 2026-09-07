@@ -82,3 +82,46 @@ fun GameState.speedBoostAdCooldownRemaining(now: Instant = Instant.now()): Durat
     val remaining = Duration.between(now, active.min().plus(SPEED_BOOST_AD_COOLDOWN))
     return if (remaining.isNegative) Duration.ZERO else remaining
 }
+
+/**
+ * The second ad-watch reward (v0.34.0) offered alongside the Speed one —
+ * a temporary Income (Profit) boost instead, same
+ * [SPEED_BOOST_AD_MAX_SLOTS]-independent-daily-slots shape, just its own
+ * multiplier/duration and its own [GameState.incomeBoostAdWatchTimestamps]
+ * ledger so the two ad types' cooldowns never interfere with each other.
+ * Both are offered from the same `ui/game/QuickAdBoostButton.kt` popup on
+ * the main game screen (not the Shop — moved out of there in v0.34.0 so
+ * both ad types live in exactly one place).
+ */
+const val INCOME_BOOST_AD_MULTIPLIER = 2.0
+
+/** How long the ad-watch Income boost runs once granted. */
+val INCOME_BOOST_AD_DURATION: Duration = Duration.ofHours(2)
+
+/** How many of these daily ad-watch slots exist — same shape as [SPEED_BOOST_AD_MAX_SLOTS]. */
+const val INCOME_BOOST_AD_MAX_SLOTS = 4
+
+/** Minimum time before any one Income-boost watch's own slot frees up again. */
+val INCOME_BOOST_AD_COOLDOWN: Duration = Duration.ofHours(24)
+
+/** [GameState.incomeBoostAdWatchTimestamps] entries still within their own 24-hour cooldown at [now]. */
+private fun GameState.activeIncomeBoostAdWatches(now: Instant): List<Instant> =
+    incomeBoostAdWatchTimestamps.filter { Duration.between(it, now) < INCOME_BOOST_AD_COOLDOWN }
+
+/** How many of the [INCOME_BOOST_AD_MAX_SLOTS] daily ad-watch slots are free right now. */
+fun GameState.availableIncomeBoostAdSlots(now: Instant = Instant.now()): Int =
+    (INCOME_BOOST_AD_MAX_SLOTS - activeIncomeBoostAdWatches(now).size).coerceAtLeast(0)
+
+/** Whether at least one daily ad-watch slot for the Income boost is free right now. */
+fun GameState.canWatchIncomeBoostAd(now: Instant = Instant.now()): Boolean = availableIncomeBoostAdSlots(now) > 0
+
+/**
+ * How much longer until the *next* daily Income-boost ad-watch slot frees
+ * up, or [Duration.ZERO] if one already is.
+ */
+fun GameState.incomeBoostAdCooldownRemaining(now: Instant = Instant.now()): Duration {
+    val active = activeIncomeBoostAdWatches(now)
+    if (active.size < INCOME_BOOST_AD_MAX_SLOTS) return Duration.ZERO
+    val remaining = Duration.between(now, active.min().plus(INCOME_BOOST_AD_COOLDOWN))
+    return if (remaining.isNegative) Duration.ZERO else remaining
+}

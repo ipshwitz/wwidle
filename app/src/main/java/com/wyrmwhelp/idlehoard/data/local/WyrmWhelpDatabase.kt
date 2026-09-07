@@ -4,7 +4,10 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 12 for the Upgrades half of the "new feature"
+ * Bumped to version 13 for the second ad-watch reward (Income boost): one
+ * new `incomeBoostAdWatchTimestampsJson` column (see `GameStateMappers.kt`)
+ * — see `domain/model/AdRewards.kt`'s `INCOME_BOOST_AD_MAX_SLOTS`. Version
+ * 12 was the Upgrades half of the "new feature"
  * notification badge: one new `seenUpgradeOpportunitiesJson` column (see
  * `GameStateMappers.kt`) — see `domain/model/GameStateExtensions.kt`'s
  * `withUpgradeOpportunitiesSeen`. Version 11 was that same badge's
@@ -42,7 +45,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 12,
+    version = 13,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

@@ -17,10 +17,13 @@ import com.wyrmwhelp.idlehoard.domain.model.MilestoneAnnouncement
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_DURATION
 import com.wyrmwhelp.idlehoard.domain.model.SPEED_BOOST_AD_MULTIPLIER
+import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_DURATION
+import com.wyrmwhelp.idlehoard.domain.model.INCOME_BOOST_AD_MULTIPLIER
 import com.wyrmwhelp.idlehoard.domain.model.mergeGameStates
 import com.wyrmwhelp.idlehoard.domain.model.milestonesCrossed
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
+import com.wyrmwhelp.idlehoard.domain.model.incomeBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
@@ -499,6 +502,39 @@ class GameViewModel @Inject constructor(
 
     fun dismissSpeedBoostAdMessage() {
         _speedBoostAdMessage.value = null
+    }
+
+    // Result text from the last Income-boost ad-watch attempt — same shape as _speedBoostAdMessage above.
+    private val _incomeBoostAdMessage = MutableStateFlow<String?>(null)
+    val incomeBoostAdMessage: StateFlow<String?> = _incomeBoostAdMessage.asStateFlow()
+
+    /** Same as [watchAdForSpeedBoost] but for the Income-boost ad-watch reward — see `domain/model/AdRewards.kt`. */
+    fun watchAdForIncomeBoost(activity: Activity) {
+        val state = gameEngine.state.value
+        val cooldownRemaining = state.incomeBoostAdCooldownRemaining()
+        if (!cooldownRemaining.isZero) {
+            _incomeBoostAdMessage.value = "Come back in ${DurationFormat.format(cooldownRemaining)} for another slot."
+            return
+        }
+        _incomeBoostAdMessage.value = null
+        adManager.showAd(
+            placement = RewardedPlacement.AD_BOOST_INCOME,
+            activity = activity,
+            onRewardEarned = {
+                _incomeBoostAdMessage.value = if (gameEngine.grantIncomeBoostAdReward()) {
+                    "${GoldFormat.format(INCOME_BOOST_AD_MULTIPLIER)}x Income active for ${DurationFormat.format(INCOME_BOOST_AD_DURATION)}!"
+                } else {
+                    "Come back later to watch again."
+                }
+            },
+            onUnavailable = {
+                _incomeBoostAdMessage.value = "Ad isn't ready yet — try again in a moment."
+            },
+        )
+    }
+
+    fun dismissIncomeBoostAdMessage() {
+        _incomeBoostAdMessage.value = null
     }
 
     /** Play Store's own formatted price per product id (e.g. "$4.99") — see `BillingManager.formattedPrices`. Empty until Play Billing resolves them. */

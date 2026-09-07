@@ -116,8 +116,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.33.1** (refreshed `media-play.png` art — see
-     the Assets section and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.34.0** (the main screen's ad-watch button now
+     opens a popup offering both a Speed and a new Income boost, and both
+     were pulled out of the Shop entirely — see the `QuickAdBoostButton`
+     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -724,11 +726,11 @@ These apply to every change made in this repo, however small:
     the time a player reaches a rewarded placement instead of loading on
     demand. `RewardedPlacement` is a small enum, one entry per real AdMob
     ad unit id (`OFFLINE_EARNINGS_DOUBLE`, `SHOP_PLATINUM` as of 0.18.0,
-    `SHOP_SPEED_BOOST` as of 0.29.0) —
+    `SHOP_SPEED_BOOST` as of 0.29.0, `AD_BOOST_INCOME` as of 0.34.0) —
     adding a new rewarded spot means adding an entry there; `AdManager`
     itself tracks a loaded-ad slot per placement (`Map<RewardedPlacement,
     RewardedAd>`) generically rather than one hardcoded field per
-    placement, so it doesn't need touching again for a fourth. Two entry
+    placement, so it doesn't need touching again for a fifth. Two entry
     points, both placement-scoped: `isAdReady(placement)`/
     `showAd(placement, activity, onRewardEarned, onUnavailable)`. `showAd`
     always kicks off loading that placement's *next* ad afterward (on
@@ -783,12 +785,16 @@ These apply to every change made in this repo, however small:
     countdown for both `AdRewardRow`'s button label and
     `GameViewModel.platinumAdMessage`'s cooldown text, extracted once it
     was clear both needed the identical "3h 12m" logic.
-  - **Shop's ad-watch Speed boost (v0.29.0)** — a second, independent
-    rewarded placement (`RewardedPlacement.SHOP_SPEED_BOOST`, ad unit id
-    `ca-app-pub-1913393601233746/7941856119`), added to the Temporary tab's
-    "Earn a Free Boost" section above the existing "Buy a Boost" list of
-    PP-bought temporary boosts (both section labels are new in v0.29.0;
-    the tab had no section headers before this). Confirmed design (asked
+  - **Ad-watch Speed boost (v0.29.0; moved out of the Shop into
+    `QuickAdBoostButton`'s popup in v0.34.0 — see that bullet)** — a
+    second, independent rewarded placement (`RewardedPlacement.SHOP_SPEED_BOOST`,
+    ad unit id `ca-app-pub-1913393601233746/7941856119`). Originally
+    added to the Shop's Temporary tab's "Earn a Free Boost" section above
+    the existing "Buy a Boost" list of PP-bought temporary boosts (both
+    section labels were new in v0.29.0; the tab had no section headers
+    before that) — this bullet's description of the underlying reward
+    mechanics is still accurate, only *where it's offered* changed in
+    v0.34.0. Confirmed design (asked
     the user to disambiguate before building): watching grants
     `SPEED_BOOST_AD_MULTIPLIER` (2x) Speed for `SPEED_BOOST_AD_DURATION`
     (4h) as an ordinary [ActiveTemporaryBoost] (`domain/model/Boosts.kt`)
@@ -826,17 +832,16 @@ These apply to every change made in this repo, however small:
     (Supabase, a plain `List<Long>` — jsonb needs no encoding trick) with
     an empty-list default so an older cloud save without this field still
     decodes.
-  - **Quick-access Speed boost button (v0.30.0)** — a second entry point
-    into the exact same ad reward above, this time fixed in the main
-    `GameScreen`'s bottom-right corner instead of tucked inside the Shop
-    menu, per explicit request: players shouldn't have to "hunt" for the
-    ad-watch reward. `ui/game/QuickSpeedBoostAdButton.kt`'s
-    `QuickSpeedBoostAdButton` calls the identical
-    `GameViewModel.watchAdForSpeedBoost`/`speedBoostAdMessage`/
-    `dismissSpeedBoostAdMessage` `ShopContent`'s row already used — there's
-    no separate cooldown or state for this button, and watching from here
-    counts against the same four daily slots as watching from the Shop.
-    Visually it's the real `media_play.png` art (v0.32.0 — a carved
+  - **Quick-access ad-watch popup (v0.30.0, redesigned into a two-option
+    popup in v0.34.0)** — a persistent button fixed in the main
+    `GameScreen`'s bottom-right corner, per the original explicit
+    request: players shouldn't have to "hunt" for an ad-watch reward.
+    `ui/game/QuickAdBoostButton.kt`'s `QuickAdBoostButton` is the icon
+    itself; tapping it opens `AdBoostPopup` (a plain `Dialog`, same
+    parchment-scroll chrome as `WelcomeBackDialog`/`MilestoneReachedDialog`)
+    rather than watching one specific ad directly, now that there are two
+    rewards to choose from — see the Income boost bullet below. Visually
+    the button is the real `media_play.png` art (v0.32.0 — a carved
     wooden circular play button; replaced an earlier hand-drawn Canvas
     medallion+triangle once real ad-specific art existed), **sized and
     bottom-aligned to exactly match `FloatingMenu`'s chest toggle**: same
@@ -845,32 +850,62 @@ These apply to every change made in this repo, however small:
     `bottom = 16.dp` to `bottom = 24.dp` to make this line up) — per
     explicit request that the two read as a matched pair rather than one
     looking randomly bigger/higher than the other. A small gold
-    `SlotBadge` overlapping the rim shows how many of the four daily
-    slots are still free (hidden once all four are on cooldown, at which
-    point the play icon itself just dims to `0.55f` alpha rather than
-    disappearing) — confirmed design
-    (asked the user to disambiguate before building): "small icon button
-    with a badge," Speed-boost-only rather than a combined
-    Speed-and-Platinum popup, since the Speed boost is "the one most
-    relevant to active play." The button stays tappable even at 0 slots so
-    a tap still surfaces the "come back in Xh Ym" cooldown `message` via a
-    small dismissible parchment `MessageBubble` above it (same "✕" dismiss
-    affordance as `ShopContent`'s `PlatinumAdMessageCard`, duplicated
-    rather than shared per the project's established per-file-duplication
-    convention for small UI helpers) instead of silently doing nothing.
-    `GameScreen.kt` was restructured to wrap its `AppBackground`/`Scaffold`
-    content in an outer `Box` so this button (and the message bubble that
-    floats above it) can be aligned `BottomEnd` as a sibling overlay,
-    matching how `FloatingMenu`/`SectionOverlayCard` already float over
-    the game in `MainActivity` — it doesn't need any new contentPadding
-    reservation on the lair `LazyColumn` since it sits within the same
-    bottom band the list already reserves for `FloatingMenu`'s own toggle.
-    Verified live on-device: watching from this button decremented the
-    same slot badge the Shop shows (2 → 1), the "2x Speed active for 4h!"
-    message appeared, and stacked correctly with an already-active Speed
-    boost from a prior watch — Kobold Warren's live cycle time visibly
-    halved again (150ms → 75ms) on the main screen itself, confirming both
-    entry points feed the exact same `ActiveTemporaryBoost` state.
+    `SlotBadge` overlapping the rim shows the *combined* available slots
+    across both ad types (out of 8 total) — the popup itself is where the
+    exact per-type breakdown lives, so the button stays a simple "there's
+    something to watch" count; the play icon dims to `0.55f` alpha when
+    the combined count is 0 but stays tappable regardless, so a tap
+    during a dry spell still opens the popup and shows each option's own
+    "In Xh Ym" cooldown instead of doing nothing. Each option is an
+    `AdBoostOptionRow` (title, stacking description, Watch/cooldown
+    button) with its own dismissible `AdBoostMessage` underneath it (same
+    "✕" affordance used throughout the app) — the two options never share
+    state, so watching one never affects the other's cooldown or message.
+    `GameScreen.kt` wraps its `AppBackground`/`Scaffold` content in an
+    outer `Box` so this button (and the popup it opens) can be aligned
+    `BottomEnd` as a sibling overlay, matching how
+    `FloatingMenu`/`SectionOverlayCard` already float over the game in
+    `MainActivity`.
+  - **Second ad-watch reward: temporary Income boost (v0.34.0)** — a
+    2x Income (Profit) boost for 2 hours, added alongside the existing
+    2x-Speed-for-4h reward specifically so `QuickAdBoostButton`'s popup
+    would have two real choices rather than one. Exactly mirrors the
+    Speed reward's shape in `domain/model/AdRewards.kt`
+    (`INCOME_BOOST_AD_MULTIPLIER`/`_DURATION`/`_MAX_SLOTS`/`_COOLDOWN`,
+    `GameState.availableIncomeBoostAdSlots`/`canWatchIncomeBoostAd`/
+    `incomeBoostAdCooldownRemaining`) and `GameEngine.grantIncomeBoostAdReward`
+    (same shape as `grantSpeedBoostAdReward`, granting an
+    `ActiveTemporaryBoost(TemporaryBoostCategory.PROFIT, ...)` instead of
+    `SPEED`) — four independent daily slots, each its own 24-hour
+    cooldown from its own watch, tracked in its own
+    `GameState.incomeBoostAdWatchTimestamps` ledger so it can never
+    consume or interfere with the Speed reward's slots. New
+    `RewardedPlacement.AD_BOOST_INCOME` (`ads/AdManager.kt`, real ad unit
+    id `ca-app-pub-1913393601233746/9610995150`) and
+    `GameViewModel.watchAdForIncomeBoost`/`incomeBoostAdMessage`/
+    `dismissIncomeBoostAdMessage`, same shape as the Speed equivalents.
+    **Both ad-watch rewards were pulled out of the Shop entirely in
+    v0.34.0** — the Speed one briefly lived in the Shop's Temporary tab
+    (v0.29.0–v0.33.x, see that tab's own history in `ShopContent.kt`'s
+    class doc) but per explicit request both now live exclusively in
+    `QuickAdBoostButton`'s popup, so there's exactly one place to find
+    either instead of splitting them between the main screen and the
+    Shop; `ShopContent`/`TemporaryBoostsTab` lost the
+    `speedBoostAd*`/`onWatchSpeedBoostAd`/`onDismissSpeedBoostAdMessage`
+    params entirely (Income was never added to the Shop at all). Room
+    bumped to **database version 13** for one new
+    `incomeBoostAdWatchTimestampsJson` column, and the Supabase
+    `GameStateDto` got a matching `income_boost_ad_watch_timestamps_epoch_millis`
+    field with an empty-list default for older cloud saves. Verified
+    live on-device: the popup correctly showed Speed already on cooldown
+    from earlier testing (0/4, "In 18h...") alongside a fresh Income
+    option (4/4, "Watch"); watching Income played the real test ad,
+    granted "2x Income active for 2h!", dropped the Income slot count to
+    3/4, and — confirming the boost actually reaches gameplay — Kobold
+    Warren's displayed income doubled (50 gp → 100 gp) on the main
+    screen immediately after. Separately confirmed the Shop's Temporary
+    tab no longer shows any ad-watch section at all, going straight from
+    the "Active" boosts card to the buy list.
   - **"New feature" notification badge (v0.32.0, "new" redefined by
     availability in v0.33.0)** — a small ornate gold star
     (`new_notification.png`) that floats over `FloatingMenu`'s chest
@@ -1831,7 +1866,7 @@ same as the existing "Enable Anonymous Sign-Ins" toggle):
 Free-to-play: rewarded ads (boosts, offline-earnings multipliers) + optional IAP
 (gems, time-skips, cosmetics). No forced interstitials.
 
-**Rewarded ads — both placements live, AdMob app id
+**Rewarded ads — all four placements live, AdMob app id
 `ca-app-pub-1913393601233746~8060140149`** (in the manifest — see the
 `AdManager` bullet under Tech stack for the full picture, including the
 test-device safeguard that must stay in debug builds):
@@ -1842,13 +1877,23 @@ test-device safeguard that must stay in debug builds):
   0.18.1) — earns 2 Platinum Pieces, once every 24 hours (cooldown tracked
   on the save itself, not ad-network- or device-side — see the "Shop's
   Watch an Ad" bullet under Tech stack). Ad unit id
-  `ca-app-pub-1913393601233746/9425192707`.
-- **Shop "Watch an Ad" (Speed boost)** (live, 0.29.0; open to guests, same
-  reasoning as the Platinum one below — no real money involved) — grants a
-  free 2x Speed boost for 4 hours, up to 4 independent watches at a time,
-  each on its own 24-hour cooldown (see the "Shop's ad-watch Speed boost"
-  bullet under Tech stack). Ad unit id
+  `ca-app-pub-1913393601233746/9425192707`. The only one of the four still
+  actually offered from the Shop.
+- **Main screen "Watch an Ad" popup (Speed boost)** (live, 0.29.0; open
+  to guests, no real money involved) — grants a free 2x Speed boost for
+  4 hours, up to 4 independent watches at a time, each on its own
+  24-hour cooldown. Lived briefly in the Shop's Temporary tab
+  (v0.29.0–v0.33.x) before moving, alongside the new Income option below,
+  exclusively into `QuickAdBoostButton`'s popup on the main game screen
+  in v0.34.0 (see that bullet under Tech stack). Ad unit id
   `ca-app-pub-1913393601233746/7941856119`.
+- **Main screen "Watch an Ad" popup (Income boost)** (live, 0.34.0; open
+  to guests, same reasoning as Speed) — grants a free 2x Income boost for
+  2 hours, same four-independent-daily-watches shape as Speed but its
+  own separate ledger/cooldowns (see the "Second ad-watch reward" bullet
+  under Tech stack). Never lived in the Shop at all — added straight
+  into the popup alongside Speed. Ad unit id
+  `ca-app-pub-1913393601233746/9610995150`.
 
 The premium currency is `GameState.platinumPieces` (labeled "pp" in the
 UI) — no separate "Jewels" or other premium currency was added; platinum

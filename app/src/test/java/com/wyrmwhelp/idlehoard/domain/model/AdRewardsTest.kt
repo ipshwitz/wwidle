@@ -96,4 +96,52 @@ class AdRewardsTest {
 
         assertEquals(SPEED_BOOST_AD_MAX_SLOTS, state.availableSpeedBoostAdSlots(now))
     }
+
+    @Test
+    fun `never watched income boost ad has all four slots available`() {
+        val state = GameState(incomeBoostAdWatchTimestamps = emptyList())
+
+        assertEquals(INCOME_BOOST_AD_MAX_SLOTS, state.availableIncomeBoostAdSlots())
+        assertTrue(state.canWatchIncomeBoostAd())
+        assertEquals(Duration.ZERO, state.incomeBoostAdCooldownRemaining())
+    }
+
+    @Test
+    fun `income boost slots are tracked independently of speed boost slots`() {
+        val now = Instant.now()
+        val state = GameState(
+            speedBoostAdWatchTimestamps = List(SPEED_BOOST_AD_MAX_SLOTS) { now },
+            incomeBoostAdWatchTimestamps = emptyList(),
+        )
+
+        assertFalse(state.canWatchSpeedBoostAd(now))
+        assertTrue(state.canWatchIncomeBoostAd(now))
+        assertEquals(INCOME_BOOST_AD_MAX_SLOTS, state.availableIncomeBoostAdSlots(now))
+    }
+
+    @Test
+    fun `all four income boost slots busy blocks watching and reports the soonest slot's remaining cooldown`() {
+        val now = Instant.now()
+        val watches = listOf(
+            now.minusSeconds(3600),
+            now.minusSeconds(7200),
+            now,
+            now,
+        )
+        val state = GameState(incomeBoostAdWatchTimestamps = watches)
+
+        assertEquals(0, state.availableIncomeBoostAdSlots(now))
+        assertFalse(state.canWatchIncomeBoostAd(now))
+        assertEquals(Duration.ofHours(22), state.incomeBoostAdCooldownRemaining(now))
+    }
+
+    @Test
+    fun `an income boost slot frees up again once its own 24-hour cooldown fully elapses`() {
+        val watchedAt = Instant.now()
+        val state = GameState(incomeBoostAdWatchTimestamps = List(INCOME_BOOST_AD_MAX_SLOTS) { watchedAt })
+        val exactlyElapsed = watchedAt.plus(INCOME_BOOST_AD_COOLDOWN)
+
+        assertTrue(state.canWatchIncomeBoostAd(exactlyElapsed))
+        assertEquals(INCOME_BOOST_AD_MAX_SLOTS, state.availableIncomeBoostAdSlots(exactlyElapsed))
+    }
 }

@@ -29,6 +29,7 @@ data class GameStateDto(
     @SerialName("active_temporary_boosts") val activeTemporaryBoosts: List<ActiveTemporaryBoostDto> = emptyList(),
     @SerialName("last_platinum_ad_watched_at_epoch_millis") val lastPlatinumAdWatchedAtEpochMillis: Long? = null,
     @SerialName("speed_boost_ad_watch_timestamps_epoch_millis") val speedBoostAdWatchTimestampsEpochMillis: List<Long> = emptyList(),
+    @SerialName("income_boost_ad_watch_timestamps_epoch_millis") val incomeBoostAdWatchTimestampsEpochMillis: List<Long> = emptyList(),
     @SerialName("seen_steward_opportunities") val seenStewardOpportunities: List<String> = emptyList(),
     @SerialName("seen_upgrade_opportunities") val seenUpgradeOpportunities: List<String> = emptyList(),
 )
