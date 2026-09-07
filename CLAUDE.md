@@ -164,10 +164,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.38.1** (the ad-boost popup's post-watch message
-     no longer claims a fixed duration that never updates — it now shows
-     a real, live, per-instance countdown for every stacked video watch —
-     see the `QuickAdBoostButton` bullet under Tech stack and
+   - Current version: **0.38.2** (Settings' "Sync Now" is now gated to
+     signed-in players, with an explanatory note for guests — see the
+     `SettingsContent` bullet under Tech stack and
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -716,7 +715,16 @@ These apply to every change made in this repo, however small:
   - **`SettingsContent`** (`ui/settings/SettingsContent.kt`) — the Settings
     section's real content: an Account card (sign up/in/out), a Cloud
     Sync card (automatic-every-5-minutes note, last-synced time, manual
-    "Sync Now"), and (v0.28.2) a plain centered version footer reading
+    "Sync Now" — **gated to signed-in players since v0.38.2**: per
+    explicit request, a guest can no longer tap it. A guest's anonymous
+    identity already syncs automatically every 5 minutes same as anyone
+    else's — see `GameViewModel.runCloudSyncLoop` — but that identity has
+    no recovery story on reinstall regardless, so a manual on-demand sync
+    doesn't actually buy a guest anything; the disabled button shows an
+    explanatory note instead, mirroring `ShopContent`'s guest-gated "Buy
+    Platinum Pieces" section both in look and in reasoning — keep a
+    manually-triggered action tied to a recoverable account), and
+    (v0.28.2) a plain centered version footer reading
     `BuildConfig.VERSION_NAME` directly — the one thing on this screen
     that isn't ViewModel state, since it's a compile-time constant, so
     it's not threaded in as a parameter like everything else here.

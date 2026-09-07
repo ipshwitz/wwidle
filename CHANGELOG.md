@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.38.2] - 2026-09-07 3:10 PM EDT
+
+- Settings' "Sync Now" button is now only usable once you've created an
+  account or signed in. As a guest, your progress still backs up
+  automatically every 5 minutes — but a guest identity can't be
+  recovered after a reinstall anyway, so the manual button now says so
+  instead of letting you tap it.
+
 ## [0.38.1] - 2026-09-07 2:51 PM EDT
 
 - Fixed a bug in the "Watch an Ad" popup's Speed and Income bonuses: the

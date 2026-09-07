@@ -44,7 +44,8 @@ import java.time.Instant
  * The "Settings" section's real content: an account card (sign up/in/out,
  * gating IAP visibility elsewhere — see `ShopContent`'s `isSignedIn` param),
  * a cloud-sync card (automatic-every-5-minutes note, last-synced time,
- * manual "Sync Now"), and a version footer. Pure display plus callbacks —
+ * manual "Sync Now" — gated to signed-in players, see `SyncCard`'s own
+ * doc for why), and a version footer. Pure display plus callbacks —
  * reads ViewModel state passed in by `MainActivity`'s `WyrmWhelpApp` and
  * forwards actions through [onSignUp]/[onSignIn]/[onSignOut]/[onSyncNow]
  * rather than taking `GameViewModel` itself, same pattern as
@@ -100,6 +101,7 @@ fun SettingsContent(
         }
         item {
             SyncCard(
+                isSignedIn = userEmail != null,
                 isSyncing = isSyncing,
                 lastSyncedAt = lastSyncedAt,
                 onSyncNow = onSyncNow,
@@ -380,8 +382,19 @@ private fun AuthMessageCard(
     }
 }
 
+/**
+ * The manual "Sync Now" button is gated to signed-in players
+ * ([isSignedIn]) — a guest's anonymous identity still syncs automatically
+ * every 5 minutes (same as everyone else, see `GameViewModel.runCloudSyncLoop`),
+ * but that identity is lost on reinstall regardless, so a manual sync
+ * button doesn't buy a guest anything beyond what's already happening in
+ * the background — mirrors `ShopContent`'s guest-gated "Buy Platinum
+ * Pieces" (same reasoning: keep a manually-triggered action tied to a
+ * recoverable account).
+ */
 @Composable
 private fun SyncCard(
+    isSignedIn: Boolean,
     isSyncing: Boolean,
     lastSyncedAt: Instant?,
     onSyncNow: () -> Unit,
@@ -413,8 +426,17 @@ private fun SyncCard(
             WoodenButton(
                 text = if (isSyncing) "Syncing…" else "Sync Now",
                 onClick = onSyncNow,
-                enabled = !isSyncing,
+                enabled = isSignedIn && !isSyncing,
                 colors = palette,
+            )
+        }
+        if (!isSignedIn) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "Sign in above to sync on demand — as a guest, you're still backed up " +
+                    "automatically, but that identity can't be recovered after a reinstall.",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.6f),
             )
         }
     }
