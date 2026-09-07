@@ -3,6 +3,11 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.33.1] - 2026-09-06 11:10 PM EDT
+
+- Updated the Speed-boost ad button's art with a refined version of the
+  wooden play-button icon.
+
 ## [0.33.0] - 2026-09-06 10:45 PM EDT
 
 - Changed how the "new feature" star badge decides what's new: it's now

@@ -88,10 +88,12 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   (754x754) — used by the redesigned `WelcomeBackDialog` to front its
   rewarded-ad prompt instead of a plain button; see that bullet under
   Tech stack. `media-play.png` → `drawable-nodpi/media_play.png`
-  (v0.32.0), a carved wooden circular play button (silver triangle, blue
-  gem inlay, studded rim) — real transparent background, square
-  (754x754) — replaces `QuickSpeedBoostAdButton`'s earlier hand-drawn
-  Canvas medallion+triangle; see that bullet under Tech stack.
+  (v0.32.0, art refreshed in v0.33.1 — square went from 754x754 to
+  1144x1144, still genuinely transparent, no code changes needed since
+  `QuickSpeedBoostAdButton` sizes it in dp, not raw pixels), a carved
+  wooden circular play button (silver triangle, blue gem inlay, studded
+  rim) — replaces `QuickSpeedBoostAdButton`'s earlier hand-drawn Canvas
+  medallion+triangle; see that bullet under Tech stack.
   `new-notification.png` → `drawable-nodpi/new_notification.png`
   (v0.32.0), an ornate gold star — real transparent background, square
   (754x754) — the "something new to look at" badge on `FloatingMenu`'s
@@ -114,10 +116,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.33.0** (the "new feature" badge is now
-     availability-gated and covers Upgrades too, not just Stewards — see
-     the "'New feature' notification badge" bullet under Tech stack and
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.33.1** (refreshed `media-play.png` art — see
+     the Assets section and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
