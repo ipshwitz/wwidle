@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -34,7 +36,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.wyrmwhelp.idlehoard.BuildConfig
+import com.wyrmwhelp.idlehoard.domain.model.isValidUsername
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
 import java.time.Duration
@@ -42,14 +47,17 @@ import java.time.Instant
 
 /**
  * The "Settings" section's real content: an account card (sign up/in/out,
- * gating IAP visibility elsewhere — see `ShopContent`'s `isSignedIn` param),
- * a cloud-sync card (automatic-every-5-minutes note, last-synced time,
- * manual "Sync Now" — gated to signed-in players, see `SyncCard`'s own
- * doc for why), and a version footer. Pure display plus callbacks —
- * reads ViewModel state passed in by `MainActivity`'s `WyrmWhelpApp` and
- * forwards actions through [onSignUp]/[onSignIn]/[onSignOut]/[onSyncNow]
- * rather than taking `GameViewModel` itself, same pattern as
- * `StewardsContent`/`ShopContent`.
+ * gating IAP visibility elsewhere — see `ShopContent`'s `isSignedIn` param
+ * — plus [username]/[onEditUsername], v0.39.0 — see [UsernamePromptDialog]
+ * below for the actual entry form, which lives in this file but is shown
+ * from `GameScreen` since it also pops up unprompted right after
+ * registration), a cloud-sync card (automatic-every-5-minutes note,
+ * last-synced time, manual "Sync Now" — gated to signed-in players, see
+ * `SyncCard`'s own doc for why), and a version footer. Pure display plus
+ * callbacks — reads ViewModel state passed in by `MainActivity`'s
+ * `WyrmWhelpApp` and forwards actions through
+ * [onSignUp]/[onSignIn]/[onSignOut]/[onSyncNow] rather than taking
+ * `GameViewModel` itself, same pattern as `StewardsContent`/`ShopContent`.
  *
  * There's no separate `AuthViewModel` — this account/sync state all lives on
  * `GameViewModel` (see its class doc for why).
@@ -65,6 +73,8 @@ fun SettingsContent(
     pendingVerificationEmail: String?,
     isAuthActionInProgress: Boolean,
     authMessage: String?,
+    username: String?,
+    onEditUsername: () -> Unit,
     isSyncing: Boolean,
     lastSyncedAt: Instant?,
     onSignUp: (email: String, password: String) -> Unit,
@@ -87,6 +97,8 @@ fun SettingsContent(
                 userEmail = userEmail,
                 pendingVerificationEmail = pendingVerificationEmail,
                 isAuthActionInProgress = isAuthActionInProgress,
+                username = username,
+                onEditUsername = onEditUsername,
                 onSignUp = onSignUp,
                 onVerifySignUpCode = onVerifySignUpCode,
                 onResendSignUpCode = onResendSignUpCode,
@@ -142,6 +154,8 @@ private fun AccountCard(
     userEmail: String?,
     pendingVerificationEmail: String?,
     isAuthActionInProgress: Boolean,
+    username: String?,
+    onEditUsername: () -> Unit,
     onSignUp: (String, String) -> Unit,
     onVerifySignUpCode: (String) -> Unit,
     onResendSignUpCode: () -> Unit,
@@ -165,13 +179,27 @@ private fun AccountCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = palette.ink,
             )
-            Spacer(Modifier.height(8.dp))
-            WoodenButton(
-                text = "Sign Out",
-                onClick = onSignOut,
-                enabled = !isAuthActionInProgress,
-                colors = palette,
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = username?.let { "Leaderboard name: $it" } ?: "No leaderboard username set yet",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.75f),
             )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                WoodenButton(
+                    text = if (username == null) "Set Username" else "Change Username",
+                    onClick = onEditUsername,
+                    enabled = !isAuthActionInProgress,
+                    colors = palette,
+                )
+                WoodenButton(
+                    text = "Sign Out",
+                    onClick = onSignOut,
+                    enabled = !isAuthActionInProgress,
+                    colors = palette,
+                )
+            }
             return@ParchmentCard
         }
 
@@ -438,6 +466,99 @@ private fun SyncCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = palette.ink.copy(alpha = 0.6f),
             )
+        }
+    }
+}
+
+/**
+ * Prompts for a leaderboard username — shown once right after a guest
+ * finishes registering (see `GameViewModel.needsUsername`'s doc for every
+ * trigger point), and reopened from `AccountCard`'s "Change/Set Username"
+ * button for an existing account. Skippable — a first-time player isn't
+ * forced through it and can always come back to it from Settings — via
+ * the same "Skip for now"/"Cancel" button that also cancels an edit.
+ * Reachable from `ui/game/GameScreen.kt` (a different package), so this
+ * stays a public top-level composable in this file rather than private
+ * like `SettingsContent`'s other card helpers.
+ */
+@Composable
+fun UsernamePromptDialog(
+    currentUsername: String?,
+    isSubmitting: Boolean,
+    errorMessage: String?,
+    onSubmit: (String) -> Unit,
+    onDismiss: () -> Unit,
+    palette: FantasyPalette = FantasyPalette.Default,
+) {
+    var text by remember { mutableStateOf(currentUsername.orEmpty()) }
+    val canSubmit = isValidUsername(text) && !isSubmitting
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(min = 260.dp, max = 340.dp)
+                .shadow(8.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(Brush.verticalGradient(listOf(palette.parchmentShade, palette.parchment)))
+                .border(2.dp, palette.woodDark, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = if (currentUsername == null) "Choose a Username" else "Change Username",
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "This is how you'll appear on leaderboards once they're live.",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.75f),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Username") },
+                singleLine = true,
+                colors = authFieldColors(palette),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "3-20 characters: letters, numbers, and underscores.",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.6f),
+            )
+            errorMessage?.let { message ->
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.goldDeep,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                WoodenButton(
+                    text = if (currentUsername == null) "Skip for now" else "Cancel",
+                    onClick = onDismiss,
+                    enabled = !isSubmitting,
+                    colors = palette,
+                )
+                WoodenButton(
+                    text = if (isSubmitting) "Saving…" else "Save",
+                    onClick = { onSubmit(text.trim()) },
+                    enabled = canSubmit,
+                    colors = palette,
+                )
+            }
         }
     }
 }

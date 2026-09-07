@@ -5,7 +5,10 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.postgrest.from
 import javax.inject.Inject
+
+private const val PROFILES_TABLE = "profiles"
 
 class SupabaseAuthRepository @Inject constructor(
     private val supabaseClient: SupabaseClient,
@@ -67,4 +70,23 @@ class SupabaseAuthRepository @Inject constructor(
         // absent field — normalize blank to null so callers have one clean
         // signal for "this is a guest".
         supabaseClient.auth.currentUserOrNull()?.email?.takeIf { it.isNotBlank() }
+
+    override suspend fun currentUsername(): String? {
+        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return null
+        return supabaseClient.from(PROFILES_TABLE)
+            .select {
+                filter { eq("user_id", userId) }
+            }
+            .decodeSingleOrNull<ProfileRow>()
+            ?.username
+    }
+
+    override suspend fun setUsername(username: String) {
+        val userId = requireNotNull(supabaseClient.auth.currentUserOrNull()?.id) {
+            "Cannot set a username with no active session"
+        }
+        supabaseClient.from(PROFILES_TABLE).upsert(ProfileRow(userId = userId, username = username)) {
+            onConflict = "user_id"
+        }
+    }
 }

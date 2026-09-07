@@ -83,6 +83,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
     val pendingVerificationEmail by gameViewModel.pendingVerificationEmail.collectAsStateWithLifecycle()
     val isAuthActionInProgress by gameViewModel.isAuthActionInProgress.collectAsStateWithLifecycle()
     val authMessage by gameViewModel.authMessage.collectAsStateWithLifecycle()
+    val username by gameViewModel.username.collectAsStateWithLifecycle()
     val isSyncing by gameViewModel.isSyncing.collectAsStateWithLifecycle()
     val lastSyncedAt by gameViewModel.lastSyncedAt.collectAsStateWithLifecycle()
     val platinumAdMessage by gameViewModel.platinumAdMessage.collectAsStateWithLifecycle()
@@ -212,6 +213,8 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             pendingVerificationEmail = pendingVerificationEmail,
                             isAuthActionInProgress = isAuthActionInProgress,
                             authMessage = authMessage,
+                            username = username,
+                            onEditUsername = gameViewModel::promptUsernameChange,
                             isSyncing = isSyncing,
                             lastSyncedAt = lastSyncedAt,
                             onSignUp = gameViewModel::signUp,

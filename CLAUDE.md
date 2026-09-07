@@ -164,10 +164,11 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.38.2** (Settings' "Sync Now" is now gated to
-     signed-in players, with an explanatory note for guests — see the
-     `SettingsContent` bullet under Tech stack and
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.39.0** (leaderboard usernames — a new account is
+     now prompted to pick one right after registering; see the
+     `UsernamePromptDialog`/`GameViewModel.needsUsername` bullet under Tech
+     stack, `SQL/003_create_profiles_table.sql`'s required one-time setup,
+     and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -810,6 +811,75 @@ These apply to every change made in this repo, however small:
     null so "is this a guest" has one clean signal. Don't assume a Supabase
     string field is null just because it's logically absent; check for
     blank too.
+  - **Leaderboard usernames (v0.39.0)** — a `public.profiles` table
+    (`user_id` primary key, `username`, unique case-insensitively via a
+    `lower(username)` functional index — see
+    `SQL/003_create_profiles_table.sql`), deliberately a *separate* table
+    from `cloud_saves` rather than a new column on it: a username needs to
+    be publicly readable (any player, for a future leaderboard join) while
+    `cloud_saves.state` stays private to its own row — mixing the two would
+    mean relaxing RLS on the whole save blob just to expose a name.
+    `AuthRepository.currentUsername()`/`setUsername()` (implemented in
+    `SupabaseAuthRepository` via plain Postgrest calls, same
+    `.from(table).select{...}`/`.upsert(...){ onConflict = ... }` shape
+    `SupabaseCloudSaveRepository` already established) back
+    `GameViewModel.username`/`needsUsername`/`submitUsername`/
+    `dismissNeedsUsername`/`promptUsernameChange`. `needsUsername` flips
+    true via a private `refreshUsernameState()` called after every point
+    `userEmail` changes to non-null — the immediate (no-confirmation-needed)
+    branch of `signUp`, `verifySignUpCode`, `signIn`, and once at app
+    launch for an already-signed-in session — so a pre-existing account
+    from before this feature shipped gets prompted too, not just brand-new
+    sign-ups; a null `userEmail` (guest, or right after `signOut`) clears
+    both `username` and `needsUsername` instead of checking. `isValidUsername`
+    (`domain/model/Username.kt`, unit-tested) gates the form client-side:
+    3-20 characters, letters/digits/underscore only.
+    `ui/settings/SettingsContent.kt`'s `UsernamePromptDialog` is the actual
+    entry form (public in that file, unlike its private card helpers,
+    specifically so `GameScreen.kt` can render it) — same parchment/wood
+    `Dialog` chrome as `WelcomeBackDialog`, pre-fills the current username
+    when editing, and is always skippable/cancelable via a
+    "Skip for now"/"Cancel" button (never a hard block on play). Popped up
+    from `GameScreen`'s top level alongside `WelcomeBackDialog`/
+    `MilestoneReachedDialog`/`LevelUpRewardDialog` (same one-shot-dialogs-
+    live-at-the-top pattern) rather than only from Settings, since
+    `needsUsername` can flip true the instant registration completes,
+    regardless of whether the player is still looking at the Settings
+    section afterward. `AccountCard` also shows the current username (or
+    "No leaderboard username set yet") plus a "Set Username"/
+    "Change Username" button next to "Sign Out", wired to
+    `promptUsernameChange()` to reopen the same dialog for an edit.
+    **A real bug caught via live device testing, not hypothetical:**
+    `GameViewModel.usernameErrorMessage(e)` originally pattern-matched
+    `e.message` for the substring "duplicate"/"unique" to detect an
+    already-taken username. This is fundamentally broken with
+    supabase-kt 3.0.1's `RestException` — its `message` property (see
+    that class's source) bundles the *full* request diagnostics (URL,
+    headers — including this session's own bearer token!) after the
+    clean one-line `error` property, and the `setUsername` upsert's own
+    `Prefer: resolution=merge-duplicates` header means that dump always
+    contains the literal word "duplicate" regardless of what actually
+    failed — confirmed live when a genuine "table doesn't exist yet"
+    `NotFoundRestException` got mis-displayed as "That username is
+    already taken." Fixed to check `RestException.statusCode == 409`
+    (PostgREST's real status code for a unique-constraint violation)
+    and fall back to `RestException.error` (never `.message`) for any
+    other failure — both more correct *and* closes what would otherwise
+    have been a real secret-leaking bug, since the raw `.message` would
+    have put the caller's own auth bearer token directly in the dialog
+    for any non-duplicate error. Verified live on-device against the
+    real (still table-less, pending the SQL script) Supabase project:
+    before the fix, saving any username showed the false "already
+    taken" message every time; after, it correctly shows "Could not
+    find the table 'public.profiles' in the schema cache" instead —
+    accurate, with no token leakage.
+    **Requires `SQL/003_create_profiles_table.sql` to be run once** in the
+    Supabase dashboard before any of this actually persists — same
+    category of manual dashboard dependency as `001_create_cloud_saves_table.sql`
+    and the AdMob/Play Console setup documented elsewhere in this file.
+    Until that's run, every `setUsername` call fails with the
+    `NotFoundRestException` above (surfaced honestly, not silently) —
+    this is expected, not a regression, until the script is applied.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,
@@ -2265,7 +2335,12 @@ we'll pin these down as we build each system.
   idea — the user's actual follow-up request was nine named discrete
   multiplier tiers plus flat-rate consumables instead, deliberately not
   mirroring the Gold/Gem phase/tier-jump curve.
-- Leaderboard scope (global hoard value? fastest Level Up? per-lair records?)
+- Leaderboard scope (global hoard value? fastest Level Up? per-lair
+  records?) — still undecided, but the identity piece it needs is now
+  built: a `public.profiles` table holds each signed-in player's chosen
+  username (v0.39.0, prompted right after registration — see the
+  `UsernamePromptDialog` bullet under Tech stack). No leaderboard
+  screen/query exists yet, just the username itself.
 - Target device scope (phone-only vs. tablet/landscape support)
 - Cloud sync now happens on launch, every 5 minutes, on sign-up/sign-in, and
   via a manual "Sync Now" button (see the Account/sync bullet under Tech

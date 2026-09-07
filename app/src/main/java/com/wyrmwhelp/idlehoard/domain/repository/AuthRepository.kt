@@ -11,7 +11,9 @@ package com.wyrmwhelp.idlehoard.domain.repository
  * gate on account creation, not just an email-ownership nicety). [signIn]
  * switches to a *different*, already-existing permanent account (a
  * different user id), so callers must reconcile local vs. that account's
- * cloud save afterward — see `GameViewModel.signIn`.
+ * cloud save afterward — see `GameViewModel.signIn`. [currentUsername]/
+ * [setUsername] back the leaderboard-username prompt shown once a guest
+ * finishes registering — see `GameViewModel.needsUsername`.
  */
 interface AuthRepository {
 
@@ -64,4 +66,20 @@ interface AuthRepository {
      * visibility: guests (and unconfirmed accounts) shouldn't see it.
      */
     fun currentUserEmail(): String?
+
+    /**
+     * The current session's leaderboard username (`profiles` table), or
+     * null if none has been set yet — including for guests, who are never
+     * prompted for one. Suspends since, unlike [currentUserEmail], this
+     * isn't cached on the Supabase auth session itself and needs its own
+     * network round trip.
+     */
+    suspend fun currentUsername(): String?
+
+    /**
+     * Sets (or changes) the current session's leaderboard username.
+     * Case-insensitively unique across all players — throws if [username]
+     * is already taken by someone else, or if there's no active session.
+     */
+    suspend fun setUsername(username: String)
 }

@@ -3,6 +3,18 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.39.0] - 2026-09-07 3:55 PM EDT
+
+- Added leaderboard usernames: right after creating an account (or signing
+  into one that doesn't have a username yet), you're prompted to pick one
+  (3-20 letters/numbers/underscores, skippable — set or change it anytime
+  from Settings' Account card). This is groundwork for a future
+  leaderboard; there's no leaderboard screen yet.
+- **Requires a one-time database setup** — run `SQL/003_create_profiles_table.sql`
+  in the Supabase project's SQL Editor before this works. Until that's
+  run, saving a username will fail with an honest "couldn't find the
+  table" message instead of actually saving.
+
 ## [0.38.2] - 2026-09-07 3:10 PM EDT
 
 - Settings' "Sync Now" button is now only usable once you've created an

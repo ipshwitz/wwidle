@@ -26,12 +26,14 @@ import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
+import com.wyrmwhelp.idlehoard.domain.model.isValidUsername
 import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 import com.wyrmwhelp.idlehoard.domain.repository.AuthRepository
 import com.wyrmwhelp.idlehoard.domain.repository.CloudSaveRepository
 import com.wyrmwhelp.idlehoard.domain.repository.GameRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.jan.supabase.exceptions.RestException
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -147,6 +149,24 @@ class GameViewModel @Inject constructor(
     private val _lastSyncedAt = MutableStateFlow<Instant?>(null)
     val lastSyncedAt: StateFlow<Instant?> = _lastSyncedAt.asStateFlow()
 
+    // The signed-in player's leaderboard username (`profiles` table) — null
+    // for guests, and null for a signed-in player who hasn't set one yet.
+    private val _username = MutableStateFlow<String?>(null)
+    val username: StateFlow<String?> = _username.asStateFlow()
+
+    // True right after a guest finishes registering (or signs into an
+    // existing account) with no username on file yet — drives GameScreen's
+    // UsernamePromptDialog. Also flipped back on deliberately, by
+    // promptUsernameChange(), to reopen the same dialog for an edit.
+    private val _needsUsername = MutableStateFlow(false)
+    val needsUsername: StateFlow<Boolean> = _needsUsername.asStateFlow()
+
+    private val _isUsernameActionInProgress = MutableStateFlow(false)
+    val isUsernameActionInProgress: StateFlow<Boolean> = _isUsernameActionInProgress.asStateFlow()
+
+    private val _usernameMessage = MutableStateFlow<String?>(null)
+    val usernameMessage: StateFlow<String?> = _usernameMessage.asStateFlow()
+
     init {
         viewModelScope.launch {
             val local = gameRepository.loadGameState()
@@ -158,6 +178,7 @@ class GameViewModel @Inject constructor(
                 .getOrNull()
             currentUserId = userId
             _userEmail.value = userId?.let { authRepository.currentUserEmail() }
+            refreshUsernameState()
 
             val cloud = userId?.let { id ->
                 runCatching { cloudSaveRepository.downloadSave(id) }
@@ -264,6 +285,7 @@ class GameViewModel @Inject constructor(
                     if (confirmedEmail != null) {
                         _userEmail.value = confirmedEmail
                         _authMessage.value = "Account created!"
+                        refreshUsernameState()
                         syncToCloud()
                     } else {
                         _pendingVerificationEmail.value = email
@@ -292,6 +314,7 @@ class GameViewModel @Inject constructor(
                     _userEmail.value = authRepository.currentUserEmail()
                     _pendingVerificationEmail.value = null
                     _authMessage.value = "Account verified!"
+                    refreshUsernameState()
                     syncToCloud()
                 }
                 .onFailure { e ->
@@ -341,6 +364,7 @@ class GameViewModel @Inject constructor(
                 .onSuccess { userId ->
                     currentUserId = userId
                     _userEmail.value = authRepository.currentUserEmail()
+                    refreshUsernameState()
 
                     val cloud = runCatching { cloudSaveRepository.downloadSave(userId) }.getOrNull()
                     val merged = mergeGameStates(gameEngine.state.value, cloud) ?: gameEngine.state.value
@@ -377,6 +401,7 @@ class GameViewModel @Inject constructor(
                 .onSuccess { userId ->
                     currentUserId = userId
                     _userEmail.value = authRepository.currentUserEmail()
+                    refreshUsernameState()
                 }
                 .onFailure { e ->
                     Log.w(TAG, "Re-establishing guest session after sign out failed", e)
@@ -388,6 +413,101 @@ class GameViewModel @Inject constructor(
 
     fun dismissAuthMessage() {
         _authMessage.value = null
+    }
+
+    /**
+     * Refreshes [username]/[needsUsername] to match the current session —
+     * called after every point [userEmail] changes. A guest (null email)
+     * clears both; a signed-in player with no username on file yet flips
+     * [needsUsername] so `GameScreen` pops up `UsernamePromptDialog`. Also
+     * covers a pre-existing account signing in from before this feature
+     * shipped, since it's checked fresh on every sign-in/sign-up, not just
+     * once at account creation.
+     */
+    private suspend fun refreshUsernameState() {
+        if (_userEmail.value == null) {
+            _username.value = null
+            _needsUsername.value = false
+            return
+        }
+        val name = runCatching { authRepository.currentUsername() }
+            .onFailure { Log.w(TAG, "Fetching username failed", it) }
+            .getOrNull()
+        _username.value = name
+        _needsUsername.value = name == null
+    }
+
+    /**
+     * Sets (or changes) the signed-in player's leaderboard username —
+     * see [needsUsername]'s doc for when this is first prompted, and
+     * [promptUsernameChange] for reopening it later from Settings.
+     * Re-validated here (not just trusting the UI's own gate) since a
+     * caller could pass anything.
+     */
+    fun submitUsername(username: String) {
+        if (_isUsernameActionInProgress.value) return
+        if (!isValidUsername(username)) {
+            _usernameMessage.value = "Usernames are 3-20 letters, numbers, or underscores."
+            return
+        }
+        viewModelScope.launch {
+            _isUsernameActionInProgress.value = true
+            _usernameMessage.value = null
+            runCatching { authRepository.setUsername(username) }
+                .onSuccess {
+                    _username.value = username
+                    _needsUsername.value = false
+                }
+                .onFailure { e ->
+                    Log.w(TAG, "Setting username failed", e)
+                    _usernameMessage.value = usernameErrorMessage(e)
+                }
+            _isUsernameActionInProgress.value = false
+        }
+    }
+
+    /** Lets the player skip the username prompt for now — they can set one later from Settings. */
+    fun dismissNeedsUsername() {
+        _needsUsername.value = false
+        _usernameMessage.value = null
+    }
+
+    /** Settings' "Change Username" button — reopens the same prompt dialog even though [username] is already set. */
+    fun promptUsernameChange() {
+        _usernameMessage.value = null
+        _needsUsername.value = true
+    }
+
+    fun dismissUsernameMessage() {
+        _usernameMessage.value = null
+    }
+
+    /**
+     * Deliberately reads [RestException.statusCode]/[RestException.error]
+     * rather than pattern-matching `e.message` — caught live, not
+     * hypothetically: `RestException.message` (see its source) bundles the
+     * *full* request diagnostics (URL, headers — including this session's
+     * own bearer token) after the clean one-line [RestException.error], and
+     * this call's own `Prefer: resolution=merge-duplicates` upsert header
+     * means that dump always contains the literal word "duplicate"
+     * regardless of what actually went wrong — an earlier
+     * `message.contains("duplicate")` check flagged an unrelated "table
+     * doesn't exist yet" error as "username already taken" during testing.
+     * PostgREST returns [HTTP_CONFLICT] specifically for a unique-constraint
+     * violation (our `profiles_username_lower_idx` index) — checking that
+     * directly is both correct and avoids message-text guessing entirely.
+     * Falling back to [RestException.error] (never `.message`) for any
+     * other REST failure for the same reason: `.message` would leak that
+     * header dump — including the auth token — straight into the dialog.
+     */
+    private fun usernameErrorMessage(e: Throwable): String {
+        if (e is RestException) {
+            if (e.statusCode == HTTP_CONFLICT) {
+                return "That username is already taken — try another."
+            }
+            return e.error
+        }
+        return e.message?.takeIf { it.isNotBlank() } ?: "Couldn't save that username — try again."
     }
 
     fun dismissWelcomeBack() {
@@ -679,5 +799,8 @@ class GameViewModel @Inject constructor(
         const val TAG = "GameViewModel"
         const val AUTOSAVE_INTERVAL_MS = 30_000L
         const val CLOUD_SYNC_INTERVAL_MS = 5 * 60_000L
+
+        /** HTTP 409 — PostgREST's status code for a unique-constraint violation. See [usernameErrorMessage]. */
+        const val HTTP_CONFLICT = 409
     }
 }
