@@ -151,6 +151,14 @@ data class GameState(
     val incomeBoostAdWatchTimestamps: List<Instant> = emptyList(),
     val seenStewardOpportunities: Set<String> = emptySet(),
     val seenUpgradeOpportunities: Set<String> = emptySet(),
+    /**
+     * The player's chosen portrait — an [AvatarOption.id] from
+     * [AVATAR_CATALOG], or null for the default carved-shield placeholder.
+     * A per-player identity choice, not game progress — carried over
+     * through a Level Up unlike [lairs]/[goldPieces], same category as
+     * [platinumPieces].
+     */
+    val selectedAvatarId: String? = null,
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

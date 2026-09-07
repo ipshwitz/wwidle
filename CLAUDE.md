@@ -146,6 +146,17 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   invisible on a white one, like Play Store's own icon) is the
   launcher's own ambient-shadow chrome applied to every adaptive icon,
   not an artifact of this asset.
+  `avatar-<f|m>-<class>.png` (26 files, one per gender/D&D-class
+  combination — v0.40.0) → `drawable-nodpi/avatar_<f|m>_<class>.png`, the
+  avatar-picker portraits (`AvatarPickerDialog`/`GameHeader`'s
+  `MedallionEmblem` — see the Tech stack bullet). Square (1024x1024),
+  **opaque RGB with a plain white background, no alpha channel at all** —
+  unlike every other icon asset in this file, these are deliberately used
+  as-is rather than re-exported for transparency: they're cropped to a
+  circle in code (`ContentScale.Crop` + `clip(CircleShape)`, same pattern
+  as `LairRow`'s creature portraits) small enough that the square's white
+  corners fall outside the visible circle, so the opaque background never
+  actually shows.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -164,11 +175,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.39.1** (the leaderboard username is now a plain
-     inline field in Settings' Account card, only shown to signed-in
-     players — the v0.39.0 pop-up-right-after-registration design was
-     scrapped per explicit correction; see the `UsernameField` bullet
-     under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.40.0** (avatar selection — tap `GameHeader`'s
+     medallion to choose one of 26 D&D-class portraits; see the
+     `AvatarPickerDialog`/`domain/model/Avatar.kt` bullet under Tech stack
+     and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -352,6 +362,60 @@ These apply to every change made in this repo, however small:
     continuously on its own (see `LairRow`/`GameEngine` below), so including
     it here would overstate what the player is actually earning while not
     tapping.
+  - **Avatar selection (v0.40.0)** — `domain/model/Avatar.kt` defines
+    `AvatarOption(id, gender, className)` and `AVATAR_CATALOG`, built by
+    crossing every D&D 5E class with real avatar art
+    (`AVATAR_CLASSES` × `AvatarGender.MALE`/`FEMALE`) against 26 source
+    portraits (see the Assets section) — 13 classes × 2 genders. `id`
+    (e.g. `"f_wizard"`) is what's actually persisted
+    (`GameState.selectedAvatarId: String?`, null = the original
+    engraved-shield placeholder) — a domain model deliberately free of any
+    `R.drawable` reference; `ui/common/AvatarArt.kt`'s `avatarDrawableRes`
+    is the one `when` mapping an id to its real drawable, shared between
+    `GameHeader` and `AvatarPickerDialog` (same "domain has no Android
+    resources" split as `LairRow`'s private `lairPortraitRes`, just
+    promoted out of `private` since two files need it here).
+    `GameEngine.selectAvatar(avatarId)` validates against
+    `isValidAvatarId` before writing (silently no-ops on a bad id rather
+    than throwing — a stale/garbled id should never brick the header)
+    and is the only place `selectedAvatarId` changes.
+    **`MedallionEmblem` is now tappable** — `GameHeader` gained an
+    `onAvatarClick` callback, wired in `GameScreen` to a local
+    `showAvatarPicker` boolean that opens `AvatarPickerDialog`. The
+    medallion itself switched from a bare `Canvas` to a `Box` (`Canvas`
+    for the gold ring plus, conditionally, either the original
+    wood-disc/shield-`Path` placeholder or the real portrait `Image` —
+    `ContentScale.Crop` + `clip(CircleShape)`, sized to `fillMaxSize(0.76f)`
+    to land on the exact same coverage the wood disc used, so the ring
+    frames a real portrait exactly like it framed the shield) —
+    `clip(CircleShape).clickable(...)` on the outer `Box` for the tap
+    target, same pattern `LairRow`'s `CreatureAvatar` already uses.
+    `AvatarPickerDialog.kt` is a plain `Dialog` (same parchment-scroll
+    chrome as `WelcomeBackDialog`) holding one `LazyVerticalGrid`
+    (`GridCells.Fixed(4)`) mixing full-width header/row items
+    (`item(span = { GridItemSpan(maxLineSpan) })`) with per-avatar tiles:
+    a "Default (no avatar)" row first, then a "Female" label and its 13
+    tiles, then "Male" and its 13 — each tile a circular crop ringed gold
+    when it's the current selection. Tapping any tile (including
+    Default, `onSelect(null)`) both applies the choice and closes the
+    dialog immediately — no separate confirm step, matching how every
+    other one-tap choice in this app behaves. **Persists like a currency,
+    not like run progress** — `GameStateEntity`/`GameStateDto` each
+    gained one nullable `selectedAvatarId` column/field (Room bumped to
+    **database version 15**; no JSON encoding needed for a single
+    nullable string, unlike the list-shaped fields nearby), and
+    `GameEngine.performLevelUp()` explicitly carries `selectedAvatarId`
+    into the fresh post-reset `GameState` alongside Platinum Pieces and
+    the permanent boost tiers — it's a player identity choice, not
+    something a Level Up should ever clear. Verified live on-device:
+    selecting the female Fighter portrait immediately swapped the
+    header's medallion art and closed the dialog; force-stopping and
+    relaunching the app showed the same Fighter portrait still in place
+    (confirming real Room persistence, not just in-memory state);
+    reopening the picker showed the Fighter tile correctly ringed as the
+    active selection; tapping "Default (no avatar)" correctly reverted
+    the header back to the original engraved-shield placeholder; the
+    grid scrolls cleanly through both the Female and Male groups.
   - **`WelcomeBackDialog`** (`ui/game/WelcomeBackDialog.kt`) — the offline-
     earnings pop-up, restyled from a plain Material `AlertDialog` to match
     the cozy-fantasy chrome: a plain `Dialog` (not `AlertDialog` — none of
@@ -2317,9 +2381,13 @@ we'll pin these down as we build each system.
   is still a raw `Double` underneath, though, which will need revisiting once
   the economy grows past what a `Double` represents precisely — the suffix
   scheme fixes the *display* problem, not the underlying precision one
-- Avatar system — `GameHeader` has a `MedallionEmblem` slot (a carved
-  gold-ringed medallion with an engraved shield silhouette, not yet an actual
-  avatar) but no real avatar images or selection UI exist yet
+- Avatar system — **built as of v0.40.0**: `GameHeader`'s `MedallionEmblem`
+  is tappable and shows the player's chosen portrait (real art, cropped to
+  a circle inside the same gold ring that used to frame the engraved-shield
+  placeholder), which now only shows before a choice has been made. See
+  the `AvatarPickerDialog`/`domain/model/Avatar.kt` bullet under Tech
+  stack. Not yet done: any cosmetic tie-in beyond the header (e.g. a
+  future leaderboard showing other players' avatars).
 - Creature portrait art — in progress, one lair at a time (see `LairRow`'s
   `lairPortraitRes` above): Kobold Warren, Giant Rat Burrow, Goblin Camp,
   Orc Encampment, Gnoll Den, and Bugbear Warcamp have real art as of

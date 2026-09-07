@@ -71,6 +71,8 @@ data class GameStateEntity(
      * never blank/null.
      */
     val seenUpgradeOpportunitiesJson: String = "[]",
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.selectedAvatarId] — a plain nullable column, no JSON encoding needed for a single string. */
+    val selectedAvatarId: String? = null,
 ) {
     companion object {
         const val SINGLETON_ID = 0

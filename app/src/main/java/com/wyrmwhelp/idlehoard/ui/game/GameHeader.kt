@@ -4,15 +4,19 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,12 +29,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.GlowingGoldText
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
+import com.wyrmwhelp.idlehoard.ui.common.avatarDrawableRes
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 
 /**
@@ -45,15 +51,18 @@ data class GameHeaderState(
     val platinumPieces: Double,
     val gems: Long,
     val buyQuantity: BuyQuantity,
+    /** The player's chosen avatar id, or null for the default shield placeholder — see `AvatarPickerDialog`. */
+    val selectedAvatarId: String? = null,
 )
 
 /**
  * The game screen's top bar, styled to match the rest of the app's cozy-
  * fantasy chrome (wooden signs, parchment, carved edges) instead of a plain
  * Material title bar. Three sections, left to right:
- * - [MedallionEmblem]: a carved gold-ringed medallion standing in for the
- *   not-yet-built avatar system ("a handful of pre-created avatar images
- *   they can choose from").
+ * - [MedallionEmblem]: a carved gold-ringed medallion showing the player's
+ *   chosen avatar portrait (or an engraved-shield placeholder before one's
+ *   been chosen) — tapping it opens `AvatarPickerDialog` ("a handful of
+ *   pre-created avatar images they can choose from").
  * - Total Gold Pieces (glowing/embossed, [GlowingGoldText]) over a thin
  *   [ParchmentStrip] showing gold-per-second, Platinum Pieces (labeled
  *   "pp" — "Premium Coins" in the original ask, but kept the existing
@@ -76,6 +85,7 @@ data class GameHeaderState(
 fun GameHeader(
     state: GameHeaderState,
     onCycleBuyQuantity: () -> Unit,
+    onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
     colors: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -88,7 +98,7 @@ fun GameHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        MedallionEmblem(colors = colors)
+        MedallionEmblem(colors = colors, avatarId = state.selectedAvatarId, onClick = onAvatarClick)
 
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -164,40 +174,69 @@ private fun Modifier.woodenBanner(colors: FantasyPalette): Modifier = drawBehind
 }
 
 /**
- * The avatar stand-in: a small carved medallion — gold ring, embossed wood
- * disc, engraved shield silhouette — rather than a plain circle. `Canvas` is
- * used here (not a built-in shape) because the gold ring's metallic sheen
- * (sweep gradient) and the shield silhouette (custom [Path]) both need
- * direct drawing.
+ * The avatar slot: a small carved medallion — gold ring plus either the
+ * player's chosen portrait (see `domain/model/Avatar.kt`'s `AVATAR_CATALOG`,
+ * 26 D&D-class portraits) cropped to a circle, or, before one's ever been
+ * chosen, the original engraved-shield placeholder. `Canvas` draws the ring
+ * itself (its metallic sheen needs a sweep gradient no built-in shape
+ * offers) while the placeholder's wood disc/shield silhouette (custom
+ * [Path]) or the real portrait [Image] layers on top — clickable to open
+ * the avatar picker either way.
  */
 @Composable
-private fun MedallionEmblem(colors: FantasyPalette, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(52.dp)) {
-        val radius = size.minDimension / 2f
-        val center = Offset(size.width / 2f, size.height / 2f)
+private fun MedallionEmblem(colors: FantasyPalette, avatarId: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val portraitRes = avatarId?.let(::avatarDrawableRes)
+    Box(
+        modifier = modifier
+            .size(52.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val radius = size.minDimension / 2f
+            val center = Offset(size.width / 2f, size.height / 2f)
 
-        drawCircle(
-            brush = Brush.sweepGradient(
-                listOf(colors.goldDeep, colors.goldBright, colors.goldDeep, colors.goldBright, colors.goldDeep),
+            drawCircle(
+                brush = Brush.sweepGradient(
+                    listOf(colors.goldDeep, colors.goldBright, colors.goldDeep, colors.goldBright, colors.goldDeep),
+                    center = center,
+                ),
+                radius = radius - radius * 0.11f,
                 center = center,
-            ),
-            radius = radius - radius * 0.11f,
-            center = center,
-            style = Stroke(width = radius * 0.22f),
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(colors.woodLight, colors.woodDark),
-                center = center,
-                radius = radius * 0.8f,
-            ),
-            radius = radius * 0.76f,
-            center = center,
-        )
+                style = Stroke(width = radius * 0.22f),
+            )
 
-        val shield = shieldPath(center, radius * 0.42f)
-        drawPath(shield, color = colors.parchment.copy(alpha = 0.88f))
-        drawPath(shield, color = colors.ink.copy(alpha = 0.65f), style = Stroke(width = 1.5f))
+            if (portraitRes == null) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(colors.woodLight, colors.woodDark),
+                        center = center,
+                        radius = radius * 0.8f,
+                    ),
+                    radius = radius * 0.76f,
+                    center = center,
+                )
+
+                val shield = shieldPath(center, radius * 0.42f)
+                drawPath(shield, color = colors.parchment.copy(alpha = 0.88f))
+                drawPath(shield, color = colors.ink.copy(alpha = 0.65f), style = Stroke(width = 1.5f))
+            }
+        }
+
+        if (portraitRes != null) {
+            // 76% of the box diameter matches the placeholder's own wood-disc
+            // coverage (radius * 0.76 above) so the ring frames the portrait
+            // exactly like it framed the shield.
+            Image(
+                painter = painterResource(portraitRes),
+                contentDescription = "Your avatar — tap to change",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize(0.76f)
+                    .clip(CircleShape),
+            )
+        }
     }
 }
 

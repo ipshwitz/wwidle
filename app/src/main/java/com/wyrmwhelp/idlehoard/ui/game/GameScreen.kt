@@ -11,6 +11,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +46,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val speedBoostAdMessage by viewModel.speedBoostAdMessage.collectAsStateWithLifecycle()
     val incomeBoostAdMessage by viewModel.incomeBoostAdMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showAvatarPicker by remember { mutableStateOf(false) }
 
     // The "Everything" milestone bonuses — same compounding schedule as each
     // lair's own bonus, but keyed on the lowest owned count across all of
@@ -87,8 +91,10 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                             platinumPieces = state.platinumPieces,
                             gems = state.gems,
                             buyQuantity = buyQuantity,
+                            selectedAvatarId = state.selectedAvatarId,
                         ),
                         onCycleBuyQuantity = viewModel::cycleBuyQuantity,
+                        onAvatarClick = { showAvatarPicker = true },
                     )
                 },
             ) { innerPadding ->
@@ -170,6 +176,17 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
         LevelUpRewardDialog(
             gemsEarned = gemsEarned,
             onDismiss = viewModel::dismissLevelUpReward,
+        )
+    }
+
+    if (showAvatarPicker) {
+        AvatarPickerDialog(
+            selectedAvatarId = state.selectedAvatarId,
+            onSelect = { avatarId ->
+                viewModel.selectAvatar(avatarId)
+                showAvatarPicker = false
+            },
+            onDismiss = { showAvatarPicker = false },
         )
     }
 }

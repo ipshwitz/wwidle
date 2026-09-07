@@ -3,6 +3,7 @@ package com.wyrmwhelp.idlehoard.domain.engine
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.isValidAvatarId
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
 import com.wyrmwhelp.idlehoard.domain.model.GemUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
@@ -217,6 +218,18 @@ class GameEngine @Inject constructor() {
             }
         }
         return hired
+    }
+
+    /**
+     * Sets the player's chosen avatar portrait (`GameHeader`'s
+     * `MedallionEmblem`) — [avatarId] must be a real [AVATAR_CATALOG] id, or
+     * null to revert to the default carved-shield placeholder; any other
+     * value is silently ignored rather than persisting a dangling id a
+     * future catalog change could leave unresolvable.
+     */
+    fun selectAvatar(avatarId: String?) {
+        if (avatarId != null && !isValidAvatarId(avatarId)) return
+        _state.update { it.copy(selectedAvatarId = avatarId) }
     }
 
     /**
@@ -445,7 +458,9 @@ class GameEngine @Inject constructor() {
      * ([GameState.permanentSpeedBoost2xLevel] and its eight siblings) and
      * every currently-running [GameState.activeTemporaryBoosts] instance,
      * [GameState.offlineCapHours], both ad-watch cooldowns
-     * ([GameState.lastPlatinumAdWatchedAt]/[GameState.speedBoostAdWatchTimestamps]), and —
+     * ([GameState.lastPlatinumAdWatchedAt]/[GameState.speedBoostAdWatchTimestamps]),
+     * [GameState.selectedAvatarId] (a player identity choice, not run
+     * progress), and —
      * critically — [GameState.lifetimeGoldEarned] itself all carry over
      * unchanged; only the gold side of the *current run* (and the old Gem
      * batch) resets. That includes every Gold Pieces upgrade
@@ -488,6 +503,7 @@ class GameEngine @Inject constructor() {
                     lastPlatinumAdWatchedAt = current.lastPlatinumAdWatchedAt,
                     speedBoostAdWatchTimestamps = current.speedBoostAdWatchTimestamps,
                     incomeBoostAdWatchTimestamps = current.incomeBoostAdWatchTimestamps,
+                    selectedAvatarId = current.selectedAvatarId,
                 )
             }
         }

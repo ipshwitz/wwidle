@@ -4,7 +4,11 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 14 as a deliberate one-off reset, explicitly requested
+ * Bumped to version 15 for the avatar-selection feature: one new nullable
+ * `selectedAvatarId` column (see `GameStateMappers.kt`) — see
+ * `domain/model/Avatar.kt`/`GameHeader.kt`'s `MedallionEmblem`. Plain
+ * nullable `String` column, no JSON encoding needed for a single value.
+ * Version 14 was a deliberate one-off reset, explicitly requested
  * to start testing this build's app-icon/loading-screen changes from a
  * completely fresh local save — no schema change behind this bump.
  * [DatabaseModule]'s `fallbackToDestructiveMigration` (see below) means the
@@ -57,7 +61,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 14,
+    version = 15,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

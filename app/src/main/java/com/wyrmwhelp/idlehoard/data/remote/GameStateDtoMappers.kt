@@ -33,6 +33,7 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     incomeBoostAdWatchTimestampsEpochMillis = incomeBoostAdWatchTimestamps.map { it.toEpochMilli() },
     seenStewardOpportunities = seenStewardOpportunities.toList(),
     seenUpgradeOpportunities = seenUpgradeOpportunities.toList(),
+    selectedAvatarId = selectedAvatarId,
 )
 
 private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
@@ -78,6 +79,7 @@ fun GameStateDto.toDomain(): GameState = GameState(
     incomeBoostAdWatchTimestamps = incomeBoostAdWatchTimestampsEpochMillis.map { Instant.ofEpochMilli(it) },
     seenStewardOpportunities = seenStewardOpportunities.toSet(),
     seenUpgradeOpportunities = seenUpgradeOpportunities.toSet(),
+    selectedAvatarId = selectedAvatarId,
 )
 
 private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(

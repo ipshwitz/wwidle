@@ -709,6 +709,11 @@ class GameViewModel @Inject constructor(
         gameEngine.hireSteward(lairId)
     }
 
+    /** The avatar picker's selection callback — see `GameEngine.selectAvatar`. */
+    fun selectAvatar(avatarId: String?) {
+        gameEngine.selectAvatar(avatarId)
+    }
+
     /** Dismisses the Stewards "new feature" badge — see `GameEngine.markStewardOpportunitiesSeen`. */
     fun markStewardOpportunitiesSeen() {
         gameEngine.markStewardOpportunitiesSeen()
