@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.40.1] - 2026-09-07 7:10 PM EDT
+
+- Made the avatar medallion in the header bigger and its gold border
+  thinner, so the portrait itself is easier to see. The header grew a
+  touch taller to fit it comfortably.
+
 ## [0.40.0] - 2026-09-07 7:05 PM EDT
 
 - Added avatar selection: tap the medallion in the top-left corner of the

@@ -175,9 +175,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.40.0** (avatar selection — tap `GameHeader`'s
-     medallion to choose one of 26 D&D-class portraits; see the
-     `AvatarPickerDialog`/`domain/model/Avatar.kt` bullet under Tech stack
+   - Current version: **0.40.1** (the avatar medallion is bigger with a
+     thinner gold border, per explicit follow-up feedback right after
+     v0.40.0 shipped — see the Avatar selection bullet under Tech stack
      and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -416,6 +416,20 @@ These apply to every change made in this repo, however small:
     active selection; tapping "Default (no avatar)" correctly reverted
     the header back to the original engraved-shield placeholder; the
     grid scrolls cleanly through both the Female and Male groups.
+    **Sized up (v0.40.1), per immediate explicit follow-up** ("i want the
+    avatar to be a little bigger... make the entire header a little
+    larger and make the border around the avatar smaller"):
+    `MedallionEmblem`'s box grew 52.dp → 66.dp, the gold ring's stroke
+    shrank (inset 0.11 → 0.06 of radius, stroke width 0.22 → 0.14) so
+    more of the medallion is portrait/shield rather than frame, and the
+    portrait/wood-disc fill grew to match (0.76 → 0.86 of the box) —
+    the shield placeholder's own relative radius grew too (0.42 → 0.46)
+    to fill the freed-up space proportionally. `GameHeader`'s outer `Row`
+    padding went from `vertical = 8.dp` to `10.dp` so the taller
+    medallion still sits comfortably inside the wooden banner. Verified
+    live on-device: the medallion is visibly larger with a noticeably
+    thinner gold ring and a bigger, easier-to-see portrait, and the
+    header banner grew to match with no clipping.
   - **`WelcomeBackDialog`** (`ui/game/WelcomeBackDialog.kt`) — the offline-
     earnings pop-up, restyled from a plain Material `AlertDialog` to match
     the cozy-fantasy chrome: a plain `Dialog` (not `AlertDialog` — none of

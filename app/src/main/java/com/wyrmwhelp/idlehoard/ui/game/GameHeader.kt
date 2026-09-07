@@ -94,7 +94,7 @@ fun GameHeader(
             .fillMaxWidth()
             .woodenBanner(colors)
             .statusBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -188,7 +188,7 @@ private fun MedallionEmblem(colors: FantasyPalette, avatarId: String?, onClick: 
     val portraitRes = avatarId?.let(::avatarDrawableRes)
     Box(
         modifier = modifier
-            .size(52.dp)
+            .size(66.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -197,14 +197,17 @@ private fun MedallionEmblem(colors: FantasyPalette, avatarId: String?, onClick: 
             val radius = size.minDimension / 2f
             val center = Offset(size.width / 2f, size.height / 2f)
 
+            // Thinner than the original ring (was inset 0.11 / stroke 0.22) so
+            // more of the medallion's own size goes to the portrait/shield
+            // rather than the frame around it.
             drawCircle(
                 brush = Brush.sweepGradient(
                     listOf(colors.goldDeep, colors.goldBright, colors.goldDeep, colors.goldBright, colors.goldDeep),
                     center = center,
                 ),
-                radius = radius - radius * 0.11f,
+                radius = radius - radius * 0.06f,
                 center = center,
-                style = Stroke(width = radius * 0.22f),
+                style = Stroke(width = radius * 0.14f),
             )
 
             if (portraitRes == null) {
@@ -212,28 +215,28 @@ private fun MedallionEmblem(colors: FantasyPalette, avatarId: String?, onClick: 
                     brush = Brush.radialGradient(
                         colors = listOf(colors.woodLight, colors.woodDark),
                         center = center,
-                        radius = radius * 0.8f,
+                        radius = radius * 0.9f,
                     ),
-                    radius = radius * 0.76f,
+                    radius = radius * 0.86f,
                     center = center,
                 )
 
-                val shield = shieldPath(center, radius * 0.42f)
+                val shield = shieldPath(center, radius * 0.46f)
                 drawPath(shield, color = colors.parchment.copy(alpha = 0.88f))
                 drawPath(shield, color = colors.ink.copy(alpha = 0.65f), style = Stroke(width = 1.5f))
             }
         }
 
         if (portraitRes != null) {
-            // 76% of the box diameter matches the placeholder's own wood-disc
-            // coverage (radius * 0.76 above) so the ring frames the portrait
+            // 86% of the box diameter matches the placeholder's own wood-disc
+            // coverage (radius * 0.86 above) so the ring frames the portrait
             // exactly like it framed the shield.
             Image(
                 painter = painterResource(portraitRes),
                 contentDescription = "Your avatar — tap to change",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxSize(0.76f)
+                    .fillMaxSize(0.86f)
                     .clip(CircleShape),
             )
         }
