@@ -150,6 +150,9 @@ fun LairRow(
 private fun lairPortraitRes(lairId: String): Int? = when (lairId) {
     "kobold_warren" -> R.drawable.lair_kobold_warren
     "giant_rat_burrow" -> R.drawable.lair_giant_rat_burrow
+    "goblin_camp" -> R.drawable.lair_goblin_camp
+    "orc_encampment" -> R.drawable.lair_orc_encampment
+    "gnoll_den" -> R.drawable.lair_gnoll_den
     "bugbear_warcamp" -> R.drawable.lair_bugbear_warcamp
     else -> null
 }

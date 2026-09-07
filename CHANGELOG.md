@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.31.1] - 2026-09-06 9:25 PM EDT
+
+- Added real portrait art for Goblin Camp, Orc Encampment, and Gnoll Den —
+  they now show their actual creature art on the main screen instead of
+  the plain letter placeholder.
+
 ## [0.31.0] - 2026-09-06 9:15 PM EDT
 
 - Built out the "Help & Social" menu section (it just said "Coming soon"

@@ -71,9 +71,18 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   `lair_giant_rat_burrow.png` / `lair_bugbear_warcamp.png` (named by lair id,
   not monster name, since a couple of tiers already share a monster
   initial), the first real `CreatureAvatar` portraits (v0.20.2) — square
-  (1254x1254), genuinely transparent corners, no re-export needed. See the
-  Open Questions entry on creature portrait art for which other
-  already-generated candidates are being held back pending a style redo.
+  (1254x1254), genuinely transparent corners, no re-export needed.
+  `lair-goblin.png` / `lair-orc.png` / `lair-gnoll.png` →
+  `drawable-nodpi/lair_goblin_camp.png` / `lair_orc_encampment.png` /
+  `lair_gnoll_den.png` (v0.31.1) — regenerated versions of three of the
+  candidates called out below as held back for not matching the
+  established style; the regenerated art matches the
+  bold-silhouette/cel-shaded look of the kobold/rat/bugbear portraits, so
+  these three were wired in as-is, same square (1254x1254), genuinely
+  transparent corners, no re-export needed. `lair-hobgoblin.png` in
+  `/assets` is untracked and unchanged since the original style-mismatch
+  note — still held back. See the Open Questions entry on creature
+  portrait art for what's still outstanding.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -92,9 +101,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.31.0** (built out the "Help & Social" menu
-     section with real social/contact links — see the `HelpSocialContent`
-     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.31.1** (added real portrait art for Goblin Camp,
+     Orc Encampment, and Gnoll Den — see the Assets section and
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1847,17 +1856,17 @@ we'll pin these down as we build each system.
   gold-ringed medallion with an engraved shield silhouette, not yet an actual
   avatar) but no real avatar images or selection UI exist yet
 - Creature portrait art — in progress, one lair at a time (see `LairRow`'s
-  `lairPortraitRes` above): Kobold Warren, Giant Rat Burrow, and Bugbear
-  Warcamp have real art as of v0.20.2; every other lair still shows
-  `CreatureAvatar`'s rarity-tinted placeholder disc with the monster's first
-  initial. Several already-generated candidates (`lair-goblin.png`,
-  `lair-orc.png`, `lair-gnoll.png`, `lair-hobgoblin.png` in `/assets`,
-  untracked) are sitting out because they were generated in a different,
-  more painterly/realistic style that doesn't match the kobold/rat/bugbear
-  art (which itself matches the established `coin.png`/`closed-chest.png`
-  look: bold black outlines, semi-flat cel-shading, soft painted
-  highlights) — regenerate those against that style before wiring them in,
-  don't just drop them in as-is.
+  `lairPortraitRes` above): Kobold Warren, Giant Rat Burrow, Goblin Camp,
+  Orc Encampment, Gnoll Den, and Bugbear Warcamp have real art as of
+  v0.31.1; every other lair still shows `CreatureAvatar`'s rarity-tinted
+  placeholder disc with the monster's first initial. `lair-hobgoblin.png`
+  (`/assets`, untracked) is still sitting out — it's an older candidate
+  generated in a different, more painterly/realistic style that doesn't
+  match the established look (bold-silhouette, semi-flat cel-shading, soft
+  painted highlights — the same style the goblin/orc/gnoll art was
+  successfully regenerated against before being wired in this version) —
+  regenerate it against that style before wiring it in, don't just drop it
+  in as-is.
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested
