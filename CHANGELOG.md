@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.37.0] - 2026-09-07 9:49 AM EDT
+
+- Added a loading screen: a looping video of an older dragon and a baby
+  dragon counting Gold and Gems plays while your save loads, instead of a
+  blank/frozen moment before the game screen appears.
+
 ## [0.36.0] - 2026-09-07 9:29 AM EDT
 
 - Added the gems art to the Level Up screen, next to your Gems total and a

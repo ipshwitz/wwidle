@@ -105,6 +105,16 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   place of the generic `open_chest` art the other reward dialogs share
   (this reward literally *is* Gems); see the `LevelUpContent` bullet
   under Tech stack.
+  `loading-video.mp4` (v0.37.0) is the one asset so far that doesn't go
+  through `drawable-nodpi/` — it's a *video*, not a still image, so it
+  goes into `app/src/main/res/raw/loading_video.mp4` instead (Android's
+  resource folder for raw files played back via a resource URI; raw
+  resource names are restricted to lowercase + underscores, hence the
+  rename from the source file's hyphenated name). An older dragon and a
+  baby dragon counting Gold and Gems, 416x752 (~9:16, matching a phone
+  screen), 6 seconds, 24fps, has an audio track (128kbps) that's
+  deliberately muted on playback — see the `LoadingScreen` bullet under
+  Tech stack.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -123,11 +133,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.36.0** (the Level Up screen now shows `gems.png`
-     art and a live "Currently earning" counter, and a real
-     `GameState.canLevelUp()` gate stops repeat Level Ups with no new
-     progress from wiping the run for nothing — see the `LevelUpContent`
-     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.37.0** (a looping `loading_video.mp4` now plays
+     full-screen while `GameViewModel`'s initial load is in flight — see
+     the `LoadingScreen` bullet under Tech stack and
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -204,6 +213,42 @@ These apply to every change made in this repo, however small:
 
 - **Presentation (UI):** Jetpack Compose screens/composables. ViewModels expose
   `StateFlow` to the UI. `@HiltViewModel` throughout.
+  - **`LoadingScreen`** (`ui/common/LoadingScreen.kt`, v0.37.0) — the very
+    first thing rendered, gating everything else. `GameViewModel.isLoading:
+    StateFlow<Boolean>` starts `true` and flips `false` right after the
+    init sequence below (local load, sign-in, cloud merge, offline
+    earnings, `gameEngine.start()`) settles — `MainActivity`'s
+    `WyrmWhelpApp` reads it first thing and, while `true`, renders only
+    `LoadingScreen` and returns, before touching `openSection`/`gameState`/
+    any other collected flow. `LoadingScreen` itself plays
+    `loading_video.mp4` (see Assets) full-screen and looping via a plain
+    `android.widget.VideoView` wrapped in `AndroidView` — deliberately not
+    Media3/ExoPlayer, since a single looping 6-second clip doesn't
+    justify a new dependency when `VideoView` already handles
+    playback/looping/aspect-fit on its own. Muted via
+    `MediaPlayer.setVolume(0f, 0f)` in `setOnPreparedListener` regardless
+    of the source having an audio track — a loading screen playing
+    unexpected sound would be jarring, and nothing else in the app has
+    music/SFX yet to make an exception for. A plain "Loading your
+    hoard…" `Text` sits near the bottom over the video.
+    **This cannot mask the ads-SDK cold-start delay** (`AdManager`'s
+    `MobileAds.initialize()`, ~15s+ on a cold/un-warmed emulator — see
+    the Build environment notes) — that init runs synchronously inside
+    Hilt's construction of `GameViewModel` itself (`AdManager` is one of
+    its constructor params), which happens when `MainActivity.onCreate`
+    first accesses the `by viewModels()` delegate, *before* `setContent`
+    produces a single composable frame. Until that resolves, Android's
+    own automatic app-icon splash screen is still the only thing on
+    screen — confirmed via a screen recording of a cold start pulled
+    from the emulator (`adb shell screenrecord`) and sent to the user
+    directly for review, since screenshot-polling at 1s granularity
+    couldn't reliably land inside the actual (often sub-2-second, but
+    highly variable run-to-run) `LoadingScreen` window on a warm
+    emulator. Not a bug in this feature — just the ceiling on what an
+    in-app loading screen can cover; shortening the ads-SDK delay itself
+    (e.g. injecting `AdManager` lazily via `dagger.Lazy<AdManager>` so
+    constructing `GameViewModel` doesn't block on it) is a separate,
+    larger change nobody's asked for yet.
   - `GameViewModel` — implemented (`ui/game/GameViewModel.kt`): wraps
     `GameEngine`, starts its tick loop and settles offline earnings once on
     creation, exposes claim/hire-Steward/start-load actions plus a `buyQuantity:

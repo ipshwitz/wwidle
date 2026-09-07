@@ -32,6 +32,7 @@ import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
+import com.wyrmwhelp.idlehoard.ui.common.LoadingScreen
 import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
@@ -70,6 +71,12 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
+    val isLoading by gameViewModel.isLoading.collectAsStateWithLifecycle()
+    if (isLoading) {
+        LoadingScreen(modifier = Modifier.fillMaxSize())
+        return
+    }
+
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
     val gameState by gameViewModel.gameState.collectAsStateWithLifecycle()
     val userEmail by gameViewModel.userEmail.collectAsStateWithLifecycle()

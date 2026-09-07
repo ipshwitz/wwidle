@@ -70,6 +70,15 @@ class GameViewModel @Inject constructor(
 
     val gameState: StateFlow<GameState> = gameEngine.state
 
+    // True until the init sequence below (local load, sign-in, cloud merge,
+    // offline earnings) has settled — drives `MainActivity`'s `LoadingScreen`.
+    // Flips false right after `gameEngine.start()`, before the two infinite
+    // sync loops are launched (`runCloudSyncLoop()` in particular runs
+    // un-launched on this same coroutine, so anything after it would never
+    // execute).
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     /** Each owned lair's current fill fraction — see `GameEngine.lairProgress` for why this is separate from [gameState]. */
     val lairProgress: StateFlow<Map<String, Float>> = gameEngine.lairProgress
 
@@ -174,6 +183,7 @@ class GameViewModel @Inject constructor(
             }
 
             gameEngine.start()
+            _isLoading.value = false
             launch { runAutosaveLoop() }
             runCloudSyncLoop()
         }
