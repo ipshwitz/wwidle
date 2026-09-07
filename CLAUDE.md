@@ -82,7 +82,12 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   transparent corners, no re-export needed. `lair-hobgoblin.png` in
   `/assets` is untracked and unchanged since the original style-mismatch
   note — still held back. See the Open Questions entry on creature
-  portrait art for what's still outstanding.
+  portrait art for what's still outstanding. `tv.png` → `drawable-nodpi/tv.png`
+  (v0.31.2), a hand-illustrated wooden "scrying TV" (gold filigree, a
+  wizard scene on-screen) — real transparent background, square
+  (754x754) — used by the redesigned `WelcomeBackDialog` to front its
+  rewarded-ad prompt instead of a plain button; see that bullet under
+  Tech stack.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -101,8 +106,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.31.1** (added real portrait art for Goblin Camp,
-     Orc Encampment, and Gnoll Den — see the Assets section and
+   - Current version: **0.31.2** (redesigned `WelcomeBackDialog` with the
+     new `tv.png` art fronting the ad-watch prompt — see the
+     `WelcomeBackDialog` bullet under Tech stack and
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -256,10 +262,29 @@ These apply to every change made in this repo, however small:
     the cozy-fantasy chrome: a plain `Dialog` (not `AlertDialog` — none of
     its title/text/button slots would let this look like anything other than
     a Material dialog) with `usePlatformDefaultWidth = false`, containing a
-    parchment-gradient `Column` with a carved wood border, the existing
-    `open_chest` art (no new asset needed), `GlowingGoldText` for the amount
-    earned, and a `WoodenButton` ("Claim") instead of a Material
-    `TextButton`.
+    parchment-gradient `Column` with a carved wood border and a
+    `WoodenButton` ("Claim") instead of a Material `TextButton`.
+    **Split top/bottom (v0.31.2), per explicit request** ("redesign...
+    so the bottom half has the new tv graphic"): the top half is the
+    earnings recap (`open_chest` art, the title, `GlowingGoldText` for the
+    amount earned, the away-time line) unchanged from before; a thin
+    carved `HorizontalDivider` separates it from the bottom half, which is
+    the rewarded-ad prompt fronted by `tv.png` (a hand-illustrated
+    "scrying TV," real transparent background — see the Assets section) in
+    place of reusing the chest icon a second time. While `isDoubled` is
+    false, a short flavor line ("Tune in to double your haul!") plus the
+    "Watch Ad to Double" `WoodenButton` sit under the TV; once doubled, the
+    TV art stays in place (removing it would make the bottom half flicker
+    empty right as the reward lands) but the flavor line/button are
+    replaced by a bold "Broadcast complete — earnings doubled!"
+    confirmation line. `adUnavailableMessage` still surfaces under the
+    button exactly as before. Verified live on-device (offline-earnings
+    timestamp backdated 30 minutes via a direct Room DB edit, since there's
+    no way to actually leave the app running in the background for real
+    during testing): watching the ad doubled the displayed total (742.46M
+    → 1.48B gp) and correctly swapped the bottom half from the button to
+    the confirmation line, with the same amount landing in the real
+    balance after Claim.
   - **`BuyQuantity`** (`ui/game/BuyQuantity.kt`) — the `X1`/`X10`/`X100`/
     `NEXT`/`MAX` enum cycled by tapping `GameHeader`'s small selector box
     (`.next()` wraps around). Fully wired up: `BuyQuantity.resolve(lair,

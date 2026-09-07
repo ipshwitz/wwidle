@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.31.2] - 2026-09-06 9:40 PM EDT
+
+- Redesigned the "While You Were Away" pop-up: the bottom half now shows
+  a hand-illustrated magical TV with the "Watch Ad to Double" prompt
+  underneath it, instead of just a plain button.
+
 ## [0.31.1] - 2026-09-06 9:25 PM EDT
 
 - Added real portrait art for Goblin Camp, Orc Encampment, and Gnoll Den —
