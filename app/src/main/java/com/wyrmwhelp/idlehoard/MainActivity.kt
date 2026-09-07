@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
+import com.wyrmwhelp.idlehoard.domain.model.rawGemsFromLevelUpFormula
+import com.wyrmwhelp.idlehoard.domain.model.minGemsForLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
@@ -180,6 +182,8 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             gems = gameState.gems,
                             gemEfficiencyLevel = gameState.gemEfficiencyLevel,
                             gemsEarnable = gameState.gemsEarnedFromLevelUp(),
+                            rawGemsProgress = gameState.rawGemsFromLevelUpFormula(),
+                            minGemsRequired = gameState.minGemsForLevelUp(),
                             onLevelUp = gameViewModel::performLevelUp,
                         )
                     }

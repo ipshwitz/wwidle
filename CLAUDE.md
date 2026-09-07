@@ -116,9 +116,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.34.2** (the ad-watch popup's `tv.png` art is
-     bigger and shows just once at the top now, not per option — see the
-     `QuickAdBoostButton` bullet under Tech stack and
+   - Current version: **0.35.0** (the Level Up screen now shows a linear
+     progress bar toward the next Level Up instead of a bare disabled
+     button — see the `LevelUpContent` bullet under Tech stack and
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -1729,6 +1729,45 @@ These apply to every change made in this repo, however small:
     every lair, and any Gems currently held will all reset, with
     side-by-side Cancel/"Level Up!" `WoodenButton`s — only confirming
     there calls `onLevelUp`.
+    **Progress bar toward the next Level Up (v0.35.0)** — added per
+    explicit feedback: a player with 0 Gems earnable saw only a disabled
+    button and vague "keep earning" text, with no sense of how close they
+    actually were — risking that reading as the feature being broken or
+    stalled rather than just early. `domain/model/LevelUp.kt` split what
+    was inline logic in `gemsEarnedFromLevelUp()` into two new public
+    functions the UI also consumes: `rawGemsFromLevelUpFormula()` (the
+    formula result *before* the minimum-batch gate — unlike
+    `gemsEarnedFromLevelUp()`, this keeps climbing below the minimum
+    instead of reporting a flat 0, which is the whole point — a bare 0
+    can't drive a progress bar) and `minGemsForLevelUp()` (whichever of
+    the two minimums currently applies, extracted so both the gating
+    logic and the UI read it from one place). `LevelUpContent` gained
+    `rawGemsProgress`/`minGemsRequired` params (`MainActivity` passes
+    `gameState.rawGemsFromLevelUpFormula()`/`minGemsForLevelUp()`,
+    computed live the same way `gemsEarnable` already was) feeding a new
+    `LevelUpProgressBar` inside `LevelUpCard` — a plain
+    `animateFloatAsState`-driven fill bar (no rarity gradients or gloss
+    the way `LairCard`'s progress bar has; this one's static most of the
+    time, so that polish wasn't worth the duplication) showing "X / Y
+    Gems to Level Up" — **hidden entirely once `canLevelUp` is true**,
+    since the enabled button and "Get a fresh batch of N Gems" text
+    already communicate "you're done" at that point; showing a
+    permanently-full bar alongside that would be redundant. **Deliberately
+    linear against the raw Gem count, not the underlying Gold**, since
+    the Gold-to-Gems formula is square-root-scaled
+    (`floor(150 * sqrt(lifetimeGoldEarned / 10^15))`) — a Gold-denominated
+    bar would visually crawl near the end in the same discouraging way
+    even while real progress keeps being made, since each additional Gem
+    costs more Gold than the last. Verified live on-device via a direct
+    Room DB edit to `lifetimeGoldEarned` (organically holding a save at a
+    precise pre-threshold value wasn't practical given how fast Steward-managed
+    production compounds): at a value computed to land exactly on 25 raw
+    Gems (half of the 50-Gem first-Level-Up minimum), the screen correctly
+    showed a half-filled bar and "25 / 50 Gems to Level Up" with the
+    button disabled; raising `lifetimeGoldEarned` to comfortably clear the
+    minimum (150 raw Gems) correctly hid the bar entirely and switched to
+    "Get a fresh batch of 150 Gems, replacing any you're holding now."
+    with the button enabled.
     **Gems currency plumbing**: `GameState.gems: Long` and
     `GameState.totalLevelUps: Int` are a rename of two fields that existed
     since early in the project as an unused prestige scaffold

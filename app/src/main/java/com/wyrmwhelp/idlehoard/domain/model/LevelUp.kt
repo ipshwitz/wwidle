@@ -49,20 +49,40 @@ private const val MIN_GEMS_PER_FIRST_LEVEL_UP = 50L
 private const val MIN_GEMS_PER_RECURRING_LEVEL_UP = 25L
 
 /**
- * The Gem batch a Level Up would grant right now — `floor(150 *
- * sqrt(lifetimeGoldEarned / 10^15))`, gated by [MIN_GEMS_PER_FIRST_LEVEL_UP]
- * if this would be the player's very first Level Up
+ * The raw formula result (`floor(150 * sqrt(lifetimeGoldEarned / 10^15))`)
+ * *before* the minimum-batch gate in [gemsEarnedFromLevelUp] is applied —
+ * unlike that function (which reports a flat 0 below the minimum), this
+ * keeps climbing the whole time, so it's what the Level Up screen's
+ * progress bar shows even before a Level Up is actually allowed. A bare
+ * "0" gives the player no sense of how close they are; this does.
+ */
+fun GameState.rawGemsFromLevelUpFormula(): Long =
+    floor(GEM_FORMULA_COEFFICIENT * sqrt(lifetimeGoldEarned / LIFETIME_EARNINGS_DIVISOR)).toLong()
+
+/**
+ * The minimum Gem batch needed before a Level Up is allowed at all —
+ * [MIN_GEMS_PER_FIRST_LEVEL_UP] for the very first
  * ([GameState.totalLevelUps] `== 0`) or [MIN_GEMS_PER_RECURRING_LEVEL_UP]
- * otherwise — a batch smaller than whichever minimum applies reports 0
- * rather than a token payout. 0 means "can't Level Up yet";
- * `GameEngine.performLevelUp` and the Level Up screen both treat that as
- * blocking the action entirely, not performing a reset for nothing. This
- * *replaces* [GameState.gems] rather than adding to it — see this file's
- * class doc for why Gems are temporary rather than accumulated.
+ * for every one after. Paired with [rawGemsFromLevelUpFormula] by the
+ * Level Up screen to show "X / Y Gems" progress toward whichever bar
+ * currently applies.
+ */
+fun GameState.minGemsForLevelUp(): Long =
+    if (totalLevelUps == 0) MIN_GEMS_PER_FIRST_LEVEL_UP else MIN_GEMS_PER_RECURRING_LEVEL_UP
+
+/**
+ * The Gem batch a Level Up would grant right now — [rawGemsFromLevelUpFormula],
+ * gated by [minGemsForLevelUp] — a batch smaller than whichever minimum
+ * applies reports 0 rather than a token payout. 0 means "can't Level Up
+ * yet"; `GameEngine.performLevelUp` and the Level Up screen both treat
+ * that as blocking the action entirely, not performing a reset for
+ * nothing. This *replaces* [GameState.gems] rather than adding to it —
+ * see this file's class doc for why Gems are temporary rather than
+ * accumulated.
  */
 fun GameState.gemsEarnedFromLevelUp(): Long {
-    val totalGems = floor(GEM_FORMULA_COEFFICIENT * sqrt(lifetimeGoldEarned / LIFETIME_EARNINGS_DIVISOR)).toLong()
-    val minimum = if (totalLevelUps == 0) MIN_GEMS_PER_FIRST_LEVEL_UP else MIN_GEMS_PER_RECURRING_LEVEL_UP
+    val totalGems = rawGemsFromLevelUpFormula()
+    val minimum = minGemsForLevelUp()
     return if (totalGems < minimum) 0L else totalGems
 }
 

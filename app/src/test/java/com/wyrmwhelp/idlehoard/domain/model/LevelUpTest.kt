@@ -78,6 +78,33 @@ class LevelUpTest {
     }
 
     @Test
+    fun `rawGemsFromLevelUpFormula keeps climbing below the minimum, unlike gemsEarnedFromLevelUp`() {
+        // Same lifetime earnings as the "not enough yet" test above (~10
+        // raw gems worth, floors to 9 — see that test's own comment on the
+        // exact value) — gemsEarnedFromLevelUp reports 0, but the raw
+        // progress value should still show the real ~9 so a progress bar
+        // has something to show.
+        val state = GameState(lifetimeGoldEarned = 4_444_444_444_444.0)
+
+        assertEquals(0L, state.gemsEarnedFromLevelUp())
+        assertEquals(9L, state.rawGemsFromLevelUpFormula())
+    }
+
+    @Test
+    fun `rawGemsFromLevelUpFormula matches gemsEarnedFromLevelUp once past the minimum`() {
+        val state = GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0)
+
+        assertEquals(state.gemsEarnedFromLevelUp(), state.rawGemsFromLevelUpFormula())
+    }
+
+    @Test
+    fun `minGemsForLevelUp is 50 for a first Level Up and 25 for every one after`() {
+        assertEquals(50L, GameState(totalLevelUps = 0).minGemsForLevelUp())
+        assertEquals(25L, GameState(totalLevelUps = 1).minGemsForLevelUp())
+        assertEquals(25L, GameState(totalLevelUps = 5).minGemsForLevelUp())
+    }
+
+    @Test
     fun `gemIncomeMultiplier is 1x with no gems`() {
         assertEquals(1.0, gemIncomeMultiplier(0), 0.0001)
     }

@@ -1,12 +1,15 @@
 package com.wyrmwhelp.idlehoard.ui.levelup
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -52,12 +55,26 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * (`MainActivity`'s `WyrmWhelpApp`) from the *current* run — it updates on
  * its own as gold/lairs change while this section sits open, no polling
  * needed here, same pattern as `ShopContent`'s `WatchAdRow` cooldown label.
+ *
+ * **Progress bar (v0.35.0)** — added per explicit feedback that a
+ * brand-new player logging in had no visible sense of how close they
+ * were to their first Level Up, just a disabled button and vague "keep
+ * earning" text; that risked reading as the feature being broken or
+ * stalled rather than just early. [rawGemsProgress]/[minGemsRequired]
+ * (`GameState.rawGemsFromLevelUpFormula()`/`minGemsForLevelUp()`) feed
+ * [LevelUpCard]'s bar — deliberately a *linear* fill toward the gem
+ * minimum (not the underlying gold formula, which is square-root-scaled
+ * and would visually crawl in the same discouraging way even while
+ * real progress is being made) — hidden once [canLevelUp] is true, since
+ * the button itself is the "you're done" signal at that point.
  */
 @Composable
 fun LevelUpContent(
     gems: Long,
     gemEfficiencyLevel: Int,
     gemsEarnable: Long,
+    rawGemsProgress: Long,
+    minGemsRequired: Long,
     onLevelUp: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
@@ -74,6 +91,8 @@ fun LevelUpContent(
         item {
             LevelUpCard(
                 gemsEarnable = gemsEarnable,
+                rawGemsProgress = rawGemsProgress,
+                minGemsRequired = minGemsRequired,
                 canLevelUp = canLevelUp,
                 onClick = { showConfirm = true },
                 palette = palette,
@@ -158,6 +177,8 @@ private fun GemsBalanceCard(gems: Long, gemEfficiencyLevel: Int, palette: Fantas
 @Composable
 private fun LevelUpCard(
     gemsEarnable: Long,
+    rawGemsProgress: Long,
+    minGemsRequired: Long,
     canLevelUp: Boolean,
     onClick: () -> Unit,
     palette: FantasyPalette,
@@ -179,7 +200,7 @@ private fun LevelUpCard(
                     text = if (canLevelUp) {
                         "Get a fresh batch of ${GoldFormat.format(gemsEarnable.toDouble())} Gems, replacing any you're holding now."
                     } else {
-                        "Keep earning Gold — Level Up unlocks again once you've earned enough more."
+                        "Keep earning Gold — Level Up unlocks once your lifetime earnings are worth enough Gems."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = palette.ink.copy(alpha = 0.7f),
@@ -192,6 +213,48 @@ private fun LevelUpCard(
                 colors = palette,
             )
         }
+        if (!canLevelUp) {
+            Spacer(Modifier.height(10.dp))
+            LevelUpProgressBar(current = rawGemsProgress, target = minGemsRequired, palette = palette)
+        }
+    }
+}
+
+/**
+ * A linear progress bar toward [target] (the current
+ * `GameState.minGemsForLevelUp()`) — deliberately linear against the raw
+ * Gem-count formula result rather than the underlying square-root-scaled
+ * gold, so the fill actually reads as steady progress instead of crawling
+ * near the end the way a gold-denominated bar would. See
+ * [LevelUpContent]'s "Progress bar" doc for why this exists at all.
+ */
+@Composable
+private fun LevelUpProgressBar(current: Long, target: Long, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    val fraction = if (target <= 0L) 1f else (current.toFloat() / target.toFloat()).coerceIn(0f, 1f)
+    val animatedFraction by animateFloatAsState(targetValue = fraction, label = "levelUpProgress")
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(palette.woodDark.copy(alpha = 0.3f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(animatedFraction)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(Brush.horizontalGradient(listOf(palette.gemDeep, palette.gemBright))),
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "${GoldFormat.format(current.toDouble())} / ${GoldFormat.format(target.toDouble())} Gems to Level Up",
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.ink.copy(alpha = 0.7f),
+        )
     }
 }
 
