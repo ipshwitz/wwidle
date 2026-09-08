@@ -4,14 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -35,24 +38,31 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.BuildConfig
+import com.wyrmwhelp.idlehoard.domain.model.LeaderboardEntry
+import com.wyrmwhelp.idlehoard.domain.model.LeaderboardPeriod
 import com.wyrmwhelp.idlehoard.domain.model.isValidUsername
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
+import com.wyrmwhelp.idlehoard.ui.leaderboard.LeaderboardContent
 import java.time.Duration
 import java.time.Instant
 
 /**
- * The "Settings" section's real content: an account card (sign up/in/out,
- * gating IAP visibility elsewhere — see `ShopContent`'s `isSignedIn` param
- * — plus an inline leaderboard-username field, v0.39.0/v0.39.1, see
- * `AccountCard`'s own doc for why that's an inline field here rather than
- * a separate pop-up), a cloud-sync card (automatic-every-5-minutes note,
- * last-synced time, manual "Sync Now" — gated to signed-in players, see
- * `SyncCard`'s own doc for why), and a version footer. Pure display plus
- * callbacks — reads ViewModel state passed in by `MainActivity`'s
- * `WyrmWhelpApp` and forwards actions through
- * [onSignUp]/[onSignIn]/[onSignOut]/[onSyncNow] rather than taking
- * `GameViewModel` itself, same pattern as `StewardsContent`/`ShopContent`.
+ * The "Settings" section's real content — two tabs (v0.42.0): "Account"
+ * (the original single-scroll content: sign up/in/out, gating IAP
+ * visibility elsewhere — see `ShopContent`'s `isSignedIn` param — plus an
+ * inline leaderboard-username field, v0.39.0/v0.39.1, see `AccountCard`'s
+ * own doc for why that's an inline field here rather than a separate
+ * pop-up; a cloud-sync card, see `SyncCard`'s own doc; and a version
+ * footer) and "Leaderboard" (just `LeaderboardContent` — see that file —
+ * moved here from its own `FloatingMenu` section per explicit request,
+ * since it doesn't have its own sign art yet and the user plans to make
+ * one later; "Leaderboard" no longer appears in `floatingMenuItems` at
+ * all). Pure display plus callbacks — reads ViewModel state passed in by
+ * `MainActivity`'s `WyrmWhelpApp` and forwards actions through
+ * [onSignUp]/[onSignIn]/[onSignOut]/[onSyncNow]/[onSelectLeaderboardPeriod]
+ * rather than taking `GameViewModel` itself, same pattern as
+ * `StewardsContent`/`ShopContent`.
  *
  * There's no separate `AuthViewModel` — this account/sync state all lives on
  * `GameViewModel` (see its class doc for why).
@@ -83,45 +93,117 @@ fun SettingsContent(
     onSignOut: () -> Unit,
     onSyncNow: () -> Unit,
     onDismissAuthMessage: () -> Unit,
+    leaderboardPeriod: LeaderboardPeriod,
+    leaderboardEntries: List<LeaderboardEntry>,
+    currentUserLeaderboardEntry: LeaderboardEntry?,
+    isLeaderboardLoading: Boolean,
+    leaderboardError: String?,
+    onSelectLeaderboardPeriod: (LeaderboardPeriod) -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    var selectedTab by remember { mutableStateOf(SettingsTab.ACCOUNT) }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        SettingsTabRow(selected = selectedTab, onSelect = { selectedTab = it }, palette = palette)
+        Spacer(Modifier.height(8.dp))
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            when (selectedTab) {
+                SettingsTab.ACCOUNT -> LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        AccountCard(
+                            userEmail = userEmail,
+                            pendingVerificationEmail = pendingVerificationEmail,
+                            isAuthActionInProgress = isAuthActionInProgress,
+                            username = username,
+                            isUsernameActionInProgress = isUsernameActionInProgress,
+                            usernameMessage = usernameMessage,
+                            onSubmitUsername = onSubmitUsername,
+                            onDismissUsernameMessage = onDismissUsernameMessage,
+                            onSignUp = onSignUp,
+                            onVerifySignUpCode = onVerifySignUpCode,
+                            onResendSignUpCode = onResendSignUpCode,
+                            onCancelSignUpVerification = onCancelSignUpVerification,
+                            onSignIn = onSignIn,
+                            onSignOut = onSignOut,
+                            palette = palette,
+                        )
+                    }
+                    authMessage?.let { message ->
+                        item { AuthMessageCard(message = message, onDismiss = onDismissAuthMessage, palette = palette) }
+                    }
+                    item {
+                        SyncCard(
+                            isSignedIn = userEmail != null,
+                            isSyncing = isSyncing,
+                            lastSyncedAt = lastSyncedAt,
+                            onSyncNow = onSyncNow,
+                            palette = palette,
+                        )
+                    }
+                    item { VersionFooter(palette = palette) }
+                }
+                SettingsTab.LEADERBOARD -> LeaderboardContent(
+                    isSignedIn = userEmail != null,
+                    period = leaderboardPeriod,
+                    entries = leaderboardEntries,
+                    currentUserEntry = currentUserLeaderboardEntry,
+                    isLoading = isLeaderboardLoading,
+                    errorMessage = leaderboardError,
+                    onSelectPeriod = onSelectLeaderboardPeriod,
+                    palette = palette,
+                )
+            }
+        }
+    }
+}
+
+private enum class SettingsTab(val label: String) {
+    ACCOUNT("Account"),
+    LEADERBOARD("Leaderboard"),
+}
+
+@Composable
+private fun SettingsTabRow(selected: SettingsTab, onSelect: (SettingsTab) -> Unit, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        SettingsTab.entries.forEach { tab ->
+            SettingsTabButton(
+                text = tab.label,
+                selected = tab == selected,
+                onClick = { onSelect(tab) },
+                palette = palette,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** Same shape as `ShopContent.kt`'s private `ShopTabButton`/`UpgradesContent.kt`'s `UpgradeTabButton`, duplicated per this project's established per-file-duplication convention for small private UI helpers. */
+@Composable
+private fun SettingsTabButton(text: String, selected: Boolean, onClick: () -> Unit, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    val shape = CutCornerShape(6.dp)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(
+                Brush.verticalGradient(
+                    if (selected) listOf(palette.goldBright, palette.goldDeep) else listOf(palette.woodLight, palette.woodDark),
+                ),
+            )
+            .border(1.dp, palette.woodDark, shape)
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 2.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        item {
-            AccountCard(
-                userEmail = userEmail,
-                pendingVerificationEmail = pendingVerificationEmail,
-                isAuthActionInProgress = isAuthActionInProgress,
-                username = username,
-                isUsernameActionInProgress = isUsernameActionInProgress,
-                usernameMessage = usernameMessage,
-                onSubmitUsername = onSubmitUsername,
-                onDismissUsernameMessage = onDismissUsernameMessage,
-                onSignUp = onSignUp,
-                onVerifySignUpCode = onVerifySignUpCode,
-                onResendSignUpCode = onResendSignUpCode,
-                onCancelSignUpVerification = onCancelSignUpVerification,
-                onSignIn = onSignIn,
-                onSignOut = onSignOut,
-                palette = palette,
-            )
-        }
-        authMessage?.let { message ->
-            item { AuthMessageCard(message = message, onDismiss = onDismissAuthMessage, palette = palette) }
-        }
-        item {
-            SyncCard(
-                isSignedIn = userEmail != null,
-                isSyncing = isSyncing,
-                lastSyncedAt = lastSyncedAt,
-                onSyncNow = onSyncNow,
-                palette = palette,
-            )
-        }
-        item { VersionFooter(palette = palette) }
+        Text(
+            text = text,
+            color = if (selected) palette.ink else palette.parchment,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelSmall,
+        )
     }
 }
 
@@ -536,7 +618,7 @@ private fun UsernameField(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = errorMessage ?: "3-20 characters: letters, numbers, and underscores. Shown on a future leaderboard.",
+            text = errorMessage ?: "3-20 characters: letters, numbers, and underscores. Shown on the Leaderboard tab above.",
             style = MaterialTheme.typography.bodySmall,
             color = if (errorMessage != null) palette.goldDeep else palette.ink.copy(alpha = 0.6f),
         )

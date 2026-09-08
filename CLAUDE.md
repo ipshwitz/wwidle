@@ -175,9 +175,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.41.1** (fixed a v0.41.0 bug where guests saw an
-     empty Leaderboard instead of the real top list — see the Leaderboard
-     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.42.0** (the Leaderboard moved out of the main
+     menu into a tab inside Settings, per explicit request, since it has
+     no sign art yet — see the `SettingsContent`/Leaderboard bullets under
+     Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.

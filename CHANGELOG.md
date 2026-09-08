@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.42.0] - 2026-09-07 9:10 PM EDT
+
+- Moved the Leaderboard out of the main menu and into Settings as its own
+  tab, next to Account. It didn't have its own sign art yet, so it's
+  parked here for now until that's ready.
+
 ## [0.41.1] - 2026-09-07 8:40 PM EDT
 
 - Fixed a bug from v0.41.0: guests weren't seeing the leaderboard at all,

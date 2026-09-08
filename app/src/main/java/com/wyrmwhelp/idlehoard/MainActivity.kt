@@ -37,7 +37,6 @@ import com.wyrmwhelp.idlehoard.ui.common.SectionOverlayCard
 import com.wyrmwhelp.idlehoard.ui.game.GameScreen
 import com.wyrmwhelp.idlehoard.ui.game.GameViewModel
 import com.wyrmwhelp.idlehoard.ui.helpsocial.HelpSocialContent
-import com.wyrmwhelp.idlehoard.ui.leaderboard.LeaderboardContent
 import com.wyrmwhelp.idlehoard.ui.levelup.LevelUpContent
 import com.wyrmwhelp.idlehoard.ui.menu.FloatingMenu
 import com.wyrmwhelp.idlehoard.ui.settings.SettingsContent
@@ -120,7 +119,12 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
         // see `FloatingMenu`'s `itemsWithNewBadge` doc.
         if (openSection == "Stewards") gameViewModel.markStewardOpportunitiesSeen()
         if (openSection == "Upgrades") gameViewModel.markUpgradeOpportunitiesSeen()
-        if (openSection == "Leaderboard") gameViewModel.loadLeaderboard()
+        // The Leaderboard now lives as a tab inside Settings (see
+        // SettingsContent's SettingsTab) rather than its own menu section —
+        // preload it the moment Settings opens, same eager-prep pattern as
+        // ensureBillingConnected() above, rather than waiting for the tab
+        // itself to be tapped.
+        if (openSection == "Settings") gameViewModel.loadLeaderboard()
     }
 
     val itemsWithNewBadge = remember(gameState) {
@@ -203,19 +207,6 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                         )
                     }
                 }
-                "Leaderboard" -> {
-                    {
-                        LeaderboardContent(
-                            isSignedIn = userEmail != null,
-                            period = leaderboardPeriod,
-                            entries = leaderboardEntries,
-                            currentUserEntry = currentUserLeaderboardEntry,
-                            isLoading = isLeaderboardLoading,
-                            errorMessage = leaderboardError,
-                            onSelectPeriod = gameViewModel::loadLeaderboard,
-                        )
-                    }
-                }
                 "Level Up" -> {
                     {
                         LevelUpContent(
@@ -250,6 +241,12 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             onSignOut = gameViewModel::signOut,
                             onSyncNow = gameViewModel::syncNow,
                             onDismissAuthMessage = gameViewModel::dismissAuthMessage,
+                            leaderboardPeriod = leaderboardPeriod,
+                            leaderboardEntries = leaderboardEntries,
+                            currentUserLeaderboardEntry = currentUserLeaderboardEntry,
+                            isLeaderboardLoading = isLeaderboardLoading,
+                            leaderboardError = leaderboardError,
+                            onSelectLeaderboardPeriod = gameViewModel::loadLeaderboard,
                         )
                     }
                 }
