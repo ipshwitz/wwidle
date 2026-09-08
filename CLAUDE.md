@@ -79,9 +79,14 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   established style; the regenerated art matches the
   bold-silhouette/cel-shaded look of the kobold/rat/bugbear portraits, so
   these three were wired in as-is, same square (1254x1254), genuinely
-  transparent corners, no re-export needed. `lair-hobgoblin.png` in
-  `/assets` is untracked and unchanged since the original style-mismatch
-  note — still held back. See the Open Questions entry on creature
+  transparent corners, no re-export needed. `lair-hobgoblin.png` /
+  `lair-ogre.png` / `lair-owlbear.png` → `drawable-nodpi/lair_hobgoblin_barracks.png` /
+  `lair_ogres_cave.png` / `lair_owlbear_roost.png` (v0.42.1) — a
+  regenerated `lair-hobgoblin.png` (the original export called out below
+  as style-mismatched was replaced with one matching the established
+  bold-silhouette/cel-shaded look) plus two brand-new portraits, all
+  three verified square (1254x1254) with genuinely transparent corners,
+  no re-export needed. See the Open Questions entry on creature
   portrait art for what's still outstanding. `tv.png` → `drawable-nodpi/tv.png`
   (v0.31.2), a hand-illustrated wooden "scrying TV" (gold filigree, a
   wizard scene on-screen) — real transparent background, square
@@ -2511,16 +2516,12 @@ we'll pin these down as we build each system.
   future leaderboard showing other players' avatars).
 - Creature portrait art — in progress, one lair at a time (see `LairRow`'s
   `lairPortraitRes` above): Kobold Warren, Giant Rat Burrow, Goblin Camp,
-  Orc Encampment, Gnoll Den, and Bugbear Warcamp have real art as of
-  v0.31.1; every other lair still shows `CreatureAvatar`'s rarity-tinted
-  placeholder disc with the monster's first initial. `lair-hobgoblin.png`
-  (`/assets`, untracked) is still sitting out — it's an older candidate
-  generated in a different, more painterly/realistic style that doesn't
-  match the established look (bold-silhouette, semi-flat cel-shading, soft
-  painted highlights — the same style the goblin/orc/gnoll art was
-  successfully regenerated against before being wired in this version) —
-  regenerate it against that style before wiring it in, don't just drop it
-  in as-is.
+  Orc Encampment, Gnoll Den, Bugbear Warcamp, Hobgoblin Barracks, Ogre's
+  Cave, and Owlbear Roost have real art as of v0.42.1 — 9 of the 14
+  tiers. Still showing `CreatureAvatar`'s rarity-tinted placeholder disc
+  with the monster's first initial: Troll Warren, Wyvern Aerie, Young
+  Dragon's Lair, Adult Dragon's Lair, and Ancient Dragon's Hoard (the top
+  5 tiers).
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested

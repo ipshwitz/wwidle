@@ -154,6 +154,9 @@ private fun lairPortraitRes(lairId: String): Int? = when (lairId) {
     "orc_encampment" -> R.drawable.lair_orc_encampment
     "gnoll_den" -> R.drawable.lair_gnoll_den
     "bugbear_warcamp" -> R.drawable.lair_bugbear_warcamp
+    "hobgoblin_barracks" -> R.drawable.lair_hobgoblin_barracks
+    "ogres_cave" -> R.drawable.lair_ogres_cave
+    "owlbear_roost" -> R.drawable.lair_owlbear_roost
     else -> null
 }
 

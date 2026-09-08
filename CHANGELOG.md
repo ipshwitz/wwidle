@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.42.1] - 2026-09-07 9:35 PM EDT
+
+- Added real portrait art for Hobgoblin Barracks, Ogre's Cave, and
+  Owlbear Roost — three more lairs now show their actual creature
+  instead of the generic placeholder disc.
+
 ## [0.42.0] - 2026-09-07 9:10 PM EDT
 
 - Moved the Leaderboard out of the main menu and into Settings as its own
