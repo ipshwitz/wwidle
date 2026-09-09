@@ -188,11 +188,12 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.44.1** (Steward Efficiency — a per-lair upgrade
+   - Current version: **0.44.2** (Steward Efficiency — a per-lair upgrade
      that permanently discounts that lair's own future costs, introduced in
-     v0.44.0 on the Upgrades screen — moved onto the Stewards screen
-     instead, inline with each lair's own Steward, per explicit follow-up
-     request — see the Steward Efficiency bullet under Tech stack and
+     v0.44.0 on the Upgrades screen, moved onto the Stewards screen in
+     v0.44.1, and steepened in v0.44.2 so its top tiers require several
+     Level Ups' worth of progress rather than one session — see the
+     Steward Efficiency bullet under Tech stack and
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -1456,11 +1457,64 @@ These apply to every change made in this repo, however small:
     `StewardEfficiency.costMultiplier(owned.stewardEfficiencyLevel)`
     through. Tier costs are deliberately steep — "these need to be large
     costs," per explicit instruction — `10,000 * lair.baseCostGp` for
-    tier 1, ×3 per tier after that (tier 10 costs `10,000 * 3^9 ≈
-    196,830,000` times that lair's base cost), reflecting how much more
+    tier 1, ×3 per tier after that within the same phase (see the
+    v0.44.2 phase-jump rework below for tiers 6-10 specifically),
+    reflecting how much more
     powerful a cost discount is than a Profit/Speed percentage point;
     first-pass placeholder, not playtested, same as everywhere else in
-    the economy. `GameEngine.purchaseStewardEfficiencyUpgrade(lairId)` is
+    the economy. **Steepened further in v0.44.2**, per explicit feedback
+    ("i feel like the steward upgrade cost should be huge gaps between.
+    So that Lvl 10 (99%) would actually require multiple Level Ups to
+    afford") — the original flat `×3` per tier all the way to tier 10
+    made 99% off trivially affordable in a single sitting even at
+    realistic late-game gold totals (verified: 99% off would have cost a
+    Kobold Warren well under 1B gp against a save already holding
+    ~940B). Rather than invent a new cost shape, this reuses the same
+    `UpgradePhases`/`upgradeTierCost` "phase jump" utility
+    (`domain/model/UpgradeTiers.kt`) that `GpUpgrades`/`GemUpgrades`
+    already use: `StewardEfficiency.PHASES = UpgradePhases(beginningTiers
+    = 5, midTiers = 3, endTiers = 2)` splits the existing 10 tiers into
+    three phases (1-5 / 6-8 / 9-10) with the original `costGrowthRate =
+    3.0` still compounding smoothly across the whole line, but a
+    `PHASE_JUMP_MULTIPLIER` of **10,000** layered on top once per phase
+    crossed (squared entering the 9-10 phase, since it's applied once
+    per phase boundary passed). Tiers 1-5 (10%-50% off) are completely
+    unchanged in cost from v0.44.0/v0.44.1 — still reachable within a
+    normal session, matching what was already verified live. Tiers 6-8
+    (60%-80% off) jump roughly 10,000x above where the old flat curve
+    would have put them; tiers 9-10 (90%/99% off) jump a further
+    10,000x on top of that (100,000,000x total above the old curve at
+    that point) — for Kobold Warren specifically, tier 9 costs
+    ≈24.5 quadrillion gp and tier 10 ≈73.6 quadrillion gp (only 3x apart
+    from each other, same as any two tiers in the same phase), vs. the
+    old curve's tier 10 of well under 1 billion gp. That's several
+    orders of magnitude past what even a heavily-progressed single run
+    is likely to earn, by design — reaching 99% off is meant to require
+    the kind of compounding income (Gem batches, Everything upgrades,
+    permanent Platinum boosts) that only building up across several
+    Level Ups provides, not something a single long session can grind
+    out. Every pricier lair's own tiers scale the same way off its own
+    `baseCostGp`, so the wall is proportionally just as steep at every
+    tier of the game, not just the cheapest lair. Unit-tested: existing
+    `StewardEfficiencyTest`/`GameEngineTest` cases all read costs via
+    `StewardEfficiency.costForTier(...)` rather than hardcoded numbers,
+    so they kept passing unchanged through this rework with no test
+    edits needed — confirmed via `testDebugUnitTest`. First-pass
+    tuning, not playtested — the exact multiplier is a judgment call,
+    easy to revisit if 10,000x per phase turns out to be too steep or
+    not steep enough once real play data exists. **Verified live
+    on-device**: from a save holding 1.72T gp, Giant Rat Burrow's Buy
+    button was tapped six times in a quick loop, sailing straight
+    through tiers 1-6 (10%-60% off) exactly as expected since those
+    still cost the same as before this change; the resulting Lv 6/10
+    row then showed a *disabled* "Buy — 4.37T gp" button for tier 7 —
+    already more than the entire 1.72T balance the run started with,
+    and exactly matching the formula's predicted tier-7 cost
+    (`60 × 10,000 × 10,000 × 3^6 = 4.374 × 10^12`) — confirming both
+    that the phase wall lands exactly at the intended tier 6/7 boundary
+    and that the cost math itself is correct, not just directionally
+    steep.
+    `GameEngine.purchaseStewardEfficiencyUpgrade(lairId)` is
     the purchase method (same atomic afford-check-and-deduct shape as
     `purchaseGpLairUpgrade`), gated on `owned.hasSteward` specifically.
     Levels live on the new `OwnedLair.stewardEfficiencyLevel` — resets on

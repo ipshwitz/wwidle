@@ -3,6 +3,13 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.44.2] - 2026-09-09 6:20 PM EDT
+
+- Steepened Steward Efficiency's cost curve: tiers 1-5 (10%-50% off) still
+  grow at the original pace, but 60%-80% now cost dramatically more, and
+  90%/99% off jump to a scale that's meant to take several Level Ups of
+  compounding progress to actually reach, not one long session.
+
 ## [0.44.1] - 2026-09-09 6:05 PM EDT
 
 - Moved Steward Efficiency from the Upgrades screen onto the Stewards

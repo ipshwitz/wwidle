@@ -30,7 +30,17 @@ package com.wyrmwhelp.idlehoard.domain.model
  * same as [OwnedLair.profitUpgradeLevel]/[OwnedLair.speedUpgradeLevel].
  *
  * Costs are deliberately steep — reaching 99% off is meant to be a
- * significant late-game investment for that lair, not incidental. Scales
+ * significant late-game investment for that lair, not incidental. Tiers
+ * 1-5 (10%-50% off) grow at the same steady 3x-per-tier rate the feature
+ * launched with (v0.44.0) — still large ("large costs," per explicit
+ * instruction) but reachable within one run. Tiers 6-10 (60%-99% off) are
+ * split into the same [UpgradePhases]/[upgradeTierCost] "phase jump" shape
+ * `GpUpgrades`/`GemUpgrades` already use elsewhere, with a
+ * [PHASE_JUMP_MULTIPLIER] steep enough that tier 10 specifically requires
+ * more Gold than a single run can plausibly earn — genuinely needing
+ * several Level Ups' worth of compounding Gem/Everything-upgrade/Platinum
+ * income bonuses to reach, per explicit follow-up feedback that 99% off
+ * was too easy to hit in one sitting. Scales
  * off the lair's own [CreatureLair.baseCostGp] the same way
  * `GpUpgrades.lairLineBaseCost` does, but with a much larger starting
  * multiplier and a much steeper per-tier growth rate, reflecting how much
@@ -48,9 +58,25 @@ object StewardEfficiency {
     private const val BASE_COST_MULTIPLIER = 10_000.0
     private const val COST_GROWTH_RATE = 3.0
 
+    /**
+     * 5 tiers (10%-50% off) at the original steady rate, then 3 (60%-80%)
+     * and 2 more (90%/99%) each behind their own [PHASE_JUMP_MULTIPLIER]
+     * wall — the last jump (entering tier 9/10) is squared, since it's
+     * applied once per phase crossed, making the 99% tier the real,
+     * multi-Level-Up-away endgame goal.
+     */
+    private val PHASES = UpgradePhases(beginningTiers = 5, midTiers = 3, endTiers = 2)
+    private const val PHASE_JUMP_MULTIPLIER = 10_000.0
+
     /** Gold Pieces to buy tier [tier] (1-indexed) of [lair]'s own Steward Efficiency line. */
     fun costForTier(lair: CreatureLair, tier: Int): Double =
-        lair.baseCostGp * BASE_COST_MULTIPLIER * Math.pow(COST_GROWTH_RATE, (tier - 1).toDouble())
+        upgradeTierCost(
+            tier = tier,
+            phases = PHASES,
+            baseCost = lair.baseCostGp * BASE_COST_MULTIPLIER,
+            costGrowthRate = COST_GROWTH_RATE,
+            phaseJumpMultiplier = PHASE_JUMP_MULTIPLIER,
+        )
 
     /**
      * The cost multiplier a lair's own units are bought at, given [level]
