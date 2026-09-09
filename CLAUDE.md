@@ -86,8 +86,16 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   as style-mismatched was replaced with one matching the established
   bold-silhouette/cel-shaded look) plus two brand-new portraits, all
   three verified square (1254x1254) with genuinely transparent corners,
-  no re-export needed. See the Open Questions entry on creature
-  portrait art for what's still outstanding. `tv.png` → `drawable-nodpi/tv.png`
+  no re-export needed. `lair-troll.png` / `lair-wyvern.png` /
+  `lair-young-dragon.png` → `drawable-nodpi/lair_troll_warren.png` /
+  `lair_wyvern_aerie.png` / `lair_young_dragons_lair.png` (v0.43.1) —
+  three more, same square (1254x1254), genuinely transparent corners, no
+  re-export needed; `lair-young-dragon.png` renders a blue dragon despite
+  the catalog's flavor text calling this tier a "Young Red Dragon" (and
+  likewise for the still-unwired Adult/Ancient tiers) — used as supplied
+  rather than second-guessed, same as every other art asset in this
+  file. See the Open Questions entry on creature portrait art for what's
+  still outstanding. `tv.png` → `drawable-nodpi/tv.png`
   (v0.31.2), a hand-illustrated wooden "scrying TV" (gold filigree, a
   wizard scene on-screen) — real transparent background, square
   (754x754) — used by the redesigned `WelcomeBackDialog` to front its
@@ -180,10 +188,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.43.0** (the Universal Steward — watch 100
-     rewarded ads in total to permanently auto-staff every lair you own,
-     forever, even through a Level Up — see the Universal Steward bullet
-     under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.43.1** (real portrait art for Troll Warren,
+     Wyvern Aerie, and Young Dragon's Lair — 12 of 14 lair tiers now have
+     real art — see [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -2617,11 +2624,11 @@ we'll pin these down as we build each system.
 - Creature portrait art — in progress, one lair at a time (see `LairRow`'s
   `lairPortraitRes` above): Kobold Warren, Giant Rat Burrow, Goblin Camp,
   Orc Encampment, Gnoll Den, Bugbear Warcamp, Hobgoblin Barracks, Ogre's
-  Cave, and Owlbear Roost have real art as of v0.42.1 — 9 of the 14
-  tiers. Still showing `CreatureAvatar`'s rarity-tinted placeholder disc
-  with the monster's first initial: Troll Warren, Wyvern Aerie, Young
-  Dragon's Lair, Adult Dragon's Lair, and Ancient Dragon's Hoard (the top
-  5 tiers).
+  Cave, Owlbear Roost, Troll Warren, Wyvern Aerie, and Young Dragon's
+  Lair have real art as of v0.43.1 — 12 of the 14 tiers. Still showing
+  `CreatureAvatar`'s rarity-tinted placeholder disc with the monster's
+  first initial: Adult Dragon's Lair and Ancient Dragon's Hoard (the top
+  2 tiers).
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested

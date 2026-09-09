@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.43.1] - 2026-09-09 12:20 PM EDT
+
+- Added real portrait art for Troll Warren, Wyvern Aerie, and Young
+  Dragon's Lair — 12 of 14 lairs now show their actual creature instead
+  of the generic placeholder disc.
+
 ## [0.43.0] - 2026-09-08 9:35 PM EDT
 
 - Added the Universal Steward: watch 100 rewarded ads in total (any kind
