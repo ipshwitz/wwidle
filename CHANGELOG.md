@@ -3,6 +3,12 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.42.2] - 2026-09-08 8:15 PM EDT
+
+- The loading screen now always shows for at least 5 seconds, even on a
+  fast launch — before this, a quick reload could skip past the loading
+  video almost instantly.
+
 ## [0.42.1] - 2026-09-07 9:35 PM EDT
 
 - Added real portrait art for Hobgoblin Barracks, Ogre's Cave, and

@@ -180,10 +180,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.42.0** (the Leaderboard moved out of the main
-     menu into a tab inside Settings, per explicit request, since it has
-     no sign art yet — see the `SettingsContent`/Leaderboard bullets under
-     Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.42.2** (the loading screen now always shows for
+     at least 5 seconds, even on a fast launch — see the `LoadingScreen`
+     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -296,6 +295,26 @@ These apply to every change made in this repo, however small:
     (e.g. injecting `AdManager` lazily via `dagger.Lazy<AdManager>` so
     constructing `GameViewModel` doesn't block on it) is a separate,
     larger change nobody's asked for yet.
+    **Minimum 5-second floor (v0.42.2)** — the init sequence above (local
+    load, sign-in, cloud merge, offline earnings) can settle in well
+    under a second on a warm relaunch, which barely showed the loading
+    video at all before this. `GameViewModel.init` now stamps
+    `loadStartedAtMs` (`System.currentTimeMillis()`) the moment its
+    coroutine starts, and right before `_isLoading.value = false`, `delay`s
+    whatever's left of `MIN_LOADING_SCREEN_DURATION_MS` (5,000ms) if the
+    real work finished sooner — purely cosmetic, doesn't change what the
+    load sequence itself does or how long a genuinely slow cold start
+    (ads SDK init, etc. — already well past 5s on its own) takes; the
+    floor only ever adds a wait, never shortens one. Verified live via
+    temporary `Log.d` timestamps bracketing the delay (screenshots and
+    `uiautomator dump` both proved too slow/unreliable on this emulator
+    to catch a sub-5-second window — see the Build environment notes'
+    screencap/uiautomator gotcha) — both a cold start (3,354ms real load)
+    and a forced-restart "warm" start (3,348ms — `force-stop` kills the
+    whole process, so `AdManager`'s init cost still applies each time)
+    correctly padded out to just over 5,000ms (5,004ms/5,072ms) before
+    `isLoading` flipped false, confirmed via `adb logcat` timestamps, then
+    the temporary logging was removed.
   - `GameViewModel` — implemented (`ui/game/GameViewModel.kt`): wraps
     `GameEngine`, starts its tick loop and settles offline earnings once on
     creation, exposes claim/hire-Steward/start-load actions plus a `buyQuantity:

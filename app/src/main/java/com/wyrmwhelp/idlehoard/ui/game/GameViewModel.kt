@@ -226,6 +226,7 @@ class GameViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val loadStartedAtMs = System.currentTimeMillis()
             val local = gameRepository.loadGameState()
 
             // Cloud sync is best-effort: a network hiccup or Supabase outage should
@@ -259,6 +260,13 @@ class GameViewModel @Inject constructor(
             }
 
             gameEngine.start()
+
+            // Purely cosmetic — see MIN_LOADING_SCREEN_DURATION_MS's doc.
+            val elapsedMs = System.currentTimeMillis() - loadStartedAtMs
+            if (elapsedMs < MIN_LOADING_SCREEN_DURATION_MS) {
+                delay(MIN_LOADING_SCREEN_DURATION_MS - elapsedMs)
+            }
+
             _isLoading.value = false
             launch { runAutosaveLoop() }
             runCloudSyncLoop()
@@ -842,6 +850,16 @@ class GameViewModel @Inject constructor(
         const val TAG = "GameViewModel"
         const val AUTOSAVE_INTERVAL_MS = 30_000L
         const val CLOUD_SYNC_INTERVAL_MS = 5 * 60_000L
+
+        /**
+         * The init load sequence (local load, sign-in, cloud merge, offline
+         * earnings) can settle in well under a second on a warm launch,
+         * which barely shows `LoadingScreen`'s video at all. Padding the
+         * loading screen out to at least this long — see the `delay` right
+         * before `_isLoading.value = false` below — is purely cosmetic,
+         * not something load itself needs.
+         */
+        const val MIN_LOADING_SCREEN_DURATION_MS = 5_000L
 
         /** HTTP 409 — PostgREST's status code for a unique-constraint violation. See [usernameErrorMessage]. */
         const val HTTP_CONFLICT = 409
