@@ -26,6 +26,7 @@ import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostOption
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
+import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
 import com.wyrmwhelp.idlehoard.domain.model.isValidUsername
 import com.wyrmwhelp.idlehoard.ui.format.DurationFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
@@ -772,7 +773,8 @@ class GameViewModel @Inject constructor(
         val current = gameEngine.state.value
         val owned = current.ownedLair(lairId)
         val previousCount = owned.count
-        val quantity = _buyQuantity.value.resolve(lair, owned.count, current.goldPieces).coerceAtLeast(1)
+        val costMultiplier = StewardEfficiency.costMultiplier(owned.stewardEfficiencyLevel)
+        val quantity = _buyQuantity.value.resolve(lair, owned.count, current.goldPieces, costMultiplier).coerceAtLeast(1)
         val purchased = gameEngine.purchaseLairs(lairId, quantity)
         if (purchased > 0) {
             enqueueMilestoneAnnouncements(gameEngine.state.value.milestonesCrossed(lairId, previousCount))
@@ -833,6 +835,11 @@ class GameViewModel @Inject constructor(
     /** The Upgrades section's Gold tab — buys the next tier of one lair's own Profit/Speed line. See `GameEngine.purchaseGpLairUpgrade`. */
     fun purchaseGpLairUpgrade(lairId: String, category: UpgradeCategory) {
         gameEngine.purchaseGpLairUpgrade(lairId, category)
+    }
+
+    /** The Upgrades section's Gold tab — buys the next tier of a lair's own Steward Efficiency line. See `GameEngine.purchaseStewardEfficiencyUpgrade`. */
+    fun purchaseStewardEfficiencyUpgrade(lairId: String) {
+        gameEngine.purchaseStewardEfficiencyUpgrade(lairId)
     }
 
     /** The Upgrades section's Gold tab — buys the next tier of an "Everything" line. See `GameEngine.purchaseGpEverythingUpgrade`. */

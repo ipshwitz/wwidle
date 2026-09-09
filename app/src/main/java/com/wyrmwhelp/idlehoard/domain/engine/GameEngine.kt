@@ -39,6 +39,7 @@ import com.wyrmwhelp.idlehoard.domain.model.withStewardOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.withUpgradeOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
+import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
 import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
 import com.wyrmwhelp.idlehoard.domain.model.isLairManaged
 import java.time.Duration
@@ -175,10 +176,12 @@ class GameEngine @Inject constructor() {
 
     /**
      * Attempts to claim [quantity] more units of [lairId] at once, atomically —
-     * either the full bulk cost (see [CreatureLair.costForUnits]) is affordable
-     * and all of them are bought in one state update, or none are (never a
-     * partial buy that leaves the player short mid-purchase). Returns the
-     * number actually purchased: either [quantity] or 0.
+     * either the full bulk cost (see [CreatureLair.costForUnits], discounted
+     * by this lair's own Steward Efficiency level — see
+     * `domain/model/StewardEfficiency.kt`) is affordable and all of them are
+     * bought in one state update, or none are (never a partial buy that
+     * leaves the player short mid-purchase). Returns the number actually
+     * purchased: either [quantity] or 0.
      */
     fun purchaseLairs(lairId: String, quantity: Int): Int {
         if (quantity <= 0) return 0
@@ -186,7 +189,7 @@ class GameEngine @Inject constructor() {
         var purchased = 0
         _state.update { current ->
             val owned = current.ownedLair(lairId)
-            val cost = lair.costForUnits(owned.count, quantity)
+            val cost = lair.costForUnits(owned.count, quantity, StewardEfficiency.costMultiplier(owned.stewardEfficiencyLevel))
             if (current.goldPieces < cost) {
                 current
             } else {
@@ -390,6 +393,39 @@ class GameEngine @Inject constructor() {
                     current.copy(
                         goldPieces = current.goldPieces - cost,
                         lairs = current.lairs + (lairId to updatedOwned),
+                    )
+                }
+            }
+        }
+        return bought
+    }
+
+    /**
+     * Buys the next tier of [lairId]'s own Steward Efficiency line
+     * (`domain/model/StewardEfficiency.kt`), discounting this lair's own
+     * future unit costs. Returns false if the lair isn't owned, its real
+     * Steward isn't hired yet (`OwnedLair.hasSteward` — deliberately not
+     * satisfied by the account-wide Universal Steward, see that file's
+     * class doc for why), it's already at [StewardEfficiency.MAX_TIER], or
+     * the player can't afford the next tier.
+     */
+    fun purchaseStewardEfficiencyUpgrade(lairId: String): Boolean {
+        val lair = CreatureLairCatalog.get(lairId)
+        var bought = false
+        _state.update { current ->
+            val owned = current.ownedLair(lairId)
+            val nextTier = owned.stewardEfficiencyLevel + 1
+            if (owned.count <= 0 || !owned.hasSteward || nextTier > StewardEfficiency.MAX_TIER) {
+                current
+            } else {
+                val cost = StewardEfficiency.costForTier(lair, nextTier)
+                if (current.goldPieces < cost) {
+                    current
+                } else {
+                    bought = true
+                    current.copy(
+                        goldPieces = current.goldPieces - cost,
+                        lairs = current.lairs + (lairId to owned.copy(stewardEfficiencyLevel = nextTier)),
                     )
                 }
             }

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.format.CycleTimeFormat
 import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
@@ -201,8 +202,9 @@ fun LairCard(
     // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
     // affordable — falling back to a 1-unit preview keeps the button showing
     // a real cost (and staying correctly disabled) instead of a "x0" label.
-    val claimQuantity = buyQuantity.resolve(lair, owned.count, goldPieces).coerceAtLeast(1)
-    val claimCost = lair.costForUnits(owned.count, claimQuantity)
+    val costMultiplier = StewardEfficiency.costMultiplier(owned.stewardEfficiencyLevel)
+    val claimQuantity = buyQuantity.resolve(lair, owned.count, goldPieces, costMultiplier).coerceAtLeast(1)
+    val claimCost = lair.costForUnits(owned.count, claimQuantity, costMultiplier)
     val canClaim = goldPieces >= claimCost
     var previousProgress by remember { mutableFloatStateOf(progress) }
     val isReset = progress < previousProgress

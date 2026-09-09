@@ -54,6 +54,7 @@ data class OwnedLairDto(
     @SerialName("completed_loads") val completedLoads: Int = 0,
     @SerialName("profit_upgrade_level") val profitUpgradeLevel: Int = 0,
     @SerialName("speed_upgrade_level") val speedUpgradeLevel: Int = 0,
+    @SerialName("steward_efficiency_level") val stewardEfficiencyLevel: Int = 0,
 )
 
 /** One row of the `cloud_saves` table. */

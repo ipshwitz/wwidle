@@ -36,19 +36,27 @@ data class CreatureLair(
     val baseProductionSeconds: Double,
     val stewardCostGp: Double,
 ) {
-    /** Cost in Gold Pieces to claim the next unit, given [unitsOwned] already claimed. */
-    fun costForNextUnit(unitsOwned: Int): Double =
-        baseCostGp * Math.pow(costGrowthRate, unitsOwned.toDouble())
+    /**
+     * Cost in Gold Pieces to claim the next unit, given [unitsOwned] already
+     * claimed. [costMultiplier] (default 1.0, no discount) is this lair's
+     * own Steward Efficiency discount (`domain/model/StewardEfficiency.kt`,
+     * `OwnedLair.stewardEfficiencyLevel`) — the one place a discount
+     * actually applies; every caller downstream ([costForUnits],
+     * [maxAffordableUnits]) just threads it through.
+     */
+    fun costForNextUnit(unitsOwned: Int, costMultiplier: Double = 1.0): Double =
+        baseCostGp * costMultiplier * Math.pow(costGrowthRate, unitsOwned.toDouble())
 
     /**
      * Total Gold Pieces to claim [quantity] more units at once, given
      * [unitsOwned] already claimed — the closed-form sum of a geometric
      * series (each unit costs `costGrowthRate` times the last), not
-     * [costForNextUnit] called in a loop.
+     * [costForNextUnit] called in a loop. See [costForNextUnit] for
+     * [costMultiplier].
      */
-    fun costForUnits(unitsOwned: Int, quantity: Int): Double {
+    fun costForUnits(unitsOwned: Int, quantity: Int, costMultiplier: Double = 1.0): Double {
         if (quantity <= 0) return 0.0
-        val firstCost = costForNextUnit(unitsOwned)
+        val firstCost = costForNextUnit(unitsOwned, costMultiplier)
         return if (costGrowthRate == 1.0) {
             firstCost * quantity
         } else {
@@ -62,14 +70,15 @@ data class CreatureLair(
      * [costForUnits] (solving the geometric series sum for its unit count),
      * not a purchase-simulating loop. A loop would need an unbounded number
      * of iterations for a slow-growth lair once the economy reaches the
-     * kind of gold totals `GoldFormat`'s letter suffixes exist for.
+     * kind of gold totals `GoldFormat`'s letter suffixes exist for. See
+     * [costForNextUnit] for [costMultiplier].
      *
      * The closed-form estimate is nudged by a few corrective steps
      * afterward since floating-point error can put it off by one right at
      * the affordability boundary.
      */
-    fun maxAffordableUnits(unitsOwned: Int, availableGp: Double): Int {
-        val nextCost = costForNextUnit(unitsOwned)
+    fun maxAffordableUnits(unitsOwned: Int, availableGp: Double, costMultiplier: Double = 1.0): Int {
+        val nextCost = costForNextUnit(unitsOwned, costMultiplier)
         if (availableGp < nextCost) return 0
 
         val estimate = if (costGrowthRate == 1.0) {
@@ -80,8 +89,8 @@ data class CreatureLair(
         }.coerceAtLeast(1)
 
         var n = estimate
-        while (n > 0 && costForUnits(unitsOwned, n) > availableGp) n--
-        while (costForUnits(unitsOwned, n + 1) <= availableGp) n++
+        while (n > 0 && costForUnits(unitsOwned, n, costMultiplier) > availableGp) n--
+        while (costForUnits(unitsOwned, n + 1, costMultiplier) <= availableGp) n++
         return n
     }
 

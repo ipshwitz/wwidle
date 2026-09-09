@@ -206,6 +206,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             onBuyGpLairUpgrade = gameViewModel::purchaseGpLairUpgrade,
                             onBuyGpEverythingUpgrade = gameViewModel::purchaseGpEverythingUpgrade,
                             onBuyGemEfficiencyUpgrade = gameViewModel::purchaseGemEfficiencyUpgrade,
+                            onBuyStewardEfficiencyUpgrade = gameViewModel::purchaseStewardEfficiencyUpgrade,
                         )
                     }
                 }

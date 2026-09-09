@@ -34,9 +34,12 @@ enum class BuyQuantity(val label: String) {
      * most units [lair] can afford for [availableGp] (see
      * [CreatureLair.maxAffordableUnits]), which can be 0 if even one more
      * unit isn't affordable — callers that want a cost preview to show
-     * anyway should `coerceAtLeast(1)` the result themselves.
+     * anyway should `coerceAtLeast(1)` the result themselves. [costMultiplier]
+     * (default 1.0) is this lair's own Steward Efficiency discount — see
+     * [CreatureLair.costForNextUnit] — and only actually matters for [MAX],
+     * the only case that reads cost at all.
      */
-    fun resolve(lair: CreatureLair, unitsOwned: Int, availableGp: Double): Int = when (this) {
+    fun resolve(lair: CreatureLair, unitsOwned: Int, availableGp: Double, costMultiplier: Double = 1.0): Int = when (this) {
         X1 -> 1
         X10 -> 10
         X100 -> 100
@@ -50,6 +53,6 @@ enum class BuyQuantity(val label: String) {
                 if (remainder == 0) step else step - remainder
             }
         }
-        MAX -> lair.maxAffordableUnits(unitsOwned, availableGp)
+        MAX -> lair.maxAffordableUnits(unitsOwned, availableGp, costMultiplier)
     }
 }

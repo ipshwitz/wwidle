@@ -11,7 +11,8 @@ import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 fun GameState.estimatedNetWorth(): Double {
     val investedInLairs = lairs.values.sumOf { owned ->
         val lair = CreatureLairCatalog.get(owned.lairId)
-        (0 until owned.count).sumOf { unitsOwnedBefore -> lair.costForNextUnit(unitsOwnedBefore) }
+        val costMultiplier = StewardEfficiency.costMultiplier(owned.stewardEfficiencyLevel)
+        (0 until owned.count).sumOf { unitsOwnedBefore -> lair.costForNextUnit(unitsOwnedBefore, costMultiplier) }
     }
     return goldPieces + platinumPieces * 10.0 + investedInLairs
 }

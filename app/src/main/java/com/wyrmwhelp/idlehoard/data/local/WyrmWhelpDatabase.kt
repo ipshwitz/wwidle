@@ -4,7 +4,11 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 16 for the Universal Steward feature: one new
+ * Bumped to version 17 for the Steward Efficiency feature: one new
+ * `stewardEfficiencyLevel` column on [OwnedLairEntity] (see
+ * `GameStateMappers.kt`) — see `domain/model/StewardEfficiency.kt`. Plain
+ * `Int` column, no JSON encoding needed for a single value.
+ * Version 16 was the Universal Steward feature: one new
  * `totalAdsWatched` column (see `GameStateMappers.kt`) — see
  * `domain/model/UniversalSteward.kt`. Plain `Int` column, no JSON
  * encoding needed for a single value.
@@ -65,7 +69,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 16,
+    version = 17,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

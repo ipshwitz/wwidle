@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.44.0] - 2026-09-09 5:15 PM EDT
+
+- Added Steward Efficiency: a new per-lair Gold upgrade (in Upgrades →
+  Gold, next to that lair's Profit and Speed) that permanently discounts
+  a lair's own future costs — 10 tiers, 10% off up to 99% off. Requires
+  that lair's own Steward to already be hired. Resets on a Level Up,
+  same as every other Gold upgrade.
+
 ## [0.43.1] - 2026-09-09 12:20 PM EDT
 
 - Added real portrait art for Troll Warren, Wyvern Aerie, and Young

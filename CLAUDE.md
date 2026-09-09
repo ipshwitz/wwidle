@@ -188,9 +188,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.43.1** (real portrait art for Troll Warren,
-     Wyvern Aerie, and Young Dragon's Lair — 12 of 14 lair tiers now have
-     real art — see [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.44.0** (Steward Efficiency — a new per-lair Gold
+     upgrade that permanently discounts that lair's own future costs — see
+     the Steward Efficiency bullet under Tech stack and
+     [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1419,6 +1420,76 @@ These apply to every change made in this repo, however small:
     the Stewards screen showed the card as "Active" with every owned
     lair reading "Steward Hired," and Settings showed "Universal
     Steward: Active" next to the version footer.
+  - **Steward Efficiency (v0.44.0)** — a third per-lair Gold upgrade line
+    (`domain/model/StewardEfficiency.kt`), alongside `GpUpgrades.kt`'s
+    existing Profit/Speed, that discounts a lair's own future unit costs
+    instead of boosting income/speed. Built from an explicit design pass
+    before any code: the one hard constraint flagged up front was that a
+    cost *discount* can never behave like Profit/Speed's unbounded
+    compounding multiplier — nothing can push a lair's cost toward 0%
+    without breaking the whole exponential cost curve this game's economy
+    runs on — so this is deliberately a small, fixed 10-tier ladder, not
+    an open-ended one, hard-capped at 99% off. Confirmed answers that
+    shaped it: each tier *sets* the discount outright rather than adding
+    to the one before it (10%, 20%, 30%, ..., 90%, 99% — tier 5 is
+    "50% off," not "10+20+30+40+50"), it's Gold-funded and resets on a
+    Level Up (same as Profit/Speed), and — the one piece that took an
+    extra round to pin down — it requires that lair's own *real*
+    `OwnedLair.hasSteward` to already be true, deliberately **not**
+    satisfied by the account-wide Universal Steward
+    (`domain/model/UniversalSteward.kt`) even though that also makes the
+    lair auto-collect; this is an explicit choice made with the
+    Universal Steward's "no more per-lair Steward costs" framing already
+    in view, not an oversight to reconcile later.
+    `StewardEfficiency.DISCOUNT_PERCENTAGES` is the flat list of 10
+    tier-outright-discounts; `costMultiplier(level)` turns a level into
+    the `1 - discount%` factor `CreatureLair.costForNextUnit`/
+    `costForUnits`/`maxAffordableUnits` now all take as a new
+    `costMultiplier` parameter (default 1.0, i.e. every existing call
+    site is unaffected until it explicitly opts in) — the one place a
+    discount actually multiplies in, with every other cost-reading call
+    site (`GameEngine.purchaseLairs`, `BuyQuantity.resolve`'s `MAX` case,
+    `LairCard`'s claim-cost preview, `estimatedNetWorth`'s "what it'd
+    cost to reclaim everything" merge heuristic) just threading
+    `StewardEfficiency.costMultiplier(owned.stewardEfficiencyLevel)`
+    through. Tier costs are deliberately steep — "these need to be large
+    costs," per explicit instruction — `10,000 * lair.baseCostGp` for
+    tier 1, ×3 per tier after that (tier 10 costs `10,000 * 3^9 ≈
+    196,830,000` times that lair's base cost), reflecting how much more
+    powerful a cost discount is than a Profit/Speed percentage point;
+    first-pass placeholder, not playtested, same as everywhere else in
+    the economy. `GameEngine.purchaseStewardEfficiencyUpgrade(lairId)` is
+    the purchase method (same atomic afford-check-and-deduct shape as
+    `purchaseGpLairUpgrade`), gated on `owned.hasSteward` specifically.
+    Levels live on the new `OwnedLair.stewardEfficiencyLevel` — resets on
+    a Level Up implicitly, since `GameState.lairs` itself resets to the
+    starting map, same as `profitUpgradeLevel`/`speedUpgradeLevel`.
+    `UpgradesContent.kt`'s `LairUpgradeCard` gained a third
+    `UpgradeLineRow` per lair for this; `UpgradeLineRow` itself gained an
+    optional `lockedMessage` param ("Hire a Steward first," replacing the
+    buy button entirely) for the pre-Steward state, distinct from "can't
+    afford it yet." Persistence: Room bumped to **database version 17**
+    for one new `OwnedLairEntity.stewardEfficiencyLevel` column (plain
+    `Int`), and the Supabase `OwnedLairDto` got a matching
+    `steward_efficiency_level` field with a `= 0` default for older cloud
+    saves. Unit-tested in `StewardEfficiencyTest.kt` (the discount-table
+    math, the 99%-cap-never-free guarantee, and that the multiplier
+    actually reduces `costForNextUnit`) and `GameEngineTest.kt` (the
+    Steward gate rejecting an owned-but-unstewarded lair, rejecting it
+    even with the Universal Steward active, a successful purchase both
+    deducting gold and discounting the very next real unit purchase,
+    insufficient-gold and past-max-tier rejections, and the level
+    resetting on `performLevelUp`). **Verified live on-device**: Kobold
+    Warren's Steward Efficiency row correctly showed a buy button (its
+    real Steward was already hired from earlier testing) at "37.38K gp"
+    (`10,000 × 3.738` — matches the formula exactly); buying it moved the
+    row to "Lv 1/10, 10% off this lair's own cost" and the next tier's
+    cost to "112.14K gp" (`37,380 × 3`, also exact); back on the main
+    screen, Kobold Warren's own displayed next-unit cost dropped from
+    2.44B gp to 2.20B gp — precisely a 10% reduction on the real,
+    already-escalated cost at that ownership count, confirming the
+    discount reaches the actual purchase path, not just the Upgrades
+    screen's preview.
   - **"New feature" notification badge (v0.32.0, "new" redefined by
     availability in v0.33.0)** — a small ornate gold star
     (`new_notification.png`) that floats over `FloatingMenu`'s chest

@@ -14,4 +14,5 @@ data class OwnedLairEntity(
     val completedLoads: Int = 0,
     val profitUpgradeLevel: Int = 0,
     val speedUpgradeLevel: Int = 0,
+    val stewardEfficiencyLevel: Int = 0,
 )

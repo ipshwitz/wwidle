@@ -31,6 +31,12 @@ package com.wyrmwhelp.idlehoard.domain.model
  * @property speedUpgradeLevel Tiers bought of this lair's own Gold Pieces
  *   Speed upgrade line, same shape as [profitUpgradeLevel] but for cycle
  *   time instead of income.
+ * @property stewardEfficiencyLevel Tiers bought of this lair's own
+ *   Steward Efficiency line (`domain/model/StewardEfficiency.kt`) —
+ *   discounts this lair's own future unit costs. Unlike
+ *   [profitUpgradeLevel]/[speedUpgradeLevel], requires [hasSteward] to
+ *   already be true before the first tier can be bought at all. Resets
+ *   on a Level Up implicitly, same as those two.
  */
 data class OwnedLair(
     val lairId: String,
@@ -41,4 +47,5 @@ data class OwnedLair(
     val completedLoads: Int = 0,
     val profitUpgradeLevel: Int = 0,
     val speedUpgradeLevel: Int = 0,
+    val stewardEfficiencyLevel: Int = 0,
 )

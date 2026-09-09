@@ -21,6 +21,7 @@ import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import com.wyrmwhelp.idlehoard.domain.model.GemUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
+import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
 import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
@@ -1157,5 +1158,114 @@ class GameEngineTest {
 
         assertEquals(UNIVERSAL_STEWARD_AD_THRESHOLD + 7, engine.state.value.totalAdsWatched)
         assertTrue(engine.state.value.hasUniversalSteward())
+    }
+
+    @Test
+    fun `purchasing Steward Efficiency requires a real per-lair Steward, not just being owned`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                goldPieces = StewardEfficiency.costForTier(lair, 1),
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = false)),
+            ),
+        )
+
+        assertFalse(engine.purchaseStewardEfficiencyUpgrade("kobold_warren"))
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").stewardEfficiencyLevel)
+    }
+
+    @Test
+    fun `purchasing Steward Efficiency requires a real Steward even with the Universal Steward active`() {
+        // Explicit, intentional design choice — see StewardEfficiency.kt's
+        // class doc: the account-wide Universal Steward does NOT satisfy
+        // this gate, only OwnedLair.hasSteward does.
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                goldPieces = StewardEfficiency.costForTier(lair, 1),
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = false)),
+                totalAdsWatched = UNIVERSAL_STEWARD_AD_THRESHOLD,
+            ),
+        )
+
+        assertFalse(engine.purchaseStewardEfficiencyUpgrade("kobold_warren"))
+    }
+
+    @Test
+    fun `purchasing Steward Efficiency deducts gold and discounts this lair's own future costs`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        val tier1Cost = StewardEfficiency.costForTier(lair, 1)
+        engine.loadState(
+            GameState(
+                goldPieces = tier1Cost,
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = true)),
+            ),
+        )
+
+        assertTrue(engine.purchaseStewardEfficiencyUpgrade("kobold_warren"))
+
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+        assertEquals(1, engine.state.value.ownedLair("kobold_warren").stewardEfficiencyLevel)
+
+        // The very next unit now costs 10% less than it otherwise would.
+        val fullPrice = lair.costForNextUnit(1)
+        engine.loadState(engine.state.value.copy(goldPieces = fullPrice * 0.9))
+        assertTrue(engine.purchaseLair("kobold_warren"))
+        assertEquals(2, engine.state.value.ownedLair("kobold_warren").count)
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+    }
+
+    @Test
+    fun `Steward Efficiency purchase fails when gold is insufficient`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                goldPieces = StewardEfficiency.costForTier(lair, 1) - 1.0,
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = true)),
+            ),
+        )
+
+        assertFalse(engine.purchaseStewardEfficiencyUpgrade("kobold_warren"))
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").stewardEfficiencyLevel)
+    }
+
+    @Test
+    fun `Steward Efficiency purchases never fail for being at a max level, only affordability or the Steward gate`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                goldPieces = 0.0,
+                lairs = mapOf(
+                    "kobold_warren" to OwnedLair(
+                        lairId = "kobold_warren",
+                        count = 1,
+                        hasSteward = true,
+                        stewardEfficiencyLevel = StewardEfficiency.MAX_TIER,
+                    ),
+                ),
+            ),
+        )
+
+        assertFalse(engine.purchaseStewardEfficiencyUpgrade("kobold_warren"))
+
+        engine.loadState(engine.state.value.copy(goldPieces = StewardEfficiency.costForTier(lair, StewardEfficiency.MAX_TIER + 1)))
+        assertFalse(engine.purchaseStewardEfficiencyUpgrade("kobold_warren"))
+        assertEquals(StewardEfficiency.MAX_TIER, engine.state.value.ownedLair("kobold_warren").stewardEfficiencyLevel)
+    }
+
+    @Test
+    fun `performLevelUp resets a lair's Steward Efficiency level along with everything else about it`() {
+        engine.loadState(
+            GameState(
+                lifetimeGoldEarned = 1_000_000_000_000_000.0,
+                lairs = mapOf(
+                    "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = true, stewardEfficiencyLevel = 5),
+                ),
+            ),
+        )
+
+        engine.performLevelUp()
+
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").stewardEfficiencyLevel)
     }
 }
