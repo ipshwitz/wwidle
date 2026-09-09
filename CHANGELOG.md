@@ -3,6 +3,13 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.44.1] - 2026-09-09 6:05 PM EDT
+
+- Moved Steward Efficiency from the Upgrades screen onto the Stewards
+  screen, right below that lair's own Hire/Steward Hired status — so you
+  can upgrade a Steward the moment you hire it, in one place, instead of
+  hopping to a different screen.
+
 ## [0.44.0] - 2026-09-09 5:15 PM EDT
 
 - Added Steward Efficiency: a new per-lair Gold upgrade (in Upgrades →

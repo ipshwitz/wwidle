@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
+import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
 import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
 import com.wyrmwhelp.idlehoard.domain.model.adsWatchedTowardUniversalSteward
 import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
@@ -52,17 +53,23 @@ import com.wyrmwhelp.idlehoard.ui.game.rarityColor
  *
  * Below that, only lists lairs the player actually owns (hiring a Steward
  * for a lair with zero units doesn't mean anything); a save with nothing
- * owned yet shows a short placeholder instead of the whole list. Pure
- * display plus one callback — reads [state]/[lairs] passed in by the caller
- * (`MainActivity`'s `WyrmWhelpApp`, which already has the `GameViewModel`)
- * and forwards hires through [onHireSteward] rather than calling the
- * ViewModel itself.
+ * owned yet shows a short placeholder instead of the whole list. Each
+ * owned lair's [StewardRow] also inlines that lair's own Steward
+ * Efficiency line (`domain/model/StewardEfficiency.kt`) once its Steward
+ * is actually hired — moved here from the Upgrades screen in v0.44.1, per
+ * explicit request, so it can be bought right alongside the Steward it
+ * upgrades instead of on a separate screen. Pure display plus callbacks —
+ * reads [state]/[lairs] passed in by the caller (`MainActivity`'s
+ * `WyrmWhelpApp`, which already has the `GameViewModel`) and forwards
+ * purchases through [onHireSteward]/[onBuyStewardEfficiency] rather than
+ * calling the ViewModel itself.
  */
 @Composable
 fun StewardsContent(
     lairs: List<CreatureLair>,
     state: GameState,
     onHireSteward: (String) -> Unit,
+    onBuyStewardEfficiency: (String) -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -106,6 +113,7 @@ fun StewardsContent(
                 goldPieces = state.goldPieces,
                 hasUniversalSteward = hasUniversalSteward,
                 onHire = { onHireSteward(lair.id) },
+                onBuyStewardEfficiency = { onBuyStewardEfficiency(lair.id) },
                 palette = palette,
             )
         }
@@ -232,6 +240,13 @@ private fun IntroCard(palette: FantasyPalette, modifier: Modifier = Modifier) {
  * to the same "Steward Hired" badge regardless of [OwnedLair.hasSteward] —
  * once the account-wide Universal Steward covers every owned lair, there's
  * no Hire button left to show, real or otherwise.
+ *
+ * Once [OwnedLair.hasSteward] is actually true (the account-wide Universal
+ * Steward does *not* count — see `domain/model/StewardEfficiency.kt`'s
+ * class doc for why that's deliberate), a second [StewardEfficiencyRow]
+ * renders below the hire status for that same lair's own Steward
+ * Efficiency line — moved here from the Upgrades screen in v0.44.1 so it
+ * sits right next to the Steward it upgrades.
  */
 @Composable
 private fun StewardRow(
@@ -240,6 +255,7 @@ private fun StewardRow(
     goldPieces: Double,
     hasUniversalSteward: Boolean,
     onHire: () -> Unit,
+    onBuyStewardEfficiency: () -> Unit,
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
@@ -278,5 +294,67 @@ private fun StewardRow(
                 )
             }
         }
+        if (owned.hasSteward) {
+            Spacer(Modifier.height(8.dp))
+            StewardEfficiencyRow(
+                lair = lair,
+                owned = owned,
+                goldPieces = goldPieces,
+                onBuy = onBuyStewardEfficiency,
+                palette = palette,
+            )
+        }
+    }
+}
+
+/**
+ * This lair's own Steward Efficiency line (`domain/model/StewardEfficiency.kt`)
+ * — only ever rendered by [StewardRow] once [OwnedLair.hasSteward] is
+ * true, since that real per-lair Steward is exactly what this line
+ * requires to unlock at all. Same shape as `UpgradesContent.kt`'s private
+ * `UpgradeLineRow`, duplicated here per this project's established
+ * per-file-duplication convention for small private UI helpers rather
+ * than shared across files.
+ */
+@Composable
+private fun StewardEfficiencyRow(
+    lair: CreatureLair,
+    owned: OwnedLair,
+    goldPieces: Double,
+    onBuy: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    val maxed = owned.stewardEfficiencyLevel >= StewardEfficiency.MAX_TIER
+    val nextTier = owned.stewardEfficiencyLevel + 1
+    val cost = if (!maxed) StewardEfficiency.costForTier(lair, nextTier) else 0.0
+    val currentDiscountPercent = if (owned.stewardEfficiencyLevel <= 0) {
+        0.0
+    } else {
+        StewardEfficiency.DISCOUNT_PERCENTAGES[(owned.stewardEfficiencyLevel - 1).coerceAtMost(StewardEfficiency.MAX_TIER - 1)]
+    }
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Steward Efficiency — Lv ${owned.stewardEfficiencyLevel}/${StewardEfficiency.MAX_TIER}",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+            )
+            Text(
+                text = "${GoldFormat.format(currentDiscountPercent)}% off this lair's own cost",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.7f),
+            )
+        }
+        WoodenButton(
+            text = if (maxed) "Maxed" else "Buy — ${GoldFormat.format(cost)} gp",
+            onClick = onBuy,
+            enabled = !maxed && goldPieces >= cost,
+            colors = palette,
+        )
     }
 }

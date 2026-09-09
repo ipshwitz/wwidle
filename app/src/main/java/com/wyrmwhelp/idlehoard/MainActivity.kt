@@ -170,6 +170,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             lairs = gameViewModel.lairs,
                             state = gameState,
                             onHireSteward = gameViewModel::hireSteward,
+                            onBuyStewardEfficiency = gameViewModel::purchaseStewardEfficiencyUpgrade,
                         )
                     }
                 }
@@ -206,7 +207,6 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             onBuyGpLairUpgrade = gameViewModel::purchaseGpLairUpgrade,
                             onBuyGpEverythingUpgrade = gameViewModel::purchaseGpEverythingUpgrade,
                             onBuyGemEfficiencyUpgrade = gameViewModel::purchaseGemEfficiencyUpgrade,
-                            onBuyStewardEfficiencyUpgrade = gameViewModel::purchaseStewardEfficiencyUpgrade,
                         )
                     }
                 }

@@ -30,7 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
@@ -44,7 +43,6 @@ import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_GEM_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_SPEED_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PermanentBoostTier
-import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
 import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
@@ -76,11 +74,12 @@ private enum class UpgradeTab(val label: String) {
  * (`domain/model/GpUpgrades.kt`): 14 lairs × (Profit + Speed) = 28
  * per-lair lines, plus 2 "Everything" lines affecting every owned lair at
  * once. Every line resets on a Level Up, same as Gold Pieces themselves
- * (see `GameEngine.performLevelUp`). Each lair also gets its own 10-tier
- * "Steward Efficiency" line (`domain/model/StewardEfficiency.kt`,
- * v0.44.0) discounting that lair's own future costs instead of boosting
- * income/speed — locked until that lair's real Steward is hired, and
- * resets on a Level Up the same implicit way Profit/Speed do.
+ * (see `GameEngine.performLevelUp`). A third per-lair line, "Steward
+ * Efficiency" (`domain/model/StewardEfficiency.kt`), lives on the
+ * Stewards screen instead (`ui/stewards/StewardsContent.kt`'s
+ * `StewardRow`) — moved there in v0.44.1, per explicit request, so it
+ * can be bought inline with the Steward it upgrades rather than on a
+ * separate screen; briefly lived here in v0.44.0.
  *
  * **Gems tab** — a single 200-tier "Gem Efficiency" line
  * (`domain/model/GemUpgrades.kt`) raising the per-Gem income bonus
@@ -109,7 +108,6 @@ fun UpgradesContent(
     onBuyGpLairUpgrade: (String, UpgradeCategory) -> Unit,
     onBuyGpEverythingUpgrade: (UpgradeCategory) -> Unit,
     onBuyGemEfficiencyUpgrade: () -> Unit,
-    onBuyStewardEfficiencyUpgrade: (String) -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -125,7 +123,6 @@ fun UpgradesContent(
                     state = state,
                     onBuyLairUpgrade = onBuyGpLairUpgrade,
                     onBuyEverythingUpgrade = onBuyGpEverythingUpgrade,
-                    onBuyStewardEfficiency = onBuyStewardEfficiencyUpgrade,
                     palette = palette,
                 )
                 UpgradeTab.GEMS -> GemsUpgradesTab(
@@ -222,18 +219,11 @@ private fun SectionLabel(text: String, palette: FantasyPalette, modifier: Modifi
 
 /**
  * One upgrade line's current level, effect, and buy control — shared shape
- * for every line in both tabs (a lair's own Profit/Speed/Steward
- * Efficiency, the two Everything lines, and Gem Efficiency). Never wraps
- * itself in a [ParchmentCard] — callers that want one line per card
- * (Everything, Gem Efficiency) wrap it themselves; [LairUpgradeCard]
- * stacks three of these inside one shared card instead.
- *
- * [lockedMessage] (default null) replaces the buy button entirely with a
- * plain explanatory line, regardless of [canAfford]/[maxed] — used by
- * Steward Efficiency's own row when that lair's real Steward isn't hired
- * yet (see `domain/model/StewardEfficiency.kt`), since "can't afford it"
- * and "can't buy it at all yet" are different situations worth reading
- * differently.
+ * for every line in both tabs (a lair's own Profit/Speed, the two
+ * Everything lines, and Gem Efficiency). Never wraps itself in a
+ * [ParchmentCard] — callers that want one line per card (Everything, Gem
+ * Efficiency) wrap it themselves; [LairUpgradeCard] stacks two of these
+ * inside one shared card instead.
  */
 @Composable
 private fun UpgradeLineRow(
@@ -246,7 +236,6 @@ private fun UpgradeLineRow(
     onBuy: () -> Unit,
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
-    lockedMessage: String? = null,
 ) {
     val maxed = level >= maxLevel
     Row(
@@ -266,20 +255,12 @@ private fun UpgradeLineRow(
                 color = palette.ink.copy(alpha = 0.7f),
             )
         }
-        if (lockedMessage != null) {
-            Text(
-                text = lockedMessage,
-                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                color = palette.ink.copy(alpha = 0.6f),
-            )
-        } else {
-            WoodenButton(
-                text = if (maxed) "Maxed" else "Buy — $costLabel",
-                onClick = onBuy,
-                enabled = !maxed && canAfford,
-                colors = palette,
-            )
-        }
+        WoodenButton(
+            text = if (maxed) "Maxed" else "Buy — $costLabel",
+            onClick = onBuy,
+            enabled = !maxed && canAfford,
+            colors = palette,
+        )
     }
 }
 
@@ -289,7 +270,6 @@ private fun GoldUpgradesTab(
     state: GameState,
     onBuyLairUpgrade: (String, UpgradeCategory) -> Unit,
     onBuyEverythingUpgrade: (UpgradeCategory) -> Unit,
-    onBuyStewardEfficiency: (String) -> Unit,
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
@@ -305,10 +285,9 @@ private fun GoldUpgradesTab(
                     style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
                 )
                 Text(
-                    text = "Spend Gold Pieces on permanent-for-this-run boosts — a lair's own Profit, " +
-                        "Speed, and Steward Efficiency (discounts that lair's own future costs, once " +
-                        "its Steward is hired), or \"Everything\" lines that improve every owned lair " +
-                        "at once. Resets on your next Level Up, same as Gold itself.",
+                    text = "Spend Gold Pieces on permanent-for-this-run boosts — a lair's own Profit " +
+                        "and Speed, or \"Everything\" lines that improve every owned lair at once. " +
+                        "Resets on your next Level Up, same as Gold itself.",
                     style = MaterialTheme.typography.bodySmall,
                     color = palette.ink.copy(alpha = 0.8f),
                 )
@@ -341,7 +320,6 @@ private fun GoldUpgradesTab(
                 goldPieces = state.goldPieces,
                 onBuyProfit = { onBuyLairUpgrade(lair.id, UpgradeCategory.PROFIT) },
                 onBuySpeed = { onBuyLairUpgrade(lair.id, UpgradeCategory.SPEED) },
-                onBuyStewardEfficiency = { onBuyStewardEfficiency(lair.id) },
                 palette = palette,
             )
         }
@@ -391,7 +369,6 @@ private fun LairUpgradeCard(
     goldPieces: Double,
     onBuyProfit: () -> Unit,
     onBuySpeed: () -> Unit,
-    onBuyStewardEfficiency: () -> Unit,
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
@@ -401,13 +378,6 @@ private fun LairUpgradeCard(
     val profitCost = if (profitNextTier <= maxLevel) GpUpgrades.costForLairTier(lair.id, UpgradeCategory.PROFIT, profitNextTier) else 0.0
     val speedNextTier = owned.speedUpgradeLevel + 1
     val speedCost = if (speedNextTier <= maxLevel) GpUpgrades.costForLairTier(lair.id, UpgradeCategory.SPEED, speedNextTier) else 0.0
-    val stewardEffNextTier = owned.stewardEfficiencyLevel + 1
-    val stewardEffCost = if (stewardEffNextTier <= StewardEfficiency.MAX_TIER) StewardEfficiency.costForTier(lair, stewardEffNextTier) else 0.0
-    val currentDiscountPercent = if (owned.stewardEfficiencyLevel <= 0) {
-        0.0
-    } else {
-        StewardEfficiency.DISCOUNT_PERCENTAGES[(owned.stewardEfficiencyLevel - 1).coerceAtMost(StewardEfficiency.MAX_TIER - 1)]
-    }
 
     ParchmentCard(palette = palette, modifier = modifier, borderColor = rarity.copy(alpha = 0.7f)) {
         Text(
@@ -436,18 +406,6 @@ private fun LairUpgradeCard(
             canAfford = goldPieces >= speedCost,
             onBuy = onBuySpeed,
             palette = palette,
-        )
-        Spacer(Modifier.height(6.dp))
-        UpgradeLineRow(
-            label = "Steward Efficiency",
-            level = owned.stewardEfficiencyLevel,
-            maxLevel = StewardEfficiency.MAX_TIER,
-            effectDescription = "${GoldFormat.format(currentDiscountPercent)}% off this lair's own cost",
-            costLabel = "${GoldFormat.format(stewardEffCost)} gp",
-            canAfford = goldPieces >= stewardEffCost,
-            onBuy = onBuyStewardEfficiency,
-            palette = palette,
-            lockedMessage = if (!owned.hasSteward) "Hire a Steward first" else null,
         )
     }
 }

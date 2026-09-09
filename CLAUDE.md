@@ -188,9 +188,11 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.44.0** (Steward Efficiency — a new per-lair Gold
-     upgrade that permanently discounts that lair's own future costs — see
-     the Steward Efficiency bullet under Tech stack and
+   - Current version: **0.44.1** (Steward Efficiency — a per-lair upgrade
+     that permanently discounts that lair's own future costs, introduced in
+     v0.44.0 on the Upgrades screen — moved onto the Stewards screen
+     instead, inline with each lair's own Steward, per explicit follow-up
+     request — see the Steward Efficiency bullet under Tech stack and
      [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -1420,10 +1422,10 @@ These apply to every change made in this repo, however small:
     the Stewards screen showed the card as "Active" with every owned
     lair reading "Steward Hired," and Settings showed "Universal
     Steward: Active" next to the version footer.
-  - **Steward Efficiency (v0.44.0)** — a third per-lair Gold upgrade line
-    (`domain/model/StewardEfficiency.kt`), alongside `GpUpgrades.kt`'s
-    existing Profit/Speed, that discounts a lair's own future unit costs
-    instead of boosting income/speed. Built from an explicit design pass
+  - **Steward Efficiency (v0.44.0; moved onto the Stewards screen in
+    v0.44.1)** — a per-lair Gold upgrade line
+    (`domain/model/StewardEfficiency.kt`) that discounts a lair's own
+    future unit costs instead of boosting income/speed. Built from an explicit design pass
     before any code: the one hard constraint flagged up front was that a
     cost *discount* can never behave like Profit/Speed's unbounded
     compounding multiplier — nothing can push a lair's cost toward 0%
@@ -1464,11 +1466,44 @@ These apply to every change made in this repo, however small:
     Levels live on the new `OwnedLair.stewardEfficiencyLevel` — resets on
     a Level Up implicitly, since `GameState.lairs` itself resets to the
     starting map, same as `profitUpgradeLevel`/`speedUpgradeLevel`.
-    `UpgradesContent.kt`'s `LairUpgradeCard` gained a third
-    `UpgradeLineRow` per lair for this; `UpgradeLineRow` itself gained an
-    optional `lockedMessage` param ("Hire a Steward first," replacing the
-    buy button entirely) for the pre-Steward state, distinct from "can't
-    afford it yet." Persistence: Room bumped to **database version 17**
+    **v0.44.0 first shipped this row on the Upgrades screen**
+    (`UpgradesContent.kt`'s `LairUpgradeCard` gained a third
+    `UpgradeLineRow` per lair, with `UpgradeLineRow` itself gaining an
+    optional `lockedMessage` param — "Hire a Steward first," replacing the
+    buy button entirely — for the pre-Steward state, distinct from "can't
+    afford it yet"). **Moved onto the Stewards screen instead in v0.44.1**,
+    per explicit immediate follow-up request ("i want to move the stewards
+    upgrades from the upgrades screen to the steward screen, so they can
+    be updated inline with the stewards themselves") — `UpgradesContent.kt`
+    lost that third row/param entirely, reverting `LairUpgradeCard`/
+    `UpgradeLineRow` to their pre-0.44.0 shape (Profit + Speed only).
+    `StewardsContent.kt`'s `StewardRow` (one per owned lair) now renders a
+    private `StewardEfficiencyRow` (same fields `UpgradeLineRow` used to
+    show — level/max, current discount%, next-tier cost, Buy button)
+    directly below that lair's own Hire/"Steward Hired" status, but only
+    once `owned.hasSteward` is actually true — a lair without its own real
+    Steward hired shows no Steward Efficiency row at all here (there's no
+    separate "locked" message needed anymore, since the row simply isn't
+    rendered pre-Steward, unlike the old Upgrades-screen placement which
+    always showed the line with a locked message). `StewardsContent`
+    gained one new `onBuyStewardEfficiency: (String) -> Unit` param,
+    wired in `MainActivity` to the same
+    `gameViewModel::purchaseStewardEfficiencyUpgrade` the Upgrades screen
+    used to call — no `GameEngine`/`GameViewModel`/domain-layer change at
+    all for this move, confirming the value of this app's clean
+    UI/domain split: only `UpgradesContent.kt`, `StewardsContent.kt`, and
+    `MainActivity.kt`'s two call sites needed touching, and every existing
+    `GameEngineTest`/`StewardEfficiencyTest` kept passing unchanged since
+    they test the domain/engine layer, not the UI that moved. **Verified
+    live on-device after the move**: the Stewards screen now shows, for
+    every Steward-hired lair, its "Steward Hired" badge followed
+    immediately by "Steward Efficiency — Lv X/10" and a Buy button;
+    buying one (Kobold Warren) moved it from Lv 1/10 (10% off, cost
+    112.14K gp) to Lv 2/10 (20% off, next cost 336.42K gp — exactly `3×`
+    the prior tier's cost, matching the formula) with the deduction
+    reflected immediately in the header's gold total; the Upgrades
+    screen's Gold tab was separately confirmed to show only Profit/Speed
+    per lair now, with no trace of Steward Efficiency there. Persistence: Room bumped to **database version 17**
     for one new `OwnedLairEntity.stewardEfficiencyLevel` column (plain
     `Int`), and the Supabase `OwnedLairDto` got a matching
     `steward_efficiency_level` field with a `= 0` default for older cloud
