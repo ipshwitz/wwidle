@@ -83,6 +83,7 @@ fun LairRow(
     profitBoostMultiplier: Double = 1.0,
     gemBonusMultiplier: Double = 1.0,
     upgradeProfitMultiplier: Double = 1.0,
+    hasUniversalSteward: Boolean = false,
 ) {
     var coinBurstTrigger by remember { mutableIntStateOf(0) }
     var lastSeenCompletedLoads by remember { mutableIntStateOf(owned.completedLoads) }
@@ -93,14 +94,18 @@ fun LairRow(
         }
     }
 
-    // Tappable only when this lair is owned, has no Steward (which runs on
-    // its own — tapping it does nothing), and isn't already mid-cycle.
-    val canStartLoad = owned.count > 0 && !owned.hasSteward && !owned.isLoading
-    // Full brightness once owned, *including* while Steward-managed — a
-    // hired Steward means this lair is continuously earning on its own, not
-    // idle, so it shouldn't read as dimmed/disabled the way "not tappable
-    // right now" implies for the other two dim cases (unowned, mid-load).
-    val isBright = owned.count > 0 && (owned.hasSteward || !owned.isLoading)
+    // Managed by either a real per-lair Steward or the account-wide
+    // Universal Steward (`domain/model/UniversalSteward.kt`) once at least
+    // one unit is owned — either way it runs continuously on its own.
+    val isManaged = owned.count > 0 && (owned.hasSteward || hasUniversalSteward)
+    // Tappable only when this lair is owned, isn't managed (tapping a
+    // managed lair does nothing), and isn't already mid-cycle.
+    val canStartLoad = owned.count > 0 && !isManaged && !owned.isLoading
+    // Full brightness once owned, *including* while managed — an
+    // auto-collecting lair is continuously earning on its own, not idle, so
+    // it shouldn't read as dimmed/disabled the way "not tappable right now"
+    // implies for the other two dim cases (unowned, mid-load).
+    val isBright = owned.count > 0 && (isManaged || !owned.isLoading)
 
     Row(
         modifier = modifier
@@ -134,6 +139,7 @@ fun LairRow(
             profitBoostMultiplier = profitBoostMultiplier,
             gemBonusMultiplier = gemBonusMultiplier,
             upgradeProfitMultiplier = upgradeProfitMultiplier,
+            isManaged = isManaged,
         )
     }
 }

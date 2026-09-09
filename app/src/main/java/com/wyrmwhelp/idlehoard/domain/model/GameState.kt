@@ -159,6 +159,13 @@ data class GameState(
      * [platinumPieces].
      */
     val selectedAvatarId: String? = null,
+    /**
+     * Rewarded ads watched in total, across every placement — see
+     * `domain/model/UniversalSteward.kt`. Only ever grows; carried over
+     * on a Level Up (a one-time account milestone, not run progress),
+     * same category as [selectedAvatarId].
+     */
+    val totalAdsWatched: Int = 0,
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

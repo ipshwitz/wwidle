@@ -34,6 +34,7 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     seenStewardOpportunities = seenStewardOpportunities.toList(),
     seenUpgradeOpportunities = seenUpgradeOpportunities.toList(),
     selectedAvatarId = selectedAvatarId,
+    totalAdsWatched = totalAdsWatched,
 )
 
 private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
@@ -80,6 +81,7 @@ fun GameStateDto.toDomain(): GameState = GameState(
     seenStewardOpportunities = seenStewardOpportunities.toSet(),
     seenUpgradeOpportunities = seenUpgradeOpportunities.toSet(),
     selectedAvatarId = selectedAvatarId,
+    totalAdsWatched = totalAdsWatched,
 )
 
 private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(

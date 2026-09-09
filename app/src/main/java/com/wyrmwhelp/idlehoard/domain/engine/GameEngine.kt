@@ -38,6 +38,9 @@ import com.wyrmwhelp.idlehoard.domain.model.withPermanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.withStewardOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.withUpgradeOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
+import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
+import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
+import com.wyrmwhelp.idlehoard.domain.model.isLairManaged
 import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
@@ -148,7 +151,7 @@ class GameEngine @Inject constructor() {
         val progress = mutableMapOf<String, Float>()
         for ((lairId, owned) in state.lairs) {
             if (owned.count <= 0) continue
-            if (!owned.hasSteward && !owned.isLoading) {
+            if (!state.isLairManaged(owned) && !owned.isLoading) {
                 progress[lairId] = 0f
                 continue
             }
@@ -200,14 +203,17 @@ class GameEngine @Inject constructor() {
     /**
      * Hires a Steward for [lairId], who will auto-collect finished production
      * cycles from then on. Returns true if hired, false if already hired, the
-     * lair isn't owned yet, or the player can't afford it.
+     * lair isn't owned yet, the player can't afford it, or the account-wide
+     * Universal Steward (`domain/model/UniversalSteward.kt`) already covers
+     * it — no reason to spend real gold on a redundant per-lair hire once
+     * every owned lair auto-collects anyway.
      */
     fun hireSteward(lairId: String): Boolean {
         val lair = CreatureLairCatalog.get(lairId)
         var hired = false
         _state.update { current ->
             val owned = current.ownedLair(lairId)
-            if (owned.count <= 0 || owned.hasSteward || current.goldPieces < lair.stewardCostGp) {
+            if (owned.count <= 0 || owned.hasSteward || current.hasUniversalSteward() || current.goldPieces < lair.stewardCostGp) {
                 current
             } else {
                 hired = true
@@ -259,14 +265,15 @@ class GameEngine @Inject constructor() {
      * sitting idle) — gold isn't credited here; it's credited automatically
      * once the cycle actually completes (see [advanceLair] and
      * [OwnedLair.isLoading]). Returns true if a cycle was actually started,
-     * false if the lair isn't owned, has a Steward (which runs continuously
-     * on its own — tapping does nothing), or is already mid-cycle.
+     * false if the lair isn't owned, is managed (a real Steward or the
+     * account-wide Universal Steward — either way it runs continuously on
+     * its own, so tapping does nothing), or is already mid-cycle.
      */
     fun startLairLoad(lairId: String): Boolean {
         var started = false
         _state.update { current ->
             val owned = current.ownedLair(lairId)
-            if (owned.count <= 0 || owned.hasSteward || owned.isLoading) {
+            if (owned.count <= 0 || current.isLairManaged(owned) || owned.isLoading) {
                 current
             } else {
                 started = true
@@ -460,7 +467,10 @@ class GameEngine @Inject constructor() {
      * [GameState.offlineCapHours], both ad-watch cooldowns
      * ([GameState.lastPlatinumAdWatchedAt]/[GameState.speedBoostAdWatchTimestamps]),
      * [GameState.selectedAvatarId] (a player identity choice, not run
-     * progress), and —
+     * progress), [GameState.totalAdsWatched] (a one-time account
+     * milestone toward the Universal Steward — see
+     * `domain/model/UniversalSteward.kt` — same category as
+     * [GameState.selectedAvatarId]), and —
      * critically — [GameState.lifetimeGoldEarned] itself all carry over
      * unchanged; only the gold side of the *current run* (and the old Gem
      * batch) resets. That includes every Gold Pieces upgrade
@@ -504,6 +514,7 @@ class GameEngine @Inject constructor() {
                     speedBoostAdWatchTimestamps = current.speedBoostAdWatchTimestamps,
                     incomeBoostAdWatchTimestamps = current.incomeBoostAdWatchTimestamps,
                     selectedAvatarId = current.selectedAvatarId,
+                    totalAdsWatched = current.totalAdsWatched,
                 )
             }
         }
@@ -622,6 +633,32 @@ class GameEngine @Inject constructor() {
         return granted
     }
 
+    /**
+     * Records one rewarded ad watched, toward the account-wide Universal
+     * Steward (`domain/model/UniversalSteward.kt`) — called once from
+     * `GameViewModel` for every one of its four `onRewardEarned`
+     * callbacks (Welcome Back's double, the Shop's Platinum ad, and both
+     * Speed/Income ad-boosts), regardless of whether that specific
+     * reward's own cooldown check above ends up granting anything — the
+     * player genuinely watched an ad either way, so it should still
+     * count. [GameState.totalAdsWatched] only ever grows. Returns true
+     * only on the exact watch that crosses
+     * [UNIVERSAL_STEWARD_AD_THRESHOLD], so the caller knows to show the
+     * one-time unlock pop-up rather than checking the threshold itself
+     * on every single watch.
+     */
+    fun recordAdWatched(): Boolean {
+        var justUnlocked = false
+        _state.update { current ->
+            val newTotal = current.totalAdsWatched + 1
+            if (current.totalAdsWatched < UNIVERSAL_STEWARD_AD_THRESHOLD && newTotal >= UNIVERSAL_STEWARD_AD_THRESHOLD) {
+                justUnlocked = true
+            }
+            current.copy(totalAdsWatched = newTotal)
+        }
+        return justUnlocked
+    }
+
     /** Same as [grantSpeedBoostAdReward] but for the Income-boost ad-watch reward — see `domain/model/AdRewards.kt`. */
     fun grantIncomeBoostAdReward(now: Instant = Instant.now()): Boolean {
         var granted = false
@@ -659,11 +696,12 @@ class GameEngine @Inject constructor() {
         val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
         val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
         val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
+        val hasUniversalSteward = state.hasUniversalSteward()
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
             val (next, earned) = advanceLair(
                 lairId, owned, deltaSeconds, globalSpeedMultiplier, globalIncomeMultiplier, speedMultiplier, profitMultiplier, gemMultiplier,
-                everythingProfitUpgradeMultiplier, everythingSpeedUpgradeMultiplier,
+                everythingProfitUpgradeMultiplier, everythingSpeedUpgradeMultiplier, hasUniversalSteward,
             )
             goldEarned += earned
             next
@@ -696,7 +734,10 @@ class GameEngine @Inject constructor() {
      * [advance] call (same value for every lair that tick), not per lair —
      * only this lair's own `profitUpgradeLevel`/`speedUpgradeLevel` (see
      * `GpUpgrades.kt`) vary lair to lair, so those are combined with the
-     * Everything multipliers here instead.
+     * Everything multipliers here instead. [hasUniversalSteward] (see
+     * `domain/model/UniversalSteward.kt`) treats every owned lair as
+     * managed exactly like [OwnedLair.hasSteward] would, on top of
+     * whatever this lair's own field says.
      */
     private fun advanceLair(
         lairId: String,
@@ -709,6 +750,7 @@ class GameEngine @Inject constructor() {
         gemMultiplier: Double,
         everythingProfitUpgradeMultiplier: Double,
         everythingSpeedUpgradeMultiplier: Double,
+        hasUniversalSteward: Boolean,
     ): Pair<OwnedLair, Double> {
         if (owned.count <= 0) return owned to 0.0
 
@@ -717,7 +759,7 @@ class GameEngine @Inject constructor() {
         val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
         val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier)
 
-        if (!owned.hasSteward) {
+        if (!owned.hasSteward && !hasUniversalSteward) {
             if (!owned.isLoading) return owned to 0.0
             val progress = owned.cycleProgressSeconds + deltaSeconds
             return if (progress >= productionSeconds) {
@@ -764,6 +806,7 @@ class GameEngine @Inject constructor() {
         val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
         val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
         val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
+        val hasUniversalSteward = state.hasUniversalSteward()
 
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
@@ -772,7 +815,7 @@ class GameEngine @Inject constructor() {
             val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
             val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
             val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier)
-            if (owned.hasSteward) {
+            if (owned.hasSteward || hasUniversalSteward) {
                 var remaining = owned.cycleProgressSeconds + seconds
                 var earned = 0.0
                 while (remaining >= productionSeconds) {

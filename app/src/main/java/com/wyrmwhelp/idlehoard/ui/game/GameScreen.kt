@@ -29,6 +29,8 @@ import com.wyrmwhelp.idlehoard.domain.model.incomeBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
+import com.wyrmwhelp.idlehoard.domain.model.isLairManaged
 import com.wyrmwhelp.idlehoard.domain.model.permanentGemPercentMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.platinumProfitMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.platinumSpeedMultiplier
@@ -43,6 +45,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val milestoneAnnouncement by viewModel.milestoneAnnouncement.collectAsStateWithLifecycle()
     val lairProgress by viewModel.lairProgress.collectAsStateWithLifecycle()
     val levelUpReward by viewModel.levelUpReward.collectAsStateWithLifecycle()
+    val universalStewardUnlocked by viewModel.universalStewardUnlocked.collectAsStateWithLifecycle()
     val speedBoostAdMessage by viewModel.speedBoostAdMessage.collectAsStateWithLifecycle()
     val incomeBoostAdMessage by viewModel.incomeBoostAdMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -61,14 +64,16 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
     val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
 
-    // Total income rate from Steward-managed lairs only — the only ones
-    // that actually run continuously on their own now. A lair without a
-    // Steward sits idle earning nothing until tapped (see
-    // `GameEngine.startLairLoad`), so including it here would overstate
-    // what the player is actually earning per second while not playing.
+    // Total income rate from managed lairs only — a real per-lair Steward,
+    // or the account-wide Universal Steward (see
+    // `domain/model/UniversalSteward.kt`) — the only ones that actually run
+    // continuously on their own now. A lair without either sits idle
+    // earning nothing until tapped (see `GameEngine.startLairLoad`), so
+    // including it here would overstate what the player is actually
+    // earning per second while not playing.
     val goldPerSecond = viewModel.lairs.sumOf { lair ->
         val owned = state.ownedLair(lair.id)
-        if (owned.count > 0 && owned.hasSteward) {
+        if (state.isLairManaged(owned)) {
             val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
             val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
             lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier) /
@@ -122,6 +127,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                             profitBoostMultiplier = profitMultiplier,
                             gemBonusMultiplier = gemMultiplier,
                             upgradeProfitMultiplier = upgradeProfitMultiplier,
+                            hasUniversalSteward = state.hasUniversalSteward(),
                         )
                     }
                 }
@@ -177,6 +183,10 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
             gemsEarned = gemsEarned,
             onDismiss = viewModel::dismissLevelUpReward,
         )
+    }
+
+    if (universalStewardUnlocked) {
+        UniversalStewardRewardDialog(onDismiss = viewModel::dismissUniversalStewardUnlocked)
     }
 
     if (showAvatarPicker) {

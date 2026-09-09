@@ -105,11 +105,15 @@ private fun GameState.isMoreAdvancedThan(other: GameState): Boolean {
  * now — "new" is determined by availability, not just visibility (an
  * owned Steward-less lair can sit there a long time before it's actually
  * affordable; that shouldn't count as a "new" opportunity until it is).
+ * Always empty once [hasUniversalSteward] is true — there's no hiring
+ * opportunity left to flag once every owned lair already auto-collects.
  */
-private fun GameState.stewardOpportunities(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Set<String> =
-    lairs.values.filter { owned ->
+private fun GameState.stewardOpportunities(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): Set<String> {
+    if (hasUniversalSteward()) return emptySet()
+    return lairs.values.filter { owned ->
         owned.count > 0 && !owned.hasSteward && goldPieces >= catalog.first { it.id == owned.lairId }.stewardCostGp
     }.map { it.lairId }.toSet()
+}
 
 /**
  * Owned, Steward-less, currently-affordable lairs the player hasn't had a

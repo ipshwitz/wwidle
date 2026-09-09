@@ -108,6 +108,22 @@ class GameViewModel @Inject constructor(
     private val _levelUpReward = MutableStateFlow<Long?>(null)
     val levelUpReward: StateFlow<Long?> = _levelUpReward.asStateFlow()
 
+    // One-shot pop-up flag for the Universal Steward unlock (see
+    // `domain/model/UniversalSteward.kt`) — flips true the instant
+    // `GameEngine.recordAdWatched()` reports the 100th ad crossed, cleared
+    // by `dismissUniversalStewardUnlocked` once `GameScreen` shows the
+    // reward dialog. A plain Boolean (not the reward count itself) since
+    // there's nothing variable to display — it's the same unlock every time.
+    private val _universalStewardUnlocked = MutableStateFlow(false)
+    val universalStewardUnlocked: StateFlow<Boolean> = _universalStewardUnlocked.asStateFlow()
+
+    /** Every rewarded-ad `onRewardEarned` callback calls this once, regardless of placement — see `GameEngine.recordAdWatched`'s doc for why. */
+    private fun recordAdWatched() {
+        if (gameEngine.recordAdWatched()) {
+            _universalStewardUnlocked.value = true
+        }
+    }
+
     // A single big purchase (e.g. buying MAX) can cross several rungs at
     // once — held here and drained one at a time via
     // dismissMilestoneAnnouncement rather than bundled into one pop-up.
@@ -577,6 +593,7 @@ class GameViewModel @Inject constructor(
             placement = RewardedPlacement.OFFLINE_EARNINGS_DOUBLE,
             activity = activity,
             onRewardEarned = {
+                recordAdWatched()
                 gameEngine.grantGold(earnings.goldEarned)
                 _welcomeBackEarnings.value = earnings.copy(goldEarned = earnings.goldEarned * 2)
                 _isOfflineEarningsDoubled.value = true
@@ -618,6 +635,7 @@ class GameViewModel @Inject constructor(
             placement = RewardedPlacement.SHOP_PLATINUM,
             activity = activity,
             onRewardEarned = {
+                recordAdWatched()
                 _platinumAdMessage.value = if (gameEngine.grantPlatinumAdReward()) {
                     "Earned ${GoldFormat.format(PLATINUM_AD_REWARD_PP)} pp!"
                 } else {
@@ -662,6 +680,7 @@ class GameViewModel @Inject constructor(
             placement = RewardedPlacement.SHOP_SPEED_BOOST,
             activity = activity,
             onRewardEarned = {
+                recordAdWatched()
                 _speedBoostAdMessage.value = if (gameEngine.grantSpeedBoostAdReward()) {
                     "Reward earned! ${GoldFormat.format(SPEED_BOOST_AD_MULTIPLIER)}x Speed stacked in — see the live countdown below."
                 } else {
@@ -695,6 +714,7 @@ class GameViewModel @Inject constructor(
             placement = RewardedPlacement.AD_BOOST_INCOME,
             activity = activity,
             onRewardEarned = {
+                recordAdWatched()
                 _incomeBoostAdMessage.value = if (gameEngine.grantIncomeBoostAdReward()) {
                     "Reward earned! ${GoldFormat.format(INCOME_BOOST_AD_MULTIPLIER)}x Income stacked in — see the live countdown below."
                 } else {
@@ -844,6 +864,11 @@ class GameViewModel @Inject constructor(
     /** Dismisses the Level Up reward pop-up. */
     fun dismissLevelUpReward() {
         _levelUpReward.value = null
+    }
+
+    /** Dismisses the Universal Steward unlock pop-up. */
+    fun dismissUniversalStewardUnlocked() {
+        _universalStewardUnlocked.value = false
     }
 
     private companion object {

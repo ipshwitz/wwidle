@@ -180,9 +180,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.42.2** (the loading screen now always shows for
-     at least 5 seconds, even on a fast launch — see the `LoadingScreen`
-     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.43.0** (the Universal Steward — watch 100
+     rewarded ads in total to permanently auto-staff every lair you own,
+     forever, even through a Level Up — see the Universal Steward bullet
+     under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1331,6 +1332,86 @@ These apply to every change made in this repo, however small:
     screen immediately after. Separately confirmed the Shop's Temporary
     tab no longer shows any ad-watch section at all, going straight from
     the "Active" boosts card to the buy list.
+  - **Universal Steward (v0.43.0)** — a special account-wide Steward,
+    earned once by watching `UNIVERSAL_STEWARD_AD_THRESHOLD` (100)
+    rewarded ads *in total, across every placement* (Welcome Back's
+    double, the Shop's Platinum ad, and both Speed/Income ad-boosts —
+    not any one of them specifically). Built from an explicit
+    back-and-forth design pass rather than guessed: confirmed it doesn't
+    have its own multiplier or upgrade tiers ("it doesn't level"), that
+    it persists through a Level Up (unlike a per-lair Steward), that it
+    only takes effect on a lair once at least one unit is actually
+    owned (it doesn't retroactively claim anything), and that the
+    Stewards screen should list it first and show every owned lair as
+    already staffed once it's active, with no redundant per-lair Hire
+    button.
+    `domain/model/UniversalSteward.kt` is the whole domain layer for
+    this: `GameState.totalAdsWatched: Int` (only ever grows, carried
+    over explicitly in `GameEngine.performLevelUp()` alongside
+    `selectedAvatarId` — a one-time account milestone, not run
+    progress), `GameState.hasUniversalSteward()` (`totalAdsWatched >=
+    100`, no separate persisted flag needed since it's a pure
+    derivation), `GameState.isLairManaged(owned)` (`owned.hasSteward ||
+    (owned.count > 0 && hasUniversalSteward())` — the one check every
+    "is this lair managed" call site now uses instead of reading
+    `OwnedLair.hasSteward` alone), and `adsWatchedTowardUniversalSteward()`
+    (clamped to 100, so the progress UI reads "100 / 100" forever after
+    rather than an ever-climbing raw count).
+    `GameEngine.recordAdWatched()` increments `totalAdsWatched`
+    unconditionally and returns true only on the exact watch that
+    crosses the threshold — called once from all four of
+    `GameViewModel`'s `onRewardEarned` callbacks (via a private
+    `recordAdWatched()` wrapper there that also flips
+    `universalStewardUnlocked` on that true), deliberately *not* folded
+    into each reward's own `grantXxxAdReward` method, since those can
+    return false on a rare cooldown-race edge case even though the
+    player genuinely watched the ad — the watch should still count
+    either way. `isLairManaged` replaced every direct `owned.hasSteward`
+    check across the engine (`computeLairProgress`, `advanceLair`,
+    `grantInstantProduction`, `startLairLoad`) and the UI
+    (`GameScreen`'s gold-per-second sum, `LairRow`'s
+    `canStartLoad`/`isBright`, threaded down into `LairCard` as a new
+    `isManaged` param) — `hireSteward` additionally refuses outright
+    once `hasUniversalSteward()` is true, so there's no way to waste
+    real gold on a redundant per-lair hire, and `stewardOpportunities()`
+    (`GameStateExtensions.kt`, the "new feature" badge's source) returns
+    empty once it's active, since there's no hiring opportunity left to
+    flag.
+    `ui/game/UniversalStewardRewardDialog.kt` is the one-time unlock
+    pop-up — same parchment-chrome pattern as `LevelUpRewardDialog`/
+    `MilestoneReachedDialog`, `open_chest` art (no bespoke art yet),
+    rendered by `GameScreen` off `GameViewModel.universalStewardUnlocked`
+    exactly like every other one-shot reward flag. `StewardsContent.kt`
+    gained a `UniversalStewardCard` — always the first thing in the
+    list, before even the `IntroCard` — showing a progress bar and "X /
+    100 ads watched" before unlock, or a plain "Active" badge after;
+    every per-lair `StewardRow` now takes `hasUniversalSteward` and
+    shows the same "Steward Hired" text (no Hire button) once it's true,
+    regardless of that lair's own `hasSteward`. `SettingsContent.kt`'s
+    Account tab gained a one-line `UniversalStewardStatusLine` next to
+    the version footer — a quick glance at the same progress, per an
+    explicit "show it in both places" answer, since the real progress
+    card with its own fill bar already lives on the Stewards screen.
+    Persistence: Room bumped to **database version 16** for one new
+    `totalAdsWatched` column (plain `Int`, no JSON encoding needed), and
+    the Supabase `GameStateDto` got a matching `total_ads_watched` field
+    with a `= 0` default for older cloud saves. Unit-tested in
+    `UniversalStewardTest.kt` (the pure `hasUniversalSteward`/
+    `isLairManaged`/`adsWatchedTowardUniversalSteward` functions,
+    including the "does nothing for a lair with zero units owned" case)
+    and `GameEngineTest.kt` (the threshold-crossing return value of
+    `recordAdWatched`, an unstewarded lair auto-collecting once earned,
+    `hireSteward`/`startLairLoad` correctly refusing once it's active,
+    and `performLevelUp` carrying `totalAdsWatched` over). **Verified
+    live on-device**, watching four real test ads in sequence (Welcome
+    Back double, the Shop's Platinum ad, then Speed from
+    `QuickAdBoostButton`) from a forced `totalAdsWatched = 97` starting
+    point: the Stewards screen correctly showed "98 / 100" after the
+    first extra watch; the 100th watch (the Speed one) correctly fired
+    `UniversalStewardRewardDialog` the instant its ad closed; afterward
+    the Stewards screen showed the card as "Active" with every owned
+    lair reading "Steward Hired," and Settings showed "Universal
+    Steward: Active" next to the version footer.
   - **"New feature" notification badge (v0.32.0, "new" redefined by
     availability in v0.33.0)** — a small ornate gold star
     (`new_notification.png`) that floats over `FloatingMenu`'s chest

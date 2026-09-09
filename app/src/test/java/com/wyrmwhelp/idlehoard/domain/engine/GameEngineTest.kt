@@ -20,10 +20,12 @@ import com.wyrmwhelp.idlehoard.domain.model.TIME_SKIP_OPTIONS
 import com.wyrmwhelp.idlehoard.domain.model.TemporaryBoostCategory
 import com.wyrmwhelp.idlehoard.domain.model.GemUpgrades
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
+import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
 import com.wyrmwhelp.idlehoard.domain.model.UpgradeCategory
 import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
+import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.unseenUpgradeOpportunities
@@ -1077,5 +1079,83 @@ class GameEngineTest {
         assertEquals(0, engine.state.value.gemEfficiencyLevel)
         assertEquals(0, engine.state.value.ownedLair("kobold_warren").profitUpgradeLevel)
         assertEquals(0, engine.state.value.ownedLair("kobold_warren").speedUpgradeLevel)
+    }
+
+    @Test
+    fun `recordAdWatched increments the counter and only reports unlocked on the exact watch that crosses the threshold`() {
+        engine.loadState(GameState(totalAdsWatched = UNIVERSAL_STEWARD_AD_THRESHOLD - 2))
+
+        assertFalse(engine.recordAdWatched())
+        assertEquals(UNIVERSAL_STEWARD_AD_THRESHOLD - 1, engine.state.value.totalAdsWatched)
+
+        assertTrue(engine.recordAdWatched())
+        assertEquals(UNIVERSAL_STEWARD_AD_THRESHOLD, engine.state.value.totalAdsWatched)
+
+        // Already earned — further watches keep counting but never "unlock" again.
+        assertFalse(engine.recordAdWatched())
+        assertEquals(UNIVERSAL_STEWARD_AD_THRESHOLD + 1, engine.state.value.totalAdsWatched)
+    }
+
+    @Test
+    fun `an owned lair with no real Steward auto-collects once the Universal Steward is earned`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+                totalAdsWatched = UNIVERSAL_STEWARD_AD_THRESHOLD,
+            ),
+        )
+
+        // No startLairLoad tap at all — the Universal Steward should collect
+        // this exactly like a real per-lair Steward would.
+        engine.tick(lair.baseProductionSeconds * 3.5)
+
+        assertEquals(lair.incomePerCycle(1) * 3, engine.state.value.goldPieces, 0.0001)
+        assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
+    }
+
+    @Test
+    fun `hireSteward is a no-op once the Universal Steward already covers every owned lair`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                goldPieces = lair.stewardCostGp,
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+                totalAdsWatched = UNIVERSAL_STEWARD_AD_THRESHOLD,
+            ),
+        )
+
+        assertFalse(engine.hireSteward("kobold_warren"))
+        // Gold untouched — no wasted spend on a redundant hire.
+        assertEquals(lair.stewardCostGp, engine.state.value.goldPieces, 0.0001)
+        assertFalse(engine.state.value.ownedLair("kobold_warren").hasSteward)
+    }
+
+    @Test
+    fun `startLairLoad does nothing for a lair covered only by the Universal Steward`() {
+        engine.loadState(
+            GameState(
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+                totalAdsWatched = UNIVERSAL_STEWARD_AD_THRESHOLD,
+            ),
+        )
+
+        assertFalse(engine.startLairLoad("kobold_warren"))
+    }
+
+    @Test
+    fun `performLevelUp carries over totalAdsWatched`() {
+        engine.loadState(
+            GameState(
+                lifetimeGoldEarned = 1_000_000_000_000_000.0,
+                lairs = emptyMap(),
+                totalAdsWatched = UNIVERSAL_STEWARD_AD_THRESHOLD + 7,
+            ),
+        )
+
+        engine.performLevelUp()
+
+        assertEquals(UNIVERSAL_STEWARD_AD_THRESHOLD + 7, engine.state.value.totalAdsWatched)
+        assertTrue(engine.state.value.hasUniversalSteward())
     }
 }

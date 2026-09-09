@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
+import com.wyrmwhelp.idlehoard.domain.model.adsWatchedTowardUniversalSteward
+import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.rawGemsFromLevelUpFormula
 import com.wyrmwhelp.idlehoard.domain.model.minGemsForLevelUp
@@ -247,6 +249,8 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             isLeaderboardLoading = isLeaderboardLoading,
                             leaderboardError = leaderboardError,
                             onSelectLeaderboardPeriod = gameViewModel::loadLeaderboard,
+                            adsWatchedTowardUniversalSteward = gameState.adsWatchedTowardUniversalSteward(),
+                            hasUniversalSteward = gameState.hasUniversalSteward(),
                         )
                     }
                 }

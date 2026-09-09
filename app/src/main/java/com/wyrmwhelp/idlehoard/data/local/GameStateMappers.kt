@@ -38,6 +38,7 @@ fun GameState.toEntities(): Pair<GameStateEntity, List<OwnedLairEntity>> {
         seenStewardOpportunitiesJson = Json.encodeToString(seenStewardOpportunities.toList()),
         seenUpgradeOpportunitiesJson = Json.encodeToString(seenUpgradeOpportunities.toList()),
         selectedAvatarId = selectedAvatarId,
+        totalAdsWatched = totalAdsWatched,
     )
     val lairEntities = lairs.values.map { it.toEntity() }
     return stateEntity to lairEntities
@@ -82,6 +83,7 @@ fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = G
     seenStewardOpportunities = Json.decodeFromString<List<String>>(seenStewardOpportunitiesJson).toSet(),
     seenUpgradeOpportunities = Json.decodeFromString<List<String>>(seenUpgradeOpportunitiesJson).toSet(),
     selectedAvatarId = selectedAvatarId,
+    totalAdsWatched = totalAdsWatched,
 )
 
 private fun OwnedLairEntity.toDomain(): OwnedLair = OwnedLair(

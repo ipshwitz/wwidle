@@ -33,6 +33,7 @@ data class GameStateDto(
     @SerialName("seen_steward_opportunities") val seenStewardOpportunities: List<String> = emptyList(),
     @SerialName("seen_upgrade_opportunities") val seenUpgradeOpportunities: List<String> = emptyList(),
     @SerialName("selected_avatar_id") val selectedAvatarId: String? = null,
+    @SerialName("total_ads_watched") val totalAdsWatched: Int = 0,
 )
 
 /** JSON mirror of [com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost]. */

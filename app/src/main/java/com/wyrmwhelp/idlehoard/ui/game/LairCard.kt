@@ -196,6 +196,7 @@ fun LairCard(
     profitBoostMultiplier: Double = 1.0,
     gemBonusMultiplier: Double = 1.0,
     upgradeProfitMultiplier: Double = 1.0,
+    isManaged: Boolean = false,
 ) {
     // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
     // affordable — falling back to a 1-unit preview keeps the button showing
@@ -226,7 +227,7 @@ fun LairCard(
             .background(rarity.copy(alpha = 0.16f))
             .border(1.5.dp, Color.Black.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
             .clickable(
-                enabled = owned.count > 0 && !owned.hasSteward && !owned.isLoading,
+                enabled = owned.count > 0 && !isManaged && !owned.isLoading,
                 onClick = onStartLoad,
             ),
     ) {

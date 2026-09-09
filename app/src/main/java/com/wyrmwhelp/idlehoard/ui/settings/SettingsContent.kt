@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.BuildConfig
 import com.wyrmwhelp.idlehoard.domain.model.LeaderboardEntry
 import com.wyrmwhelp.idlehoard.domain.model.LeaderboardPeriod
+import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
 import com.wyrmwhelp.idlehoard.domain.model.isValidUsername
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
@@ -53,8 +54,12 @@ import java.time.Instant
  * visibility elsewhere — see `ShopContent`'s `isSignedIn` param — plus an
  * inline leaderboard-username field, v0.39.0/v0.39.1, see `AccountCard`'s
  * own doc for why that's an inline field here rather than a separate
- * pop-up; a cloud-sync card, see `SyncCard`'s own doc; and a version
- * footer) and "Leaderboard" (just `LeaderboardContent` — see that file —
+ * pop-up; a cloud-sync card, see `SyncCard`'s own doc; a one-line
+ * `UniversalStewardStatusLine` glance at progress toward the account-wide
+ * Universal Steward (`domain/model/UniversalSteward.kt`) — the real
+ * progress card with its own fill bar lives on the Stewards screen, where
+ * earning it actually matters; and a version footer) and "Leaderboard"
+ * (just `LeaderboardContent` — see that file —
  * moved here from its own `FloatingMenu` section per explicit request,
  * since it doesn't have its own sign art yet and the user plans to make
  * one later; "Leaderboard" no longer appears in `floatingMenuItems` at
@@ -99,6 +104,8 @@ fun SettingsContent(
     isLeaderboardLoading: Boolean,
     leaderboardError: String?,
     onSelectLeaderboardPeriod: (LeaderboardPeriod) -> Unit,
+    adsWatchedTowardUniversalSteward: Int,
+    hasUniversalSteward: Boolean,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -141,6 +148,13 @@ fun SettingsContent(
                             isSyncing = isSyncing,
                             lastSyncedAt = lastSyncedAt,
                             onSyncNow = onSyncNow,
+                            palette = palette,
+                        )
+                    }
+                    item {
+                        UniversalStewardStatusLine(
+                            adsWatched = adsWatchedTowardUniversalSteward,
+                            unlocked = hasUniversalSteward,
                             palette = palette,
                         )
                     }
@@ -646,5 +660,28 @@ private fun VersionFooter(palette: FantasyPalette, modifier: Modifier = Modifier
         textAlign = TextAlign.Center,
         style = MaterialTheme.typography.bodySmall,
         color = palette.ink.copy(alpha = 0.5f),
+    )
+}
+
+/**
+ * A one-line account-wide stat, unboxed like [VersionFooter] rather than a
+ * full [ParchmentCard] — the real progress card with its own fill bar lives
+ * on the Stewards screen (`ui/stewards/StewardsContent.kt`'s
+ * `UniversalStewardCard`); this is just a quick "how am I doing" glance
+ * from Settings, matching the low visual weight [VersionFooter] already
+ * has here.
+ */
+@Composable
+private fun UniversalStewardStatusLine(adsWatched: Int, unlocked: Boolean, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    Text(
+        text = if (unlocked) {
+            "Universal Steward: Active"
+        } else {
+            "Universal Steward: $adsWatched / $UNIVERSAL_STEWARD_AD_THRESHOLD ads watched"
+        },
+        modifier = modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (unlocked) palette.goldDeep else palette.ink.copy(alpha = 0.6f),
     )
 }

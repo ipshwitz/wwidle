@@ -4,7 +4,11 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 15 for the avatar-selection feature: one new nullable
+ * Bumped to version 16 for the Universal Steward feature: one new
+ * `totalAdsWatched` column (see `GameStateMappers.kt`) — see
+ * `domain/model/UniversalSteward.kt`. Plain `Int` column, no JSON
+ * encoding needed for a single value.
+ * Version 15 was the avatar-selection feature: one new nullable
  * `selectedAvatarId` column (see `GameStateMappers.kt`) — see
  * `domain/model/Avatar.kt`/`GameHeader.kt`'s `MedallionEmblem`. Plain
  * nullable `String` column, no JSON encoding needed for a single value.
@@ -61,7 +65,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 15,
+    version = 16,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

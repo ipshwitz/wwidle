@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.43.0] - 2026-09-08 9:35 PM EDT
+
+- Added the Universal Steward: watch 100 rewarded ads in total (any kind
+  counts — Watch Ad to Double, the Shop's Platinum ad, or either ad
+  boost) and every lair you own auto-collects on its own, forever — even
+  through a Level Up, with no more per-lair Steward costs. Progress
+  shows on the Stewards screen and in Settings.
+
 ## [0.42.2] - 2026-09-08 8:15 PM EDT
 
 - The loading screen now always shows for at least 5 seconds, even on a
