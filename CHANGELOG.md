@@ -3,6 +3,19 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.45.0] - 2026-09-09 8:35 PM EDT
+
+- Added two new "Danger Zone" actions to Settings: **Reset Account** (wipes
+  Gold, lairs, Gems, Level Up count, avatar, and username back to a fresh
+  save — Platinum Pieces and anything bought with them are kept) and
+  **Delete Account** (permanently deletes a signed-in account and every
+  bit of saved data, local and cloud — guests don't see this option, since
+  reinstalling already does the same thing for them). Both require an
+  explicit confirmation — Delete additionally requires typing "DELETE."
+  Delete Account needs a one-time SQL script run against the Supabase
+  project before it actually works (`SQL/005_account_management.sql`) —
+  see CLAUDE.md for details.
+
 ## [0.44.2] - 2026-09-09 6:20 PM EDT
 
 - Steepened Steward Efficiency's cost curve: tiers 1-5 (10%-50% off) still

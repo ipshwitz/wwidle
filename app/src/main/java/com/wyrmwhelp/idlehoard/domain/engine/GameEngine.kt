@@ -559,6 +559,48 @@ class GameEngine @Inject constructor() {
     }
 
     /**
+     * Settings' "Reset Account" — a full wipe of the current run back to the
+     * exact starting shape a brand-new [GameState] begins with (one Kobold
+     * Warren, 0 gold, 0 Gems, `totalLevelUps` back to 0), except Platinum
+     * Pieces and everything bought with them: [GameState.platinumPieces],
+     * every permanent boost tier ([GameState.permanentSpeedBoost2xLevel] and
+     * its eight siblings), and every currently-running
+     * [GameState.activeTemporaryBoosts] instance all carry over — real-money
+     * purchases (and Platinum earned for free) survive a reset, per explicit
+     * design. Unlike [performLevelUp], this is **not** a prestige cycle:
+     * there's no minimum-batch gate, no Gems are granted, and
+     * [GameState.lifetimeGoldEarned]/[GameState.selectedAvatarId]/
+     * [GameState.totalAdsWatched] — all treated as permanent
+     * identity/milestone state that a Level Up preserves — reset to their
+     * bare defaults too, since a full reset genuinely starts over rather
+     * than prestiging forward. Ad-watch cooldowns
+     * ([GameState.lastPlatinumAdWatchedAt] and friends) reset as well —
+     * they're not "bought with Platinum," just the mechanism to earn more of
+     * it, so clearing them only benefits the player. `GameViewModel.resetAccount()`
+     * pairs this with clearing the player's leaderboard username
+     * (`AuthRepository.clearUsername`), which lives outside [GameState]
+     * entirely.
+     */
+    fun resetProgress() {
+        _state.update { current ->
+            GameState(
+                platinumPieces = current.platinumPieces,
+                permanentSpeedBoost2xLevel = current.permanentSpeedBoost2xLevel,
+                permanentSpeedBoost5xLevel = current.permanentSpeedBoost5xLevel,
+                permanentSpeedBoost10xLevel = current.permanentSpeedBoost10xLevel,
+                permanentProfitBoost15xLevel = current.permanentProfitBoost15xLevel,
+                permanentProfitBoost2xLevel = current.permanentProfitBoost2xLevel,
+                permanentProfitBoost5xLevel = current.permanentProfitBoost5xLevel,
+                permanentGemBoost15xLevel = current.permanentGemBoost15xLevel,
+                permanentGemBoost2xLevel = current.permanentGemBoost2xLevel,
+                permanentGemBoost5xLevel = current.permanentGemBoost5xLevel,
+                activeTemporaryBoosts = current.activeTemporaryBoosts,
+            )
+        }
+        _lairProgress.value = computeLairProgress(_state.value, Instant.now())
+    }
+
+    /**
      * Settles production that happened while the app was closed, based on the
      * time since [GameState.lastSavedAt], capped at [GameState.offlineCapHours].
      * Uses the same per-lair rules as the live tick loop: Steward-managed lairs

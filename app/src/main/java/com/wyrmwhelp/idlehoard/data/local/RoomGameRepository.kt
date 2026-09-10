@@ -18,4 +18,9 @@ class RoomGameRepository @Inject constructor(
         val (stateEntity, lairEntities) = state.toEntities()
         dao.saveAll(stateEntity, lairEntities)
     }
+
+    override suspend fun replaceGameState(state: GameState) {
+        val (stateEntity, lairEntities) = state.toEntities()
+        dao.replaceAll(stateEntity, lairEntities)
+    }
 }

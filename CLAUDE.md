@@ -188,13 +188,9 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.44.2** (Steward Efficiency — a per-lair upgrade
-     that permanently discounts that lair's own future costs, introduced in
-     v0.44.0 on the Upgrades screen, moved onto the Stewards screen in
-     v0.44.1, and steepened in v0.44.2 so its top tiers require several
-     Level Ups' worth of progress rather than one session — see the
-     Steward Efficiency bullet under Tech stack and
-     [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.45.0** (Settings gained "Reset Account" and
+     "Delete Account" — see the `DangerZoneCard` bullet under Tech stack
+     and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1113,6 +1109,103 @@ These apply to every change made in this repo, however small:
     `lifetime_gold_earned` value read back via the same `curl` check —
     real cross-account data, rendered correctly for a guest viewer, with
     the `GuestNoteCard` still shown above it as intended.
+  - **Settings' "Danger Zone" — Account Reset and Account Delete (v0.45.0)**
+    — two new destructive actions, added per explicit request, built from a
+    short confirmed design pass (Reset's exact scope, Delete's guest-vs-signed-in
+    availability, and confirmation friction for each) rather than guessed:
+    - **Reset Account** — `GameEngine.resetProgress()` wipes the current run
+      back to the exact starting shape a brand-new `GameState` begins with
+      (one Kobold Warren, 0 gold, 0 Gems, `totalLevelUps` back to 0,
+      `selectedAvatarId`/`totalAdsWatched`/`lifetimeGoldEarned`/ad-watch
+      cooldowns all reset too — genuinely starting over, unlike
+      `performLevelUp`, which treats those as permanent identity/milestone
+      state) — **except** Platinum Pieces and everything bought with them
+      (`GameState.platinumPieces`, every permanent boost tier, every
+      currently-running `activeTemporaryBoosts` instance), confirmed
+      explicitly: real-money purchases (and Platinum earned for free)
+      survive a reset. Available to a guest or a signed-in player alike —
+      it never touches the Supabase auth session, only game progress.
+      `GameViewModel.resetAccount()` also clears the player's leaderboard
+      username via a new `AuthRepository.clearUsername()` (deletes the
+      `profiles` row outright, since `username` is `not null` — a new
+      delete policy for that table ships in `SQL/005_account_management.sql`,
+      since `003`'s original policies only covered select/insert/update),
+      then persists the fresh state to both Room
+      (`GameRepository.replaceGameState`, see below) and — if signed in —
+      the cloud row.
+    - **A real Room bug caught while building this, not live**: `saveGameState`
+      (`GameStateDao.saveAll`) only ever *upserts* — a lair no longer present
+      in the state being saved (e.g. every lair but Kobold Warren, right
+      after a reset) would keep sitting in the `owned_lairs` table
+      untouched, and get silently read back into `GameState.lairs` on the
+      next load, quietly undoing the reset. Fixed with a new
+      `GameRepository.replaceGameState(state)` /
+      `GameStateDao.replaceAll(...)` (clears `owned_lairs` in the same
+      `@Transaction` before upserting) used specifically for Reset/Delete's
+      full wipe — `saveGameState`/`saveAll` are untouched and still power
+      every routine autosave, since a plain upsert is exactly right there
+      (a lair's count only ever grows or resets wholesale, never needs
+      mid-save deletion). **Verified live on-device** via a direct Room DB
+      edit seeding extra state (5,000 gp, 77 pp, 12 Gems, `totalLevelUps=2`,
+      two permanent boost levels, and a stray `giant_rat_burrow` row at 50
+      owned) on a disposable fresh guest install (a throwaway `pm clear`,
+      not the long-running dev test save, specifically so this destructive
+      test wouldn't cost the project its existing hand-built test fixture):
+      tapping Reset Account correctly zeroed Gold/Gems/lair ownership back
+      to just Kobold Warren while the header still showed the full 77 pp,
+      and pulling the Room DB straight afterward confirmed
+      `owned_lairs` contained only `kobold_warren` — the stale
+      `giant_rat_burrow` row was genuinely gone, not just hidden by the UI
+      — with `platinumPieces=77` and both permanent boost levels intact in
+      `game_state`.
+    - **Delete Account** — `AuthRepository.deleteAccount()` calls a new
+      `delete_own_account()` Postgres RPC (`SQL/005_account_management.sql`,
+      same manual-dashboard-script category as `001`/`003`/`004` — **must
+      be run once before this actually works**, otherwise the RPC call
+      404s) since the client SDK has no direct "delete my own account"
+      call — the real admin API needs a service-role key that must never
+      ship in the app. The function is `SECURITY DEFINER` (runs as
+      `postgres`, which can write to `auth.users`) but only ever deletes
+      `auth.uid()`'s own row, never a caller-supplied id, so granting it to
+      every `authenticated` session is safe; `cloud_saves`/`profiles`/both
+      leaderboard tables already cascade off `auth.users`, so one delete
+      cleans up everything. **Only offered to a real, signed-in email
+      account** — confirmed explicitly, since a guest's anonymous session
+      is already meaningless to "delete" (reinstalling does the same
+      thing) — `SettingsContent`'s `DangerZoneCard` hides the button
+      entirely for a guest, and `GameViewModel.deleteAccount()` guards
+      against it too. `GameViewModel.deleteAccount()` calls the RPC, then
+      —unlike `signOut()`, which deliberately preserves local progress —
+      wipes local Room via `gameEngine.loadState(GameState())` +
+      `gameRepository.replaceGameState(GameState())`, then calls
+      `authRepository.signOut()` followed by `ensureSignedIn()` to
+      re-establish a brand-new anonymous session, mirroring `signOut()`'s
+      own re-establish shape so play can continue immediately. **Not
+      verified end-to-end** (same category as `BillingManager`'s
+      unverified real-purchase path) — the SQL script hasn't been run
+      against the real Supabase project yet, and a real live test would
+      need a disposable, fully-verified email account (real inbox access
+      for the sign-up OTP) to exercise honestly; verified instead via code
+      review plus a compile-time check of the exact supabase-kt 3.0.1
+      `Postgrest.rpc(...)`/`.delete { filter {...} }` signatures
+      (`javap`-inspected against the real `postgrest-kt` jars, same
+      verification method `BillingManager` used for the Billing Library).
+    - **`DangerZoneCard`** (`ui/settings/SettingsContent.kt`) — a
+      `ParchmentCard` with a muted rust-red border (`DANGER_COLOR`,
+      local to this file — `FantasyPalette` has no "danger" tone of its
+      own) holding both actions, always shown on the Account tab below the
+      Universal Steward status line. Confirmation friction matches
+      severity, per explicit design: `ResetAccountConfirmDialog` is a
+      plain two-button Cancel/Reset dialog (same shape as
+      `LevelUpContent.kt`'s `LevelUpConfirmDialog`); `DeleteAccountConfirmDialog`
+      additionally requires typing "DELETE" into a text field before its
+      Delete button enables, since that action is permanent and removes
+      the account entirely. Both buttons use `dangerPalette(palette)` — a
+      local helper that retints just `WoodenButton`'s wood/gold tones red,
+      since `WoodenButton` takes a whole `FantasyPalette` for its coloring
+      rather than a single accent color — keeping the same carved-wood
+      look as every other button in the app rather than inventing a
+      second button style for this one case.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,

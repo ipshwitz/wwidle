@@ -6,6 +6,8 @@ import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.rpc
 import javax.inject.Inject
 
 private const val PROFILES_TABLE = "profiles"
@@ -88,5 +90,16 @@ class SupabaseAuthRepository @Inject constructor(
         supabaseClient.from(PROFILES_TABLE).upsert(ProfileRow(userId = userId, username = username)) {
             onConflict = "user_id"
         }
+    }
+
+    override suspend fun clearUsername() {
+        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
+        supabaseClient.from(PROFILES_TABLE).delete {
+            filter { eq("user_id", userId) }
+        }
+    }
+
+    override suspend fun deleteAccount() {
+        supabaseClient.postgrest.rpc("delete_own_account")
     }
 }

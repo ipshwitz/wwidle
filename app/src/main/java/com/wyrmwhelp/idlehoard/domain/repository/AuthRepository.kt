@@ -82,4 +82,26 @@ interface AuthRepository {
      * is already taken by someone else, or if there's no active session.
      */
     suspend fun setUsername(username: String)
+
+    /**
+     * Removes the current session's `profiles` row, so a later
+     * [currentUsername] read goes back to null — backs Settings' "Reset
+     * Account" (`GameViewModel.resetAccount`). A no-op (not an error) if
+     * there's no active session or no username was ever set.
+     */
+    suspend fun clearUsername()
+
+    /**
+     * Permanently deletes the current session's own Supabase account —
+     * backs Settings' "Delete Account" (`GameViewModel.deleteAccount`).
+     * Calls the `delete_own_account` SECURITY DEFINER function
+     * (`SQL/005_account_management.sql`, which must be run once against the
+     * project before this works) since the client SDK has no direct
+     * self-delete call; that function cascades to the account's
+     * `cloud_saves`/`profiles`/leaderboard rows automatically. Irreversible
+     * — the caller's session is invalid immediately afterward, so callers
+     * should call [signOut] then [ensureSignedIn] to re-establish a fresh
+     * guest session. Throws on failure.
+     */
+    suspend fun deleteAccount()
 }

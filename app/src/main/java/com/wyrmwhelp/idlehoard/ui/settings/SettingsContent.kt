@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,14 +30,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.wyrmwhelp.idlehoard.BuildConfig
 import com.wyrmwhelp.idlehoard.domain.model.LeaderboardEntry
 import com.wyrmwhelp.idlehoard.domain.model.LeaderboardPeriod
@@ -98,6 +103,11 @@ fun SettingsContent(
     onSignOut: () -> Unit,
     onSyncNow: () -> Unit,
     onDismissAuthMessage: () -> Unit,
+    isAccountActionInProgress: Boolean,
+    accountActionMessage: String?,
+    onResetAccount: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    onDismissAccountActionMessage: () -> Unit,
     leaderboardPeriod: LeaderboardPeriod,
     leaderboardEntries: List<LeaderboardEntry>,
     currentUserLeaderboardEntry: LeaderboardEntry?,
@@ -157,6 +167,18 @@ fun SettingsContent(
                             unlocked = hasUniversalSteward,
                             palette = palette,
                         )
+                    }
+                    item {
+                        DangerZoneCard(
+                            canDeleteAccount = userEmail != null,
+                            isActionInProgress = isAccountActionInProgress,
+                            onResetAccount = onResetAccount,
+                            onDeleteAccount = onDeleteAccount,
+                            palette = palette,
+                        )
+                    }
+                    accountActionMessage?.let { message ->
+                        item { AuthMessageCard(message = message, onDismiss = onDismissAccountActionMessage, palette = palette) }
                     }
                     item { VersionFooter(palette = palette) }
                 }
@@ -573,6 +595,220 @@ private fun SyncCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = palette.ink.copy(alpha = 0.6f),
             )
+        }
+    }
+}
+
+/**
+ * "Danger Zone" — Account Reset (wipes game progress back to a fresh save,
+ * keeping Platinum Pieces and everything bought with them — see
+ * `GameEngine.resetProgress`'s doc for the exact split) and, only for a real
+ * signed-in account, Account Delete (irreversible — wipes local data, the
+ * cloud save, and the Supabase account itself, see
+ * `AuthRepository.deleteAccount`). A guest never sees the Delete option at
+ * all, per explicit design — deleting an anonymous session is meaningless
+ * since reinstalling already does that; Reset is available to guest and
+ * signed-in players alike, since it never touches the auth session. Both
+ * actions require an explicit confirm dialog before anything happens —
+ * [ResetAccountConfirmDialog]/[DeleteAccountConfirmDialog] below — matching
+ * severity: Reset is a plain two-button confirm (same shape as
+ * `LevelUpContent.kt`'s `LevelUpConfirmDialog`), Delete additionally
+ * requires typing "DELETE" since it's permanent.
+ */
+@Composable
+private fun DangerZoneCard(
+    canDeleteAccount: Boolean,
+    isActionInProgress: Boolean,
+    onResetAccount: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    var showResetConfirm by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = DANGER_COLOR.copy(alpha = 0.6f)) {
+        Text(
+            text = "Danger Zone",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+        )
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "Reset Account",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.bodyMedium.copy(color = palette.ink),
+        )
+        Text(
+            text = "Wipes your Gold, lairs, Gems, Level Up count, avatar, and username back " +
+                "to a fresh start. Platinum Pieces and anything bought with them are kept.",
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.ink.copy(alpha = 0.7f),
+        )
+        Spacer(Modifier.height(6.dp))
+        WoodenButton(
+            text = "Reset Account",
+            onClick = { showResetConfirm = true },
+            enabled = !isActionInProgress,
+            colors = dangerPalette(palette),
+        )
+
+        if (canDeleteAccount) {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "Delete Account",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyMedium.copy(color = palette.ink),
+            )
+            Text(
+                text = "Permanently deletes your account and every bit of saved data — local " +
+                    "and cloud. This cannot be undone.",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.height(6.dp))
+            WoodenButton(
+                text = "Delete Account",
+                onClick = { showDeleteConfirm = true },
+                enabled = !isActionInProgress,
+                colors = dangerPalette(palette),
+            )
+        }
+    }
+
+    if (showResetConfirm) {
+        ResetAccountConfirmDialog(
+            onConfirm = { showResetConfirm = false; onResetAccount() },
+            onCancel = { showResetConfirm = false },
+            palette = palette,
+        )
+    }
+    if (showDeleteConfirm) {
+        DeleteAccountConfirmDialog(
+            onConfirm = { showDeleteConfirm = false; onDeleteAccount() },
+            onCancel = { showDeleteConfirm = false },
+            palette = palette,
+        )
+    }
+}
+
+/** A muted rust-red — this app has no "danger" tone in `FantasyPalette` itself, so it's kept local to this file's Danger Zone UI. */
+private val DANGER_COLOR = Color(0xFF7A2626)
+
+/** [WoodenButton] takes a whole [FantasyPalette] for its coloring, not a single accent — this retints just the wood/gold tones red for a destructive-action button, keeping the same carved-wood look everywhere else. */
+private fun dangerPalette(palette: FantasyPalette): FantasyPalette = palette.copy(
+    woodLight = Color(0xFFA13B3B),
+    woodMid = DANGER_COLOR,
+    woodDark = Color(0xFF4A1414),
+    goldBright = Color(0xFFE5A5A5),
+)
+
+@Composable
+private fun ResetAccountConfirmDialog(
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    palette: FantasyPalette,
+) {
+    Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier
+                .widthIn(min = 260.dp, max = 340.dp)
+                .shadow(8.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(Brush.verticalGradient(listOf(palette.parchmentShade, palette.parchment)))
+                .border(2.dp, DANGER_COLOR, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Reset your account?",
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Your Gold, every owned lair, Gems, Level Up count, avatar, and username " +
+                    "will all reset to a brand-new save. Platinum Pieces and anything bought " +
+                    "with them are kept.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontStyle = FontStyle.Italic,
+                    color = palette.ink.copy(alpha = 0.8f),
+                ),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                WoodenButton(text = "Cancel", onClick = onCancel, colors = palette)
+                WoodenButton(text = "Reset", onClick = onConfirm, colors = dangerPalette(palette))
+            }
+        }
+    }
+}
+
+/**
+ * Requires typing "DELETE" before the confirm button enables, unlike
+ * [ResetAccountConfirmDialog]'s plain two-button confirm — this action is
+ * permanent and removes the account entirely, so it gets the extra friction.
+ */
+@Composable
+private fun DeleteAccountConfirmDialog(
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    palette: FantasyPalette,
+) {
+    var confirmText by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier
+                .widthIn(min = 260.dp, max = 340.dp)
+                .shadow(8.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(Brush.verticalGradient(listOf(palette.parchmentShade, palette.parchment)))
+                .border(2.dp, DANGER_COLOR, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Delete your account?",
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "This permanently deletes your account and every bit of saved data — " +
+                    "local and cloud. There is no undo.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontStyle = FontStyle.Italic,
+                    color = palette.ink.copy(alpha = 0.8f),
+                ),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Type DELETE to confirm:",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.7f),
+            )
+            OutlinedTextField(
+                value = confirmText,
+                onValueChange = { confirmText = it },
+                singleLine = true,
+                colors = authFieldColors(palette),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                WoodenButton(text = "Cancel", onClick = onCancel, colors = palette)
+                WoodenButton(
+                    text = "Delete",
+                    onClick = onConfirm,
+                    enabled = confirmText == "DELETE",
+                    colors = dangerPalette(palette),
+                )
+            }
         }
     }
 }

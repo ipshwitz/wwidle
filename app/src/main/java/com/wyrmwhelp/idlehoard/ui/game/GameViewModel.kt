@@ -159,6 +159,14 @@ class GameViewModel @Inject constructor(
     private val _authMessage = MutableStateFlow<String?>(null)
     val authMessage: StateFlow<String?> = _authMessage.asStateFlow()
 
+    private val _isAccountActionInProgress = MutableStateFlow(false)
+    val isAccountActionInProgress: StateFlow<Boolean> = _isAccountActionInProgress.asStateFlow()
+
+    // Result text from the last resetAccount()/deleteAccount() attempt — kept
+    // separate from _authMessage since these aren't sign-in/up/out outcomes.
+    private val _accountActionMessage = MutableStateFlow<String?>(null)
+    val accountActionMessage: StateFlow<String?> = _accountActionMessage.asStateFlow()
+
     // Non-null while a signUp is waiting on the emailed verification code —
     // drives Settings into the code-entry step instead of the sign-up form.
     private val _pendingVerificationEmail = MutableStateFlow<String?>(null)
@@ -495,6 +503,84 @@ class GameViewModel @Inject constructor(
 
     fun dismissAuthMessage() {
         _authMessage.value = null
+    }
+
+    /**
+     * Settings' "Reset Account" — wipes the current run back to a fresh save
+     * (see [GameEngine.resetProgress]'s doc for exactly what does/doesn't
+     * carry over) and clears the player's leaderboard username, if any.
+     * Works for a guest or a signed-in account alike — unlike [deleteAccount],
+     * this never touches the Supabase auth session itself, only game
+     * progress. Local Room and (if signed in) the cloud row are both
+     * overwritten with the fresh state via [GameRepository.replaceGameState]/
+     * [CloudSaveRepository.uploadSave] so nothing from the old run lingers.
+     */
+    fun resetAccount() {
+        if (_isAccountActionInProgress.value) return
+        viewModelScope.launch {
+            _isAccountActionInProgress.value = true
+            _accountActionMessage.value = null
+            gameEngine.resetProgress()
+            val fresh = gameEngine.state.value
+            gameRepository.replaceGameState(fresh)
+            val userId = currentUserId
+            if (userId != null) {
+                runCatching { authRepository.clearUsername() }
+                    .onFailure { Log.w(TAG, "Clearing username on reset failed", it) }
+                _username.value = null
+                runCatching { cloudSaveRepository.uploadSave(userId, fresh) }
+                    .onSuccess { _lastSyncedAt.value = Instant.now() }
+                    .onFailure { Log.w(TAG, "Cloud upload after account reset failed", it) }
+            }
+            _accountActionMessage.value = "Your account has been reset."
+            _isAccountActionInProgress.value = false
+        }
+    }
+
+    /**
+     * Settings' "Delete Account" — permanently deletes the signed-in
+     * account, per [AuthRepository.deleteAccount], and wipes local data too
+     * (unlike [signOut], which preserves local progress under a fresh guest
+     * identity). Only meaningful for a real, signed-in account —
+     * `SettingsContent` hides this action entirely for a guest, and this
+     * guards against it too. Re-establishes a brand-new anonymous session
+     * afterward, same as [signOut], so play can continue immediately.
+     */
+    fun deleteAccount() {
+        if (_isAccountActionInProgress.value || _userEmail.value == null) return
+        viewModelScope.launch {
+            _isAccountActionInProgress.value = true
+            _accountActionMessage.value = null
+            val deleted = runCatching { authRepository.deleteAccount() }
+            if (deleted.isFailure) {
+                Log.w(TAG, "Account deletion failed", deleted.exceptionOrNull())
+                _accountActionMessage.value = "Couldn't delete your account. Please try again."
+                _isAccountActionInProgress.value = false
+                return@launch
+            }
+
+            gameEngine.loadState(GameState())
+            gameRepository.replaceGameState(GameState())
+
+            runCatching { authRepository.signOut() }
+                .onFailure { Log.w(TAG, "Sign out after account deletion failed", it) }
+            runCatching { authRepository.ensureSignedIn() }
+                .onSuccess { userId ->
+                    currentUserId = userId
+                    _userEmail.value = authRepository.currentUserEmail()
+                    refreshUsernameState()
+                    runCatching { cloudSaveRepository.uploadSave(userId, GameState()) }
+                        .onSuccess { _lastSyncedAt.value = Instant.now() }
+                }
+                .onFailure { e -> Log.w(TAG, "Re-establishing guest session after account deletion failed", e) }
+
+            _accountActionMessage.value = "Your account has been deleted."
+            _isAccountActionInProgress.value = false
+        }
+    }
+
+    fun dismissAccountActionMessage() {
+        _accountActionMessage.value = null
     }
 
     /**

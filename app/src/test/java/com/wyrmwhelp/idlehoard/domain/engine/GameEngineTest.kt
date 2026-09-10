@@ -1268,4 +1268,91 @@ class GameEngineTest {
 
         assertEquals(0, engine.state.value.ownedLair("kobold_warren").stewardEfficiencyLevel)
     }
+
+    @Test
+    fun `resetProgress wipes gold, lairs, gems, and totalLevelUps back to a fresh save`() {
+        engine.loadState(
+            GameState(
+                goldPieces = 999_999.0,
+                gems = 150,
+                totalLevelUps = 3,
+                lairs = mapOf(
+                    "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 300),
+                    "giant_rat_burrow" to OwnedLair(lairId = "giant_rat_burrow", count = 100),
+                ),
+            ),
+        )
+
+        engine.resetProgress()
+
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+        assertEquals(0L, engine.state.value.gems)
+        assertEquals(0, engine.state.value.totalLevelUps)
+        assertEquals(mapOf("kobold_warren" to 1), engine.state.value.lairs.mapValues { it.value.count })
+    }
+
+    @Test
+    fun `resetProgress preserves platinum pieces, permanent boosts, and active temporary boosts`() {
+        val activeBoost = ActiveTemporaryBoost(TemporaryBoostCategory.SPEED, 50.0, Instant.now().plusSeconds(300))
+        engine.loadState(
+            GameState(
+                platinumPieces = 42.0,
+                permanentSpeedBoost2xLevel = 3,
+                permanentProfitBoost2xLevel = 5,
+                permanentGemBoost15xLevel = 2,
+                activeTemporaryBoosts = listOf(activeBoost),
+            ),
+        )
+
+        engine.resetProgress()
+
+        assertEquals(42.0, engine.state.value.platinumPieces, 0.0001)
+        assertEquals(3, engine.state.value.permanentSpeedBoost2xLevel)
+        assertEquals(5, engine.state.value.permanentProfitBoost2xLevel)
+        assertEquals(2, engine.state.value.permanentGemBoost15xLevel)
+        assertEquals(listOf(activeBoost), engine.state.value.activeTemporaryBoosts)
+    }
+
+    @Test
+    fun `resetProgress does not carry over lifetime earnings, avatar, ads watched, or ad cooldowns, unlike performLevelUp`() {
+        val watchedAt = Instant.now()
+        engine.loadState(
+            GameState(
+                lifetimeGoldEarned = 1_000_000_000_000_000.0,
+                selectedAvatarId = "f_wizard",
+                totalAdsWatched = 87,
+                lastPlatinumAdWatchedAt = watchedAt,
+                speedBoostAdWatchTimestamps = listOf(watchedAt),
+                incomeBoostAdWatchTimestamps = listOf(watchedAt),
+            ),
+        )
+
+        engine.resetProgress()
+
+        assertEquals(0.0, engine.state.value.lifetimeGoldEarned, 0.0001)
+        assertEquals(null, engine.state.value.selectedAvatarId)
+        assertEquals(0, engine.state.value.totalAdsWatched)
+        assertEquals(null, engine.state.value.lastPlatinumAdWatchedAt)
+        assertEquals(emptyList<Instant>(), engine.state.value.speedBoostAdWatchTimestamps)
+        assertEquals(emptyList<Instant>(), engine.state.value.incomeBoostAdWatchTimestamps)
+    }
+
+    @Test
+    fun `resetProgress clears seen Steward and upgrade opportunities and a lair's Steward Efficiency level`() {
+        engine.loadState(
+            GameState(
+                lairs = mapOf(
+                    "kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1, hasSteward = true, stewardEfficiencyLevel = 5),
+                ),
+                seenStewardOpportunities = setOf("kobold_warren"),
+                seenUpgradeOpportunities = setOf("kobold_warren:profit"),
+            ),
+        )
+
+        engine.resetProgress()
+
+        assertEquals(emptySet<String>(), engine.state.value.seenStewardOpportunities)
+        assertEquals(emptySet<String>(), engine.state.value.seenUpgradeOpportunities)
+        assertEquals(0, engine.state.value.ownedLair("kobold_warren").stewardEfficiencyLevel)
+    }
 }

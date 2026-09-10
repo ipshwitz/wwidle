@@ -15,4 +15,14 @@ interface GameRepository {
 
     /** Persists [state] as the current save, replacing whatever was there before. */
     suspend fun saveGameState(state: GameState)
+
+    /**
+     * Persists [state] as the current save, guaranteeing no stale owned-lair
+     * data lingers from whatever was there before — [saveGameState] is a
+     * plain upsert, so a lair no longer present in [state] (e.g. every lair
+     * but Kobold Warren, right after a full reset) would otherwise still be
+     * read back on the next [loadGameState]. Use for Account Reset/Deletion's
+     * full wipe, not routine autosaves.
+     */
+    suspend fun replaceGameState(state: GameState)
 }
