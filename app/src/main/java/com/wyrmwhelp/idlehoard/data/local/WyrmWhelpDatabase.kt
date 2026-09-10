@@ -4,6 +4,15 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
+ * Bumped to version 18 for the Achievements feature (v0.46.0): nine new
+ * [GameStateEntity] columns tracking permanent, never-resetting
+ * lifetime-accomplishment stats — `highestLairCountsJson`,
+ * `everHiredStewardForLairsJson`, `everMaxedStewardEfficiencyForLairsJson`,
+ * `everMaxedGemEfficiency`, `everMaxedEverythingProfit`,
+ * `everMaxedEverythingSpeed`, `everMaxedAnyLairProfitLine`,
+ * `everMaxedAnyLairSpeedLine`, `highestGemsEverEarned`, plus
+ * `seenAchievementsJson` for the "new" menu badge — see
+ * `domain/model/Achievement.kt` and `GameStateMappers.kt`.
  * Bumped to version 17 for the Steward Efficiency feature: one new
  * `stewardEfficiencyLevel` column on [OwnedLairEntity] (see
  * `GameStateMappers.kt`) — see `domain/model/StewardEfficiency.kt`. Plain
@@ -69,7 +78,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 17,
+    version = 18,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

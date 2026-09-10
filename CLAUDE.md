@@ -48,7 +48,11 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   1626x536, no re-export needed this time. Every `FloatingMenu` item now has
   real sign art; the plain-`Surface` fallback in `MenuItemPlank` (and
   `SectionOverlayCard`'s plain-title fallback) stay in place for whatever
-  section gets added next before its own art exists. `woodenwall-1.png`
+  section gets added next before its own art exists — which was the
+  Achievements section (v0.46.0) until `menu-achievements.png` →
+  `drawable-nodpi/menu_achievements.png` arrived, already pre-cropped to
+  the correct 1626x536 with genuinely transparent corners, no re-export
+  needed; every `FloatingMenu` item has real sign art again. `woodenwall-1.png`
   → `drawable-nodpi/woodenwall_1.png`, a tavern-
   interior background used by `SectionOverlayCard` (via `AppBackground`,
   which now takes an `imageRes` param instead of always using `main_bg`) —
@@ -91,11 +95,13 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   `lair_wyvern_aerie.png` / `lair_young_dragons_lair.png` (v0.43.1) —
   three more, same square (1254x1254), genuinely transparent corners, no
   re-export needed; `lair-young-dragon.png` renders a blue dragon despite
-  the catalog's flavor text calling this tier a "Young Red Dragon" (and
-  likewise for the still-unwired Adult/Ancient tiers) — used as supplied
-  rather than second-guessed, same as every other art asset in this
-  file. See the Open Questions entry on creature portrait art for what's
-  still outstanding. `tv.png` → `drawable-nodpi/tv.png`
+  the catalog's flavor text calling this tier a "Young Red Dragon" — used
+  as supplied rather than second-guessed, same as every other art asset
+  in this file. `lair-adult-dragon.png` / `lair-dragon-hoard.png` →
+  `drawable-nodpi/lair_adult_dragons_lair.png` /
+  `lair_ancient_dragons_hoard.png` (v0.46.0) — the last two lair
+  portraits, completing all 14 tiers; same square (1254x1254), genuinely
+  transparent corners, no re-export needed. `tv.png` → `drawable-nodpi/tv.png`
   (v0.31.2), a hand-illustrated wooden "scrying TV" (gold filigree, a
   wizard scene on-screen) — real transparent background, square
   (754x754) — used by the redesigned `WelcomeBackDialog` to front its
@@ -188,9 +194,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.45.0** (Settings gained "Reset Account" and
-     "Delete Account" — see the `DangerZoneCard` bullet under Tech stack
-     and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.46.0** (Achievements — a new menu section of 68
+     permanent, one-time accomplishments that each add a small permanent
+     bonus to every lair's income, forever — see the `Achievements`
+     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1206,6 +1213,148 @@ These apply to every change made in this repo, however small:
       rather than a single accent color — keeping the same carved-wood
       look as every other button in the app rather than inventing a
       second button style for this one case.
+  - **Achievements (v0.46.0)** — a new menu section (`ui/achievements/AchievementsContent.kt`,
+    `domain/model/Achievement.kt`) of 68 permanent, one-time
+    accomplishments, added per explicit request ("what should be added
+    to make the game on-par with Adventure Capitalist" → achievements as
+    the first pick). Deliberately unlike every other upgrade in the
+    game: an `Achievement` is never bought — `Achievement.isCompleted` is
+    a pure check against persistent, never-resetting `GameState` stats,
+    so the moment the underlying stat crosses a threshold it's complete
+    forever, immune to a Level Up *or* Account Reset (unlike every
+    Gold/Gem upgrade level or milestone rung, which reset with `lairs`/
+    `gems`). Modeled explicitly on Adventure Capitalist's own achievement
+    system: each completed achievement contributes a small permanent
+    `bonusPercent` to a new account-wide "Achievement Bonus"
+    (`GameState.achievementBonusPercent()`/`achievementIncomeMultiplier()`
+    in `GameStateExtensions.kt`) — a genuinely permanent income
+    multiplier, unlike any Gold/Gem upgrade (resets on a Level Up) or
+    even the Platinum-bought permanent boosts (need ongoing real
+    spending to grow). Two confirmed design decisions before any code:
+    permanent-stacking-bonus reward (not a one-time currency payout) and
+    a large per-lair matrix rather than a small curated list.
+    - **The catalog** (`Achievements.ALL`, 68 total): 42 per-lair
+      ownership achievements (`CreatureLairCatalog.lairs` × 3 tiers each
+      — 100/1,000/10,000 owned, deliberately the *same* rungs
+      `Milestone.kt`'s own ladder reaches, so a completing achievement
+      lines up with a milestone the player already recognizes — worth
+      +0.25%/+0.5%/+1% respectively) plus 26 global achievements across
+      Prestige (Level Up count, Gem-batch-earned thresholds), Net Worth
+      (`lifetimeGoldEarned` thresholds), Stewards (first hire, every
+      lair staffed, Steward Efficiency maxed once/everywhere, Universal
+      Steward earned), Upgrades (Gem Efficiency/any lair's Profit or
+      Speed line/both Everything lines maxed), Platinum (first
+      permanent-boost purchase, 5+ copies of one tier), and one
+      "Claimed Them All" capstone (every lair owned at least once,
+      ever). Summed, every achievement ever completed is +97.5% —
+      comparable in scale to `GpUpgrades`' own maxed-out "Everything"
+      lines, not a first-pass number expected to dominate the economy.
+      First-pass placeholder tuning, not playtested, same as everywhere
+      else in the economy.
+    - **New persistent `GameState` tracking fields** — since most
+      existing stats an achievement might reasonably check (lair
+      ownership counts, `hasSteward`, every Gold/Gem upgrade level) all
+      reset on a Level Up or Account Reset, a genuinely permanent
+      achievement needs its own never-resetting shadow stats:
+      `highestLairCounts: Map<String, Int>` (the highest count any lair
+      has ever reached, across every run), `everHiredStewardForLairs`/
+      `everMaxedStewardEfficiencyForLairs: Set<String>`,
+      `everMaxedGemEfficiency`/`everMaxedEverythingProfit`/
+      `everMaxedEverythingSpeed`/`everMaxedAnyLairProfitLine`/
+      `everMaxedAnyLairSpeedLine: Boolean`, `highestGemsEverEarned: Long`
+      (the biggest single Level Up Gem batch ever granted), and
+      `seenAchievements: Set<String>` (same "new feature" badge shape as
+      `seenStewardOpportunities`/`seenUpgradeOpportunities`, but — unlike
+      those two — never cleared by a Level Up or Account Reset, since a
+      completed achievement can't become un-seen either). `GameEngine`
+      updates the relevant one atomically inside whichever purchase/hire
+      method can trigger it (`purchaseLairs`, `hireSteward`,
+      `purchaseStewardEfficiencyUpgrade`, `purchaseGpLairUpgrade`,
+      `purchaseGpEverythingUpgrade`, `purchaseGemEfficiencyUpgrade`,
+      `performLevelUp`), always via `maxOf`/`||` so a smaller/later value
+      can never overwrite a bigger/earlier one. `performLevelUp()` and
+      `resetProgress()` both explicitly carry every one of these fields
+      forward unchanged, the same treatment Platinum Pieces gets — a
+      completed achievement (and the Achievement Bonus it contributes)
+      is a lifetime accomplishment, not run progress.
+    - **`CreatureLair.incomePerCycle`** gained a sixth
+      `achievementBonusMultiplier` parameter (default 1.0, so every
+      existing call site is unaffected until it opts in) — applied like
+      every other income multiplier, threaded through the exact same
+      call sites `upgradeProfitMultiplier` already reaches
+      (`GameEngine.advance`/`advanceLair`/`grantInstantProduction`,
+      `GameScreen`'s gp/sec sum, `LairRow`/`LairCard`'s per-card
+      display), computed once per tick/recomposition via
+      `state.achievementIncomeMultiplier()` exactly like every other
+      "Everything"-style multiplier in this game. Deliberately
+      income-only (no Speed effect), matching Adventure Capitalist's own
+      Achievement Bonus.
+    - **A real cross-cutting issue caught while adding this, not a bug
+      in the feature itself**: several pre-existing `GameEngineTest`
+      cases asserted exact credited-gold amounts computed via a bare
+      `lair.incomePerCycle(1)` (implicitly assuming a 1.0 achievement
+      multiplier) — but their own test fixtures (hiring a Steward at
+      all, buying any permanent boost tier) now incidentally complete a
+      real achievement ("First Steward"/"First Investment"), which
+      correctly changes the actual credited amount. Fixed by threading
+      `engine.state.value.achievementIncomeMultiplier()` through each
+      affected test's expected-value calculation instead of hardcoding
+      "no bonus" — keeps the tests correct regardless of future
+      achievement-catalog tuning, rather than brittle against it. One of
+      these (`time skip deducts platinum and instantly grants its
+      production`) needed the multiplier captured *before* the time
+      skip's own huge one-shot payout, not after — that single Time Skip
+      earns enough gold on its own to cross a Net Worth achievement
+      threshold mid-transaction, and the engine (correctly) uses
+      whichever Achievement Bonus was true *going into* a transaction,
+      never one the transaction's own proceeds newly unlock — capturing
+      the multiplier after the fact created a self-referential mismatch
+      in the test, not a real engine bug.
+    - **`AchievementsContent.kt`** — a summary `ParchmentCard` ("Achievement
+      Bonus: +X% — N / 68 completed") above a `LazyColumn` grouped by
+      `AchievementGroup` (Prestige, Net Worth, Stewards, Upgrades,
+      Platinum, Milestones, then the large Per-Lair group last,
+      sub-grouped by lair name — same "sub-group a big flat list"
+      convention `UnlocksContent.kt` already uses). Each achievement is a
+      plain, never-tappable row (name, description, `+X%` badge) —
+      locked ones render muted/low-alpha with a plain wood border,
+      completed ones full-opacity with a gold border and gold badge text
+      — a read-only checklist, not a buy-a-tier interaction, matching
+      `UnlocksContent`'s spirit rather than `UpgradesContent`/
+      `StewardsContent`'s. New `MenuItem("Achievements",
+      R.drawable.menu_achievements)` in `FloatingMenu.kt`'s list (its own
+      wooden-sign art shipped alongside this feature, not a placeholder);
+      `GameEngine.markAchievementsSeen()`/`GameViewModel.markAchievementsSeen()`
+      and a `hasUnseenCompletedAchievement()` check in `MainActivity`'s
+      `itemsWithNewBadge` wire it into the exact same "new feature" star
+      badge convention `Stewards`/`Upgrades` already use.
+    - **Persistence**: Room bumped to **database version 18** for the ten
+      new `GameStateEntity` columns (nine tracking stats plus
+      `seenAchievementsJson`) — the `Map<String, Int>`/`Set<String>`
+      fields JSON-encoded into single `TEXT` columns, same convention as
+      every other small persisted collection in this file; the `Boolean`/
+      `Long` fields are plain columns. The Supabase `GameStateDto` mirrors
+      all ten with defaults for older cloud saves (`highestLairCounts` is
+      a genuinely nested `Map<String, Int>` in the jsonb blob, no
+      encoding trick needed there, same as `lairs` itself).
+    - **Verified live on-device** via a direct Room DB edit seeding
+      `totalLevelUps=5`, `lifetimeGoldEarned=1e12`, `totalAdsWatched=60`,
+      `highestLairCounts={"kobold_warren":100}`, and
+      `everHiredStewardForLairs=["kobold_warren"]` on a fresh install:
+      the Achievements screen correctly showed "Achievement Bonus:
+      +9.25%" and "9 / 68 completed" — matching the hand-summed total of
+      exactly those nine achievements' `bonusPercent` values — with the
+      right nine rows rendered gold/complete and every other row muted.
+      The "new feature" star badge correctly appeared on both the
+      collapsed chest and the Achievements plank itself while
+      `seenAchievements` was empty, and correctly cleared, on both, the
+      moment the section was opened (confirmed by clearing
+      `seenAchievementsJson` back to `"[]"` via a direct DB edit and
+      relaunching, to rule out a one-time-only artifact from the first
+      visit). Also confirmed this session's new lair-portrait art (see
+      the Assets section — Adult Dragon's Lair / Ancient Dragon's Hoard,
+      completing all 14 tiers) renders correctly on the main screen
+      alongside the seeded state.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,
@@ -2874,14 +3023,14 @@ we'll pin these down as we build each system.
   the `AvatarPickerDialog`/`domain/model/Avatar.kt` bullet under Tech
   stack. Not yet done: any cosmetic tie-in beyond the header (e.g. a
   future leaderboard showing other players' avatars).
-- Creature portrait art — in progress, one lair at a time (see `LairRow`'s
-  `lairPortraitRes` above): Kobold Warren, Giant Rat Burrow, Goblin Camp,
-  Orc Encampment, Gnoll Den, Bugbear Warcamp, Hobgoblin Barracks, Ogre's
-  Cave, Owlbear Roost, Troll Warren, Wyvern Aerie, and Young Dragon's
-  Lair have real art as of v0.43.1 — 12 of the 14 tiers. Still showing
-  `CreatureAvatar`'s rarity-tinted placeholder disc with the monster's
-  first initial: Adult Dragon's Lair and Ancient Dragon's Hoard (the top
-  2 tiers).
+- Creature portrait art — **complete as of v0.46.0**: all 14 tiers now
+  have real art (see `LairRow`'s `lairPortraitRes` above) — Adult
+  Dragon's Lair and Ancient Dragon's Hoard (`lair-adult-dragon.png`/
+  `lair-dragon-hoard.png` → `drawable-nodpi/lair_adult_dragons_lair.png`/
+  `lair_ancient_dragons_hoard.png`) were the last two, same square
+  (1254x1254), genuinely transparent corners, no re-export needed. No
+  lair still falls back to `CreatureAvatar`'s rarity-tinted placeholder
+  disc.
 - Lair cost/income/timing for tiers 0–9 is sourced directly from AdVenture
   Capitalist's Earth Businesses (see `CreatureLairCatalog`); tiers 10–13 are
   our own extrapolation of the same patterns, still not playtested

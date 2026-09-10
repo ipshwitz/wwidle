@@ -3,6 +3,18 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.46.0] - 2026-09-10 8:40 PM EDT
+
+- Added Achievements: a new menu section with 68 permanent, one-time
+  accomplishments (own big numbers of any lair, hit net-worth/prestige/Gem
+  milestones, staff every lair, max out upgrades, and more). Unlike every
+  other upgrade in the game, completing one is never bought — it just
+  happens the moment you cross the threshold — and it never resets, not
+  even on a Level Up or Account Reset. Each one adds a small permanent
+  bonus to every lair's income forever, stacking into an account-wide
+  "Achievement Bonus" shown at the top of the new screen (+97.5% if every
+  single achievement is ever completed).
+
 ## [0.45.0] - 2026-09-09 8:35 PM EDT
 
 - Added two new "Danger Zone" actions to Settings: **Reset Account** (wipes

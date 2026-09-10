@@ -45,6 +45,7 @@ data class MenuItem(val label: String, val imageRes: Int? = null)
 val floatingMenuItems: List<MenuItem> = listOf(
     MenuItem("Help & Social", R.drawable.menu_help_social),
     MenuItem("Unlocks", R.drawable.menu_unlocks),
+    MenuItem("Achievements", R.drawable.menu_achievements),
     MenuItem("Upgrades", R.drawable.menu_upgrades),
     MenuItem("Stewards", R.drawable.menu_stewards),
     MenuItem("Level Up", R.drawable.menu_level_up),

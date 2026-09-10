@@ -37,6 +37,8 @@ import com.wyrmwhelp.idlehoard.domain.model.platinumSpeedMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.withPermanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.withStewardOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.withUpgradeOpportunitiesSeen
+import com.wyrmwhelp.idlehoard.domain.model.withAchievementsSeen
+import com.wyrmwhelp.idlehoard.domain.model.achievementIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
 import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
@@ -194,9 +196,12 @@ class GameEngine @Inject constructor() {
                 current
             } else {
                 purchased = quantity
+                val newCount = owned.count + quantity
                 current.copy(
                     goldPieces = current.goldPieces - cost,
-                    lairs = current.lairs + (lairId to owned.copy(count = owned.count + quantity)),
+                    lairs = current.lairs + (lairId to owned.copy(count = newCount)),
+                    highestLairCounts = current.highestLairCounts +
+                        (lairId to maxOf(current.highestLairCounts[lairId] ?: 0, newCount)),
                 )
             }
         }
@@ -223,6 +228,7 @@ class GameEngine @Inject constructor() {
                 current.copy(
                     goldPieces = current.goldPieces - lair.stewardCostGp,
                     lairs = current.lairs + (lairId to owned.copy(hasSteward = true)),
+                    everHiredStewardForLairs = current.everHiredStewardForLairs + lairId,
                 )
             }
         }
@@ -385,6 +391,7 @@ class GameEngine @Inject constructor() {
                     current
                 } else {
                     bought = true
+                    val maxed = nextTier >= GpUpgrades.LAIR_LINE_PHASES.totalTiers
                     val updatedOwned = if (category == UpgradeCategory.PROFIT) {
                         owned.copy(profitUpgradeLevel = nextTier)
                     } else {
@@ -393,6 +400,10 @@ class GameEngine @Inject constructor() {
                     current.copy(
                         goldPieces = current.goldPieces - cost,
                         lairs = current.lairs + (lairId to updatedOwned),
+                        everMaxedAnyLairProfitLine = current.everMaxedAnyLairProfitLine ||
+                            (maxed && category == UpgradeCategory.PROFIT),
+                        everMaxedAnyLairSpeedLine = current.everMaxedAnyLairSpeedLine ||
+                            (maxed && category == UpgradeCategory.SPEED),
                     )
                 }
             }
@@ -426,6 +437,11 @@ class GameEngine @Inject constructor() {
                     current.copy(
                         goldPieces = current.goldPieces - cost,
                         lairs = current.lairs + (lairId to owned.copy(stewardEfficiencyLevel = nextTier)),
+                        everMaxedStewardEfficiencyForLairs = if (nextTier >= StewardEfficiency.MAX_TIER) {
+                            current.everMaxedStewardEfficiencyForLairs + lairId
+                        } else {
+                            current.everMaxedStewardEfficiencyForLairs
+                        },
                     )
                 }
             }
@@ -453,10 +469,19 @@ class GameEngine @Inject constructor() {
                     current
                 } else {
                     bought = true
+                    val maxed = nextTier >= phases.totalTiers
                     if (category == UpgradeCategory.PROFIT) {
-                        current.copy(goldPieces = current.goldPieces - cost, everythingProfitUpgradeLevel = nextTier)
+                        current.copy(
+                            goldPieces = current.goldPieces - cost,
+                            everythingProfitUpgradeLevel = nextTier,
+                            everMaxedEverythingProfit = current.everMaxedEverythingProfit || maxed,
+                        )
                     } else {
-                        current.copy(goldPieces = current.goldPieces - cost, everythingSpeedUpgradeLevel = nextTier)
+                        current.copy(
+                            goldPieces = current.goldPieces - cost,
+                            everythingSpeedUpgradeLevel = nextTier,
+                            everMaxedEverythingSpeed = current.everMaxedEverythingSpeed || maxed,
+                        )
                     }
                 }
             }
@@ -482,7 +507,11 @@ class GameEngine @Inject constructor() {
                     current
                 } else {
                     bought = true
-                    current.copy(gems = current.gems - cost, gemEfficiencyLevel = nextTier)
+                    current.copy(
+                        gems = current.gems - cost,
+                        gemEfficiencyLevel = nextTier,
+                        everMaxedGemEfficiency = current.everMaxedGemEfficiency || nextTier >= GemUpgrades.PHASES.totalTiers,
+                    )
                 }
             }
         }
@@ -506,7 +535,10 @@ class GameEngine @Inject constructor() {
      * progress), [GameState.totalAdsWatched] (a one-time account
      * milestone toward the Universal Steward — see
      * `domain/model/UniversalSteward.kt` — same category as
-     * [GameState.selectedAvatarId]), and —
+     * [GameState.selectedAvatarId]), every persistent Achievement-tracking
+     * stat ([GameState.highestLairCounts] and its siblings — see
+     * `domain/model/Achievement.kt`, permanent lifetime accomplishments
+     * that a Level Up can't un-complete), and —
      * critically — [GameState.lifetimeGoldEarned] itself all carry over
      * unchanged; only the gold side of the *current run* (and the old Gem
      * batch) resets. That includes every Gold Pieces upgrade
@@ -551,6 +583,16 @@ class GameEngine @Inject constructor() {
                     incomeBoostAdWatchTimestamps = current.incomeBoostAdWatchTimestamps,
                     selectedAvatarId = current.selectedAvatarId,
                     totalAdsWatched = current.totalAdsWatched,
+                    highestLairCounts = current.highestLairCounts,
+                    everHiredStewardForLairs = current.everHiredStewardForLairs,
+                    everMaxedStewardEfficiencyForLairs = current.everMaxedStewardEfficiencyForLairs,
+                    everMaxedGemEfficiency = current.everMaxedGemEfficiency,
+                    everMaxedEverythingProfit = current.everMaxedEverythingProfit,
+                    everMaxedEverythingSpeed = current.everMaxedEverythingSpeed,
+                    everMaxedAnyLairProfitLine = current.everMaxedAnyLairProfitLine,
+                    everMaxedAnyLairSpeedLine = current.everMaxedAnyLairSpeedLine,
+                    highestGemsEverEarned = maxOf(current.highestGemsEverEarned, gemsEarned),
+                    seenAchievements = current.seenAchievements,
                 )
             }
         }
@@ -580,6 +622,13 @@ class GameEngine @Inject constructor() {
      * pairs this with clearing the player's leaderboard username
      * (`AuthRepository.clearUsername`), which lives outside [GameState]
      * entirely.
+     *
+     * Every persistent Achievement-tracking stat ([GameState.highestLairCounts]
+     * and its siblings — see `domain/model/Achievement.kt`) also survives a
+     * reset, same treatment as Platinum — a completed achievement (and the
+     * permanent "Achievement Bonus" it contributes) is a lifetime
+     * accomplishment, not run progress, so a full reset shouldn't erase it
+     * either.
      */
     fun resetProgress() {
         _state.update { current ->
@@ -595,9 +644,30 @@ class GameEngine @Inject constructor() {
                 permanentGemBoost2xLevel = current.permanentGemBoost2xLevel,
                 permanentGemBoost5xLevel = current.permanentGemBoost5xLevel,
                 activeTemporaryBoosts = current.activeTemporaryBoosts,
+                highestLairCounts = current.highestLairCounts,
+                everHiredStewardForLairs = current.everHiredStewardForLairs,
+                everMaxedStewardEfficiencyForLairs = current.everMaxedStewardEfficiencyForLairs,
+                everMaxedGemEfficiency = current.everMaxedGemEfficiency,
+                everMaxedEverythingProfit = current.everMaxedEverythingProfit,
+                everMaxedEverythingSpeed = current.everMaxedEverythingSpeed,
+                everMaxedAnyLairProfitLine = current.everMaxedAnyLairProfitLine,
+                everMaxedAnyLairSpeedLine = current.everMaxedAnyLairSpeedLine,
+                highestGemsEverEarned = current.highestGemsEverEarned,
+                seenAchievements = current.seenAchievements,
             )
         }
         _lairProgress.value = computeLairProgress(_state.value, Instant.now())
+    }
+
+    /**
+     * Marks every currently-complete achievement as seen — called once
+     * when the player opens the Achievements menu section
+     * (`GameViewModel.markAchievementsSeen`), so `FloatingMenu`'s "new
+     * feature" star badge stops showing for those. See
+     * `GameStateExtensions.kt`'s `withAchievementsSeen`.
+     */
+    fun markAchievementsSeen() {
+        _state.update { it.withAchievementsSeen() }
     }
 
     /**
@@ -774,12 +844,13 @@ class GameEngine @Inject constructor() {
         val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
         val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
         val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
+        val achievementMultiplier = state.achievementIncomeMultiplier()
         val hasUniversalSteward = state.hasUniversalSteward()
         var goldEarned = 0.0
         val updatedLairs = state.lairs.mapValues { (lairId, owned) ->
             val (next, earned) = advanceLair(
                 lairId, owned, deltaSeconds, globalSpeedMultiplier, globalIncomeMultiplier, speedMultiplier, profitMultiplier, gemMultiplier,
-                everythingProfitUpgradeMultiplier, everythingSpeedUpgradeMultiplier, hasUniversalSteward,
+                everythingProfitUpgradeMultiplier, everythingSpeedUpgradeMultiplier, achievementMultiplier, hasUniversalSteward,
             )
             goldEarned += earned
             next
@@ -807,9 +878,10 @@ class GameEngine @Inject constructor() {
      * lair can complete faster than that effect can read as anything but a
      * flicker, so it's skipped rather than spammed. [globalSpeedMultiplier],
      * [globalIncomeMultiplier], [speedMultiplier], [profitMultiplier],
-     * [gemMultiplier], [everythingProfitUpgradeMultiplier], and
-     * [everythingSpeedUpgradeMultiplier] are each computed once per
-     * [advance] call (same value for every lair that tick), not per lair —
+     * [gemMultiplier], [everythingProfitUpgradeMultiplier],
+     * [everythingSpeedUpgradeMultiplier], and [achievementMultiplier] are
+     * each computed once per [advance] call (same value for every lair
+     * that tick), not per lair —
      * only this lair's own `profitUpgradeLevel`/`speedUpgradeLevel` (see
      * `GpUpgrades.kt`) vary lair to lair, so those are combined with the
      * Everything multipliers here instead. [hasUniversalSteward] (see
@@ -828,6 +900,7 @@ class GameEngine @Inject constructor() {
         gemMultiplier: Double,
         everythingProfitUpgradeMultiplier: Double,
         everythingSpeedUpgradeMultiplier: Double,
+        achievementMultiplier: Double,
         hasUniversalSteward: Boolean,
     ): Pair<OwnedLair, Double> {
         if (owned.count <= 0) return owned to 0.0
@@ -841,7 +914,7 @@ class GameEngine @Inject constructor() {
             if (!owned.isLoading) return owned to 0.0
             val progress = owned.cycleProgressSeconds + deltaSeconds
             return if (progress >= productionSeconds) {
-                val earned = lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier)
+                val earned = lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier, achievementMultiplier)
                 val confettiWorthy = productionSeconds >= MIN_CONFETTI_PRODUCTION_SECONDS
                 owned.copy(
                     cycleProgressSeconds = 0.0,
@@ -857,7 +930,7 @@ class GameEngine @Inject constructor() {
         var earned = 0.0
         while (remaining >= productionSeconds) {
             remaining -= productionSeconds
-            earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier)
+            earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier, achievementMultiplier)
         }
         return owned.copy(cycleProgressSeconds = remaining) to earned
     }
@@ -884,6 +957,7 @@ class GameEngine @Inject constructor() {
         val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
         val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
         val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
+        val achievementMultiplier = state.achievementIncomeMultiplier()
         val hasUniversalSteward = state.hasUniversalSteward()
 
         var goldEarned = 0.0
@@ -898,13 +972,13 @@ class GameEngine @Inject constructor() {
                 var earned = 0.0
                 while (remaining >= productionSeconds) {
                     remaining -= productionSeconds
-                    earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier)
+                    earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier, achievementMultiplier)
                 }
                 goldEarned += earned
                 owned.copy(cycleProgressSeconds = remaining)
             } else {
                 val cycles = kotlin.math.floor(seconds / productionSeconds)
-                goldEarned += cycles * lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier)
+                goldEarned += cycles * lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier, achievementMultiplier)
                 owned
             }
         }

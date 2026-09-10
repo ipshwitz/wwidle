@@ -31,6 +31,8 @@ import com.wyrmwhelp.idlehoard.domain.model.rawGemsFromLevelUpFormula
 import com.wyrmwhelp.idlehoard.domain.model.minGemsForLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
+import com.wyrmwhelp.idlehoard.domain.model.hasUnseenCompletedAchievement
+import com.wyrmwhelp.idlehoard.ui.achievements.AchievementsContent
 import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
@@ -123,6 +125,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
         // see `FloatingMenu`'s `itemsWithNewBadge` doc.
         if (openSection == "Stewards") gameViewModel.markStewardOpportunitiesSeen()
         if (openSection == "Upgrades") gameViewModel.markUpgradeOpportunitiesSeen()
+        if (openSection == "Achievements") gameViewModel.markAchievementsSeen()
         // The Leaderboard now lives as a tab inside Settings (see
         // SettingsContent's SettingsTab) rather than its own menu section —
         // preload it the moment Settings opens, same eager-prep pattern as
@@ -135,6 +138,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
         buildSet {
             if (gameState.hasUnseenStewardOpportunity()) add("Stewards")
             if (gameState.hasUnseenUpgradeOpportunity()) add("Upgrades")
+            if (gameState.hasUnseenCompletedAchievement()) add("Achievements")
         }
     }
 
@@ -166,6 +170,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                     }
                 }
                 "Unlocks" -> { { UnlocksContent(lairs = gameViewModel.lairs, state = gameState) } }
+                "Achievements" -> { { AchievementsContent(state = gameState) } }
                 "Stewards" -> {
                     {
                         StewardsContent(

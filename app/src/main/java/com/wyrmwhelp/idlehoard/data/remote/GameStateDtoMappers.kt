@@ -35,6 +35,16 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     seenUpgradeOpportunities = seenUpgradeOpportunities.toList(),
     selectedAvatarId = selectedAvatarId,
     totalAdsWatched = totalAdsWatched,
+    highestLairCounts = highestLairCounts,
+    everHiredStewardForLairs = everHiredStewardForLairs.toList(),
+    everMaxedStewardEfficiencyForLairs = everMaxedStewardEfficiencyForLairs.toList(),
+    everMaxedGemEfficiency = everMaxedGemEfficiency,
+    everMaxedEverythingProfit = everMaxedEverythingProfit,
+    everMaxedEverythingSpeed = everMaxedEverythingSpeed,
+    everMaxedAnyLairProfitLine = everMaxedAnyLairProfitLine,
+    everMaxedAnyLairSpeedLine = everMaxedAnyLairSpeedLine,
+    highestGemsEverEarned = highestGemsEverEarned,
+    seenAchievements = seenAchievements.toList(),
 )
 
 private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
@@ -83,6 +93,16 @@ fun GameStateDto.toDomain(): GameState = GameState(
     seenUpgradeOpportunities = seenUpgradeOpportunities.toSet(),
     selectedAvatarId = selectedAvatarId,
     totalAdsWatched = totalAdsWatched,
+    highestLairCounts = highestLairCounts,
+    everHiredStewardForLairs = everHiredStewardForLairs.toSet(),
+    everMaxedStewardEfficiencyForLairs = everMaxedStewardEfficiencyForLairs.toSet(),
+    everMaxedGemEfficiency = everMaxedGemEfficiency,
+    everMaxedEverythingProfit = everMaxedEverythingProfit,
+    everMaxedEverythingSpeed = everMaxedEverythingSpeed,
+    everMaxedAnyLairProfitLine = everMaxedAnyLairProfitLine,
+    everMaxedAnyLairSpeedLine = everMaxedAnyLairSpeedLine,
+    highestGemsEverEarned = highestGemsEverEarned,
+    seenAchievements = seenAchievements.toSet(),
 )
 
 private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(

@@ -27,6 +27,8 @@ import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
+import com.wyrmwhelp.idlehoard.domain.model.achievementIncomeMultiplier
+import com.wyrmwhelp.idlehoard.domain.model.hasUnseenCompletedAchievement
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.unseenUpgradeOpportunities
@@ -237,7 +239,11 @@ class GameEngineTest {
 
         engine.tick(lair.baseProductionSeconds * 3.5)
 
-        val expectedGold = lair.incomePerCycle(1) * 3
+        // Hiring a Steward at all completes the "First Steward" achievement,
+        // adding a small permanent income bonus — thread it through rather
+        // than hardcoding "no bonus", so this test doesn't silently break
+        // every time `Achievements.ALL`'s tuning changes.
+        val expectedGold = lair.incomePerCycle(1, achievementBonusMultiplier = engine.state.value.achievementIncomeMultiplier()) * 3
         assertEquals(expectedGold, engine.state.value.goldPieces, 0.0001)
         assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
         // Steward cycles collect silently and never touch this counter.
@@ -291,7 +297,9 @@ class GameEngineTest {
 
         assertEquals(3600.0, earnings.cappedSeconds, 1.0)
         val expectedCycles = Math.floor(3600.0 / lair.baseProductionSeconds)
-        assertEquals(expectedCycles * lair.incomePerCycle(1), earnings.goldEarned, 0.01)
+        // Hiring a Steward at all completes the "First Steward" achievement — see the similar note above.
+        val achievementMultiplier = engine.state.value.achievementIncomeMultiplier()
+        assertEquals(expectedCycles * lair.incomePerCycle(1, achievementBonusMultiplier = achievementMultiplier), earnings.goldEarned, 0.01)
     }
 
     @Test
@@ -374,8 +382,15 @@ class GameEngineTest {
         engine.startLairLoad("kobold_warren")
         engine.tick(lair.baseProductionSeconds)
 
+        // Buying any permanent boost tier at all completes the "First
+        // Investment" achievement — thread its bonus through rather than
+        // hardcoding "no bonus".
         assertEquals(
-            lair.incomePerCycle(1, profitBoostMultiplier = tier.multiplier),
+            lair.incomePerCycle(
+                1,
+                profitBoostMultiplier = tier.multiplier,
+                achievementBonusMultiplier = engine.state.value.achievementIncomeMultiplier(),
+            ),
             engine.state.value.goldPieces,
             0.0001,
         )
@@ -469,8 +484,15 @@ class GameEngineTest {
 
         engine.tick(lair.baseProductionSeconds)
 
+        // permanentGemBoost2xLevel = 1 also completes the "First
+        // Investment" achievement — thread its bonus through rather than
+        // hardcoding "no bonus".
         assertEquals(
-            lair.incomePerCycle(1, gemBonusMultiplier = gemIncomeMultiplier(10L, platinumGemPercentMultiplier = 2.0)),
+            lair.incomePerCycle(
+                1,
+                gemBonusMultiplier = gemIncomeMultiplier(10L, platinumGemPercentMultiplier = 2.0),
+                achievementBonusMultiplier = engine.state.value.achievementIncomeMultiplier(),
+            ),
             engine.state.value.goldPieces,
             0.0001,
         )
@@ -490,6 +512,14 @@ class GameEngineTest {
         engine.purchaseLair("kobold_warren")
         engine.hireSteward("kobold_warren")
         val goldBefore = engine.state.value.goldPieces
+        // Captured *before* the time skip's own earnings land — this run's
+        // proceeds are big enough to cross a Net Worth achievement
+        // threshold on their own, and the engine (correctly) uses whatever
+        // Achievement Bonus was true going into the transaction, not one a
+        // transaction's own proceeds newly unlock mid-flight. Hiring a
+        // Steward at all completes the "First Steward" achievement — see
+        // the similar note above.
+        val achievementMultiplier = engine.state.value.achievementIncomeMultiplier()
 
         val bought = engine.purchaseTimeSkip(timeSkip)
 
@@ -497,7 +527,7 @@ class GameEngineTest {
         assertEquals(0.0, engine.state.value.platinumPieces, 0.0001)
         val expectedCycles = Math.floor(timeSkip.seconds / lair.baseProductionSeconds)
         assertEquals(
-            goldBefore + expectedCycles * lair.incomePerCycle(1),
+            goldBefore + expectedCycles * lair.incomePerCycle(1, achievementBonusMultiplier = achievementMultiplier),
             engine.state.value.goldPieces,
             0.01,
         )
@@ -531,7 +561,14 @@ class GameEngineTest {
         engine.tick(productionSeconds)
 
         val owned = engine.state.value.ownedLair("kobold_warren")
-        assertEquals(lair.incomePerCycle(1), engine.state.value.goldPieces, 0.0001)
+        // permanentSpeedBoost10xLevel = 2 also completes the "First
+        // Investment" achievement — thread its bonus through rather than
+        // hardcoding "no bonus".
+        assertEquals(
+            lair.incomePerCycle(1, achievementBonusMultiplier = engine.state.value.achievementIncomeMultiplier()),
+            engine.state.value.goldPieces,
+            0.0001,
+        )
         assertFalse(owned.isLoading)
         assertEquals(0, owned.completedLoads)
     }
@@ -1111,7 +1148,11 @@ class GameEngineTest {
         // this exactly like a real per-lair Steward would.
         engine.tick(lair.baseProductionSeconds * 3.5)
 
-        assertEquals(lair.incomePerCycle(1) * 3, engine.state.value.goldPieces, 0.0001)
+        // Earning the Universal Steward (and crossing 10/50/100 ads watched
+        // along the way) also completes several achievements — thread the
+        // resulting bonus through rather than hardcoding "no bonus".
+        val achievementMultiplier = engine.state.value.achievementIncomeMultiplier()
+        assertEquals(lair.incomePerCycle(1, achievementBonusMultiplier = achievementMultiplier) * 3, engine.state.value.goldPieces, 0.0001)
         assertFalse(engine.state.value.ownedLair("kobold_warren").isLoading)
     }
 
@@ -1354,5 +1395,80 @@ class GameEngineTest {
         assertEquals(emptySet<String>(), engine.state.value.seenStewardOpportunities)
         assertEquals(emptySet<String>(), engine.state.value.seenUpgradeOpportunities)
         assertEquals(0, engine.state.value.ownedLair("kobold_warren").stewardEfficiencyLevel)
+    }
+
+    @Test
+    fun `purchaseLairs tracks the highest count ever reached, surviving a Level Up reset`() {
+        engine.loadState(GameState(goldPieces = 1_000_000_000.0, lairs = emptyMap()))
+        engine.purchaseLairs("kobold_warren", 100)
+        assertEquals(100, engine.state.value.highestLairCounts["kobold_warren"])
+
+        engine.loadState(engine.state.value.copy(lifetimeGoldEarned = 1_000_000_000_000_000.0))
+        engine.performLevelUp()
+        assertEquals(1, engine.state.value.ownedLair("kobold_warren").count)
+        assertEquals(100, engine.state.value.highestLairCounts["kobold_warren"])
+
+        // Buying back up to fewer than the old best doesn't lower the recorded max.
+        engine.loadState(engine.state.value.copy(goldPieces = 1_000_000_000.0))
+        engine.purchaseLairs("kobold_warren", 50)
+        assertEquals(51, engine.state.value.ownedLair("kobold_warren").count)
+        assertEquals(100, engine.state.value.highestLairCounts["kobold_warren"])
+    }
+
+    @Test
+    fun `hireSteward and purchaseStewardEfficiencyUpgrade record permanent per-lair achievement progress`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        engine.loadState(
+            GameState(
+                goldPieces = 1_000_000_000_000_000_000.0,
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+            ),
+        )
+        engine.hireSteward("kobold_warren")
+        assertEquals(setOf("kobold_warren"), engine.state.value.everHiredStewardForLairs)
+
+        repeat(StewardEfficiency.MAX_TIER) { engine.purchaseStewardEfficiencyUpgrade("kobold_warren") }
+        assertEquals(setOf("kobold_warren"), engine.state.value.everMaxedStewardEfficiencyForLairs)
+
+        // Both survive a full Account Reset — permanent accomplishments, not run progress.
+        engine.resetProgress()
+        assertEquals(setOf("kobold_warren"), engine.state.value.everHiredStewardForLairs)
+        assertEquals(setOf("kobold_warren"), engine.state.value.everMaxedStewardEfficiencyForLairs)
+    }
+
+    @Test
+    fun `maxing a per-lair or Everything Gold upgrade line, or Gem Efficiency, permanently flips the matching achievement flag`() {
+        engine.loadState(GameState(goldPieces = 1_000_000_000_000_000_000.0, gems = Long.MAX_VALUE / 2))
+        repeat(GpUpgrades.LAIR_LINE_PHASES.totalTiers) { engine.purchaseGpLairUpgrade("kobold_warren", UpgradeCategory.PROFIT) }
+        assertTrue(engine.state.value.everMaxedAnyLairProfitLine)
+        assertFalse(engine.state.value.everMaxedAnyLairSpeedLine)
+
+        repeat(GpUpgrades.EVERYTHING_PROFIT_PHASES.totalTiers) { engine.purchaseGpEverythingUpgrade(UpgradeCategory.PROFIT) }
+        assertTrue(engine.state.value.everMaxedEverythingProfit)
+        assertFalse(engine.state.value.everMaxedEverythingSpeed)
+
+        repeat(GemUpgrades.PHASES.totalTiers) { engine.purchaseGemEfficiencyUpgrade() }
+        assertTrue(engine.state.value.everMaxedGemEfficiency)
+    }
+
+    @Test
+    fun `performLevelUp records the largest Gem batch ever granted`() {
+        engine.loadState(GameState(lifetimeGoldEarned = 1_000_000_000_000_000.0)) // -> 150 gems
+        engine.performLevelUp()
+        assertEquals(150L, engine.state.value.highestGemsEverEarned)
+
+        engine.loadState(engine.state.value.copy(lifetimeGoldEarned = 4_000_000_000_000_000.0)) // -> 300 gems
+        engine.performLevelUp()
+        assertEquals(300L, engine.state.value.highestGemsEverEarned)
+    }
+
+    @Test
+    fun `markAchievementsSeen clears the badge for every currently-complete achievement`() {
+        engine.loadState(GameState(totalLevelUps = 1))
+        assertTrue(engine.state.value.hasUnseenCompletedAchievement())
+
+        engine.markAchievementsSeen()
+
+        assertFalse(engine.state.value.hasUnseenCompletedAchievement())
     }
 }

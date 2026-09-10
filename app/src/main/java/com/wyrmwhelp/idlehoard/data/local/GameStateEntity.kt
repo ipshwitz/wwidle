@@ -75,6 +75,32 @@ data class GameStateEntity(
     val selectedAvatarId: String? = null,
     /** [com.wyrmwhelp.idlehoard.domain.model.GameState.totalAdsWatched] — a plain `Int` column. */
     val totalAdsWatched: Int = 0,
+    /**
+     * [com.wyrmwhelp.idlehoard.domain.model.GameState.highestLairCounts]
+     * JSON-encoded as a single column (a small `{lairId: count}` object —
+     * see `GameStateMappers.kt`'s (de)serialization), same reasoning as
+     * [activeTemporaryBoostsJson]. `"{}"` for an empty map, never
+     * blank/null.
+     */
+    val highestLairCountsJson: String = "{}",
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.everHiredStewardForLairs] JSON-encoded as a single column (a small list of lair id strings), same shape as [seenStewardOpportunitiesJson]. `"[]"` for an empty set, never blank/null. */
+    val everHiredStewardForLairsJson: String = "[]",
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.everMaxedStewardEfficiencyForLairs] JSON-encoded as a single column, same shape as [everHiredStewardForLairsJson]. `"[]"` for an empty set, never blank/null. */
+    val everMaxedStewardEfficiencyForLairsJson: String = "[]",
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.everMaxedGemEfficiency] — a plain `Boolean` column. */
+    val everMaxedGemEfficiency: Boolean = false,
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.everMaxedEverythingProfit] — a plain `Boolean` column. */
+    val everMaxedEverythingProfit: Boolean = false,
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.everMaxedEverythingSpeed] — a plain `Boolean` column. */
+    val everMaxedEverythingSpeed: Boolean = false,
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.everMaxedAnyLairProfitLine] — a plain `Boolean` column. */
+    val everMaxedAnyLairProfitLine: Boolean = false,
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.everMaxedAnyLairSpeedLine] — a plain `Boolean` column. */
+    val everMaxedAnyLairSpeedLine: Boolean = false,
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.highestGemsEverEarned] — a plain `Long` column. */
+    val highestGemsEverEarned: Long = 0,
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.seenAchievements] JSON-encoded as a single column (a small list of achievement id strings), same shape as [seenStewardOpportunitiesJson]. `"[]"` for an empty set, never blank/null. */
+    val seenAchievementsJson: String = "[]",
 ) {
     companion object {
         const val SINGLETON_ID = 0

@@ -39,6 +39,16 @@ fun GameState.toEntities(): Pair<GameStateEntity, List<OwnedLairEntity>> {
         seenUpgradeOpportunitiesJson = Json.encodeToString(seenUpgradeOpportunities.toList()),
         selectedAvatarId = selectedAvatarId,
         totalAdsWatched = totalAdsWatched,
+        highestLairCountsJson = Json.encodeToString(highestLairCounts),
+        everHiredStewardForLairsJson = Json.encodeToString(everHiredStewardForLairs.toList()),
+        everMaxedStewardEfficiencyForLairsJson = Json.encodeToString(everMaxedStewardEfficiencyForLairs.toList()),
+        everMaxedGemEfficiency = everMaxedGemEfficiency,
+        everMaxedEverythingProfit = everMaxedEverythingProfit,
+        everMaxedEverythingSpeed = everMaxedEverythingSpeed,
+        everMaxedAnyLairProfitLine = everMaxedAnyLairProfitLine,
+        everMaxedAnyLairSpeedLine = everMaxedAnyLairSpeedLine,
+        highestGemsEverEarned = highestGemsEverEarned,
+        seenAchievementsJson = Json.encodeToString(seenAchievements.toList()),
     )
     val lairEntities = lairs.values.map { it.toEntity() }
     return stateEntity to lairEntities
@@ -85,6 +95,16 @@ fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = G
     seenUpgradeOpportunities = Json.decodeFromString<List<String>>(seenUpgradeOpportunitiesJson).toSet(),
     selectedAvatarId = selectedAvatarId,
     totalAdsWatched = totalAdsWatched,
+    highestLairCounts = Json.decodeFromString<Map<String, Int>>(highestLairCountsJson),
+    everHiredStewardForLairs = Json.decodeFromString<List<String>>(everHiredStewardForLairsJson).toSet(),
+    everMaxedStewardEfficiencyForLairs = Json.decodeFromString<List<String>>(everMaxedStewardEfficiencyForLairsJson).toSet(),
+    everMaxedGemEfficiency = everMaxedGemEfficiency,
+    everMaxedEverythingProfit = everMaxedEverythingProfit,
+    everMaxedEverythingSpeed = everMaxedEverythingSpeed,
+    everMaxedAnyLairProfitLine = everMaxedAnyLairProfitLine,
+    everMaxedAnyLairSpeedLine = everMaxedAnyLairSpeedLine,
+    highestGemsEverEarned = highestGemsEverEarned,
+    seenAchievements = Json.decodeFromString<List<String>>(seenAchievementsJson).toSet(),
 )
 
 private fun OwnedLairEntity.toDomain(): OwnedLair = OwnedLair(

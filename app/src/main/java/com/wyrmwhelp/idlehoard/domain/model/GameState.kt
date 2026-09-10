@@ -166,6 +166,61 @@ data class GameState(
      * same category as [selectedAvatarId].
      */
     val totalAdsWatched: Int = 0,
+    /**
+     * The highest ownership count ever reached for each lair id, across
+     * every run — unlike the live count on [lairs] (which resets to the
+     * starting shape on a Level Up or Account Reset), this only ever
+     * grows, updated in `GameEngine.purchaseLairs` whenever a purchase
+     * pushes a lair's count past its previous best. Backs every per-lair
+     * ownership [Achievement] — see `domain/model/Achievement.kt` — so
+     * reaching "own 10,000 Kobold Warrens" once stays true forever, even
+     * after the very next Level Up sends the live count back to 1.
+     */
+    val highestLairCounts: Map<String, Int> = emptyMap(),
+    /**
+     * Lair ids where a real per-lair Steward has been hired at least once,
+     * ever — unlike [OwnedLair.hasSteward] (resets alongside [lairs]),
+     * this only ever grows. Backs the "First Steward"/"Full Staff"
+     * [Achievement]s.
+     */
+    val everHiredStewardForLairs: Set<String> = emptySet(),
+    /**
+     * Lair ids where Steward Efficiency (`domain/model/StewardEfficiency.kt`)
+     * has reached its max tier at least once, ever — unlike
+     * [OwnedLair.stewardEfficiencyLevel] (resets alongside [lairs]), this
+     * only ever grows. Backs the "Efficiency Expert"/"Master of
+     * Efficiency" [Achievement]s.
+     */
+    val everMaxedStewardEfficiencyForLairs: Set<String> = emptySet(),
+    /** Whether the Gem-spent "Gem Efficiency" line (`GemUpgrades.kt`) has ever reached its max tier — unlike [gemEfficiencyLevel] (resets with [gems]), this only ever flips true, never back. */
+    val everMaxedGemEfficiency: Boolean = false,
+    /** Whether the "Everything Profit" Gold Pieces line (`GpUpgrades.kt`) has ever reached its max tier — unlike [everythingProfitUpgradeLevel] (resets on a Level Up), this only ever flips true. */
+    val everMaxedEverythingProfit: Boolean = false,
+    /** Whether the "Everything Speed" Gold Pieces line (`GpUpgrades.kt`) has ever reached its max tier — see [everMaxedEverythingProfit], same idea. */
+    val everMaxedEverythingSpeed: Boolean = false,
+    /** Whether *any* single lair's own Profit line (`GpUpgrades.kt`) has ever reached its max tier — unlike [OwnedLair.profitUpgradeLevel] (resets alongside [lairs]), this only ever flips true. */
+    val everMaxedAnyLairProfitLine: Boolean = false,
+    /** Whether *any* single lair's own Speed line (`GpUpgrades.kt`) has ever reached its max tier — see [everMaxedAnyLairProfitLine], same idea. */
+    val everMaxedAnyLairSpeedLine: Boolean = false,
+    /**
+     * The largest Gem batch a single Level Up has ever granted — unlike
+     * [gems] itself (replaced, not accumulated, by every Level Up — see
+     * this class's [gems] doc), this only ever grows, updated in
+     * `GameEngine.performLevelUp`. Backs the "Gem Collector"/"Gem
+     * Hoarder"/"Gem Tycoon" [Achievement]s.
+     */
+    val highestGemsEverEarned: Long = 0,
+    /**
+     * [Achievement] ids the player has already had a chance to notice are
+     * complete (i.e. the Achievements menu section has been opened since
+     * they completed) — same "availability, not visibility... opened the
+     * section since" shape as [seenStewardOpportunities], but **not**
+     * cleared on a Level Up or Account Reset, since achievements
+     * themselves never un-complete either. See
+     * `GameStateExtensions.kt`'s `hasUnseenCompletedAchievement`/
+     * `withAchievementsSeen`.
+     */
+    val seenAchievements: Set<String> = emptySet(),
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

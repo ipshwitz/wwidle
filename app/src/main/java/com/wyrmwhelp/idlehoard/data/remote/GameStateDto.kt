@@ -34,6 +34,16 @@ data class GameStateDto(
     @SerialName("seen_upgrade_opportunities") val seenUpgradeOpportunities: List<String> = emptyList(),
     @SerialName("selected_avatar_id") val selectedAvatarId: String? = null,
     @SerialName("total_ads_watched") val totalAdsWatched: Int = 0,
+    @SerialName("highest_lair_counts") val highestLairCounts: Map<String, Int> = emptyMap(),
+    @SerialName("ever_hired_steward_for_lairs") val everHiredStewardForLairs: List<String> = emptyList(),
+    @SerialName("ever_maxed_steward_efficiency_for_lairs") val everMaxedStewardEfficiencyForLairs: List<String> = emptyList(),
+    @SerialName("ever_maxed_gem_efficiency") val everMaxedGemEfficiency: Boolean = false,
+    @SerialName("ever_maxed_everything_profit") val everMaxedEverythingProfit: Boolean = false,
+    @SerialName("ever_maxed_everything_speed") val everMaxedEverythingSpeed: Boolean = false,
+    @SerialName("ever_maxed_any_lair_profit_line") val everMaxedAnyLairProfitLine: Boolean = false,
+    @SerialName("ever_maxed_any_lair_speed_line") val everMaxedAnyLairSpeedLine: Boolean = false,
+    @SerialName("highest_gems_ever_earned") val highestGemsEverEarned: Long = 0,
+    @SerialName("seen_achievements") val seenAchievements: List<String> = emptyList(),
 )
 
 /** JSON mirror of [com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost]. */

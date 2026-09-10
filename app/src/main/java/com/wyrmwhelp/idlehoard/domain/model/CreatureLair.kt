@@ -120,12 +120,15 @@ data class CreatureLair(
      * `profitBoostMultiplier(GameState.profitBoostLevel)` in `Boosts.kt`),
      * the temporary Gem bonus via [gemBonusMultiplier] (from
      * `gemIncomeMultiplier(GameState.gems, GameState.gemEfficiencyLevel)`
-     * in `LevelUp.kt`), and the manually-bought Gold Pieces upgrade bonus
+     * in `LevelUp.kt`), the manually-bought Gold Pieces upgrade bonus
      * via [upgradeProfitMultiplier] (this lair's own Profit line combined
-     * with the "Everything Profit" line — see `GpUpgrades.kt`) — callers
-     * that don't pass one of these (existing tests, mainly) get the
-     * no-bonus default of 1.0 for it. Speed-type milestone rungs have no
-     * effect here — see [effectiveProductionSeconds] for those.
+     * with the "Everything Profit" line — see `GpUpgrades.kt`), and the
+     * permanent "Achievement Bonus" via [achievementBonusMultiplier]
+     * (from `GameState.achievementIncomeMultiplier()` — see
+     * `domain/model/Achievement.kt`) — callers that don't pass one of
+     * these (existing tests, mainly) get the no-bonus default of 1.0 for
+     * it. Speed-type milestone rungs have no effect here — see
+     * [effectiveProductionSeconds] for those.
      */
     fun incomePerCycle(
         unitsOwned: Int,
@@ -133,9 +136,10 @@ data class CreatureLair(
         profitBoostMultiplier: Double = 1.0,
         gemBonusMultiplier: Double = 1.0,
         upgradeProfitMultiplier: Double = 1.0,
+        achievementBonusMultiplier: Double = 1.0,
     ): Double =
         baseIncomeGp * unitsOwned * individualIncomeMilestoneMultiplier(unitsOwned) *
-            globalIncomeMultiplier * profitBoostMultiplier * gemBonusMultiplier * upgradeProfitMultiplier
+            globalIncomeMultiplier * profitBoostMultiplier * gemBonusMultiplier * upgradeProfitMultiplier * achievementBonusMultiplier
 
     /**
      * This lair's actual cycle time at [unitsOwned] owned, after the

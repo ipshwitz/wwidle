@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyrmwhelp.idlehoard.domain.model.GpUpgrades
+import com.wyrmwhelp.idlehoard.domain.model.achievementIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.activeTemporaryBoostsRemaining
 import com.wyrmwhelp.idlehoard.domain.model.availableSpeedBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.availableIncomeBoostAdSlots
@@ -63,6 +64,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
     val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
     val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
+    val achievementMultiplier = state.achievementIncomeMultiplier()
 
     // Total income rate from managed lairs only — a real per-lair Steward,
     // or the account-wide Universal Steward (see
@@ -76,7 +78,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
         if (state.isLairManaged(owned)) {
             val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
             val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
-            lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier) /
+            lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier, achievementMultiplier) /
                 lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier)
         } else {
             0.0
@@ -127,6 +129,7 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                             profitBoostMultiplier = profitMultiplier,
                             gemBonusMultiplier = gemMultiplier,
                             upgradeProfitMultiplier = upgradeProfitMultiplier,
+                            achievementBonusMultiplier = achievementMultiplier,
                             hasUniversalSteward = state.hasUniversalSteward(),
                         )
                     }

@@ -197,6 +197,7 @@ fun LairCard(
     profitBoostMultiplier: Double = 1.0,
     gemBonusMultiplier: Double = 1.0,
     upgradeProfitMultiplier: Double = 1.0,
+    achievementBonusMultiplier: Double = 1.0,
     isManaged: Boolean = false,
 ) {
     // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
@@ -290,7 +291,7 @@ fun LairCard(
                     }
                     Text(
                         text = if (owned.count > 0) {
-                            "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier, gemBonusMultiplier, upgradeProfitMultiplier))} gp / ${CycleTimeFormat.format(productionSeconds)}"
+                            "${GoldFormat.format(lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitBoostMultiplier, gemBonusMultiplier, upgradeProfitMultiplier, achievementBonusMultiplier))} gp / ${CycleTimeFormat.format(productionSeconds)}"
                         } else {
                             "Claim to begin"
                         },

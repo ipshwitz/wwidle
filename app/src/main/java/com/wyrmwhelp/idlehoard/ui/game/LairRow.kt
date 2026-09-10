@@ -83,6 +83,7 @@ fun LairRow(
     profitBoostMultiplier: Double = 1.0,
     gemBonusMultiplier: Double = 1.0,
     upgradeProfitMultiplier: Double = 1.0,
+    achievementBonusMultiplier: Double = 1.0,
     hasUniversalSteward: Boolean = false,
 ) {
     var coinBurstTrigger by remember { mutableIntStateOf(0) }
@@ -139,6 +140,7 @@ fun LairRow(
             profitBoostMultiplier = profitBoostMultiplier,
             gemBonusMultiplier = gemBonusMultiplier,
             upgradeProfitMultiplier = upgradeProfitMultiplier,
+            achievementBonusMultiplier = achievementBonusMultiplier,
             isManaged = isManaged,
         )
     }
@@ -166,6 +168,8 @@ private fun lairPortraitRes(lairId: String): Int? = when (lairId) {
     "troll_warren" -> R.drawable.lair_troll_warren
     "wyvern_aerie" -> R.drawable.lair_wyvern_aerie
     "young_dragons_lair" -> R.drawable.lair_young_dragons_lair
+    "adult_dragons_lair" -> R.drawable.lair_adult_dragons_lair
+    "ancient_dragons_hoard" -> R.drawable.lair_ancient_dragons_hoard
     else -> null
 }
 

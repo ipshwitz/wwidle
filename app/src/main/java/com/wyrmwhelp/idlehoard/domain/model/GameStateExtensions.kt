@@ -206,3 +206,35 @@ fun GameState.hasUnseenUpgradeOpportunity(catalog: List<CreatureLair> = Creature
  */
 fun GameState.withUpgradeOpportunitiesSeen(catalog: List<CreatureLair> = CreatureLairCatalog.lairs): GameState =
     copy(seenUpgradeOpportunities = seenUpgradeOpportunities + upgradeOpportunities(catalog))
+
+/** Ids of every [Achievement] currently complete — see `domain/model/Achievement.kt`. */
+fun GameState.completedAchievementIds(): Set<String> =
+    Achievements.ALL.filter { it.achievement.isCompleted(this) }.map { it.achievement.id }.toSet()
+
+/**
+ * The account-wide "Achievement Bonus" — the sum of [Achievement.bonusPercent]
+ * across every currently-complete achievement (see [completedAchievementIds]).
+ * Permanent: unlike every Gold/Gem upgrade, this never resets on a Level Up
+ * or Account Reset, since a completed achievement never un-completes.
+ */
+fun GameState.achievementBonusPercent(): Double =
+    Achievements.ALL.filter { it.achievement.isCompleted(this) }.sumOf { it.achievement.bonusPercent }
+
+/** [achievementBonusPercent] as the multiplier [CreatureLair.incomePerCycle] actually applies. */
+fun GameState.achievementIncomeMultiplier(): Double = 1.0 + achievementBonusPercent() / 100.0
+
+/** Currently-complete achievements the player hasn't had a chance to notice yet — see [GameState.seenAchievements]. */
+fun GameState.unseenCompletedAchievements(): Set<String> = completedAchievementIds() - seenAchievements
+
+/** Whether the Achievements badge should show at all — see [unseenCompletedAchievements]. */
+fun GameState.hasUnseenCompletedAchievement(): Boolean = unseenCompletedAchievements().isNotEmpty()
+
+/**
+ * Marks every *currently* complete achievement as seen — called once when
+ * the player opens the Achievements menu section
+ * (`GameViewModel.markAchievementsSeen`). Unlike
+ * [withStewardOpportunitiesSeen]/[withUpgradeOpportunitiesSeen], this set is
+ * never cleared by a Level Up or Account Reset (see [GameState.seenAchievements]'s
+ * doc) — a completed achievement can't become un-seen either.
+ */
+fun GameState.withAchievementsSeen(): GameState = copy(seenAchievements = seenAchievements + completedAchievementIds())
