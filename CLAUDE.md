@@ -194,11 +194,11 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.48.0** (Offline Cap upgrade — a new Shop
-     Permanent-tab purchase raising `GameState.offlineCapHours` through
-     an ordered ladder, 4h → 8h → 12h, bought with Platinum Pieces — see
-     `domain/model/OfflineCapUpgrade.kt` and the Platinum Upgrades bullet
-     under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.49.0** (Featured Lair mini-event — a random
+     lair flashes on the main screen for a short manual-tap challenge,
+     3x profit per tap plus a bonus for clearing the goal — see
+     `domain/model/FeaturedLairEvent.kt` and the bullet under Tech stack
+     and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1431,6 +1431,123 @@ These apply to every change made in this repo, however small:
       Sharp-Eyed" / "Kobold Warren — Owned: 1" and "Baldric Ironsong,
       the Immortal" / "Ancient Dragon's Hoard — Owned: 1", each still
       correctly paired with its own "Steward Hired" badge.
+  - **Featured Lair mini-event (v0.49.0)** (`domain/model/FeaturedLairEvent.kt`)
+    — a short manual-tap challenge added specifically to give active play a
+    reason to exist again once a lair is Steward-managed and auto-collecting
+    on its own with nothing left to tap. Built from an explicit multi-round
+    design discussion (not guessed) before any code — confirmed answers:
+    any owned lair is eligible (even Steward-less, "to encourage
+    interactivity ... helps users just starting out"), the trigger is
+    "purely random. No reason to scale at all" (not tied to playtime or
+    progress), only one lair can be Featured app-wide at a time with no
+    immediate repeat, missing the tap goal keeps every tapped gold piece
+    with no separate failure penalty, and a haptic buzz on every tap was
+    explicitly requested — this app's first use of device haptics.
+    - **The mechanic**: at a purely random interval
+      (`FEATURED_LAIR_MIN_INTERVAL_SECONDS`/`_MAX_SIECONDS`, 3–8 minutes,
+      first-pass placeholder bounds), one currently-owned lair "goes
+      Featured" — `LairCard`'s border pulses gold-to-white
+      (`rememberInfiniteTransition`/`animateColor`, always running so the
+      animation's own state doesn't get torn down/rebuilt every time an
+      event starts and ends — only which color is actually *used* depends
+      on `isFeatured`) and both the avatar and the card become tappable
+      regardless of Steward/load state. Every tap during the
+      `FEATURED_LAIR_WINDOW_SECONDS` (12s) window earns
+      `FEATURED_LAIR_TAP_PROFIT_MULTIPLIER` (3x) that lair's own per-cycle
+      profit, credited immediately via `GameEngine.tapFeaturedLair` — not
+      deferred to a success/failure resolution, which is *why* missing the
+      goal can't be a real "failure": every gold piece is already banked as
+      it's tapped. Landing `FEATURED_LAIR_TAPS_REQUIRED` (20) taps before
+      the window closes additionally grants
+      `FEATURED_LAIR_BONUS_PRODUCTION_SECONDS` (1,800s/30 min) of that
+      lair's own production, instantly, via a new
+      `GameEngine.grantInstantProductionForLair` — the single-lair sibling
+      of `grantInstantProduction` (which the Shop's Time Skips use
+      account-wide) — and ends the event right there instead of waiting
+      for the window to close on its own.
+    - **No separate "level" concept exists in this game to scale the
+      trigger against** — the original idea floated scaling frequency with
+      playtime/progress, but the explicit final answer was "just go with
+      purely random," so `pickFeaturedLairId`/`randomFeaturedLairInterval`
+      take no progress input at all, only an optional seedable `Random`
+      (same "first randomness in the domain layer needs a testable seed"
+      pattern `StewardNames.randomStewardName` established) and the
+      previous lair id to avoid an immediate repeat.
+    - **Lifecycle lives in the engine's tick loop**, not a separate timer —
+      `GameEngine.tick` now runs a new private `updateFeaturedLairEvent`
+      right after `advance()` on every tick: it clears an expired,
+      unsuccessful event (whatever was tapped is already credited, so
+      there's nothing left to do but end it and reschedule) and, once
+      `GameState.nextFeaturedLairEventAt` arrives, starts a fresh one. A
+      brand-new session's null `nextFeaturedLairEventAt` schedules the
+      *first* roll rather than firing immediately, so the event can't proc
+      before the player's even gotten their bearings.
+    - **Deliberately not persisted at all** — none of the five new
+      `GameState` fields (`featuredLairId`/`featuredLairStartedAt`/
+      `featuredLairTapCount`/`lastFeaturedLairId`/`nextFeaturedLairEventAt`)
+      exist on `GameStateEntity`/`GameStateDto`; they simply default back
+      to null/0 every time a save round-trips through Room or Supabase.
+      Same simplification already established for `BuyQuantity` resetting
+      to `X1` every launch — an in-progress event or its schedule is a
+      few-second session moment, not save-worthy progress, so it silently
+      rerolls on relaunch rather than needing a Room version bump, a
+      migration, or any cross-device sync story (which wouldn't make sense
+      for a real-time tap challenge anyway).
+    - **UI**: `LairRow` (not `LairCard`, which has an established
+      fixed-height/`IntrinsicSize` layout too fragile to add a persistent
+      new element into without repeating past gotchas — see that file's
+      own notes) renders a new private `FeaturedLairProgressBar` below the
+      whole row, only while `isFeatured` is true, tracking
+      `featuredTapCount`/`FEATURED_LAIR_TAPS_REQUIRED`. Tapping (avatar or
+      card, both share `LairRow`'s hoisted `handleTap`) calls
+      `GameViewModel.tapFeaturedLair`, fires
+      `LocalHapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)`
+      every tap (no `VIBRATE` manifest permission needed — unlike a raw
+      `Vibrator`/`VibrationEffect` call, Compose's haptic feedback API is
+      mediated through the view/input framework), and — only on the exact
+      tap that completes the challenge — bumps the same `coinBurstTrigger`
+      the completed-load `CoinBurstOverlay` already uses, rather than
+      building a second, bigger "coins explode all over the screen" effect
+      from scratch; this app's stated art style ("Canvas for animation, no
+      sprite pack," reuse over duplication) made the existing burst the
+      pragmatic choice. `GameViewModel.tapFeaturedLair` is a deliberate
+      exception to this class's usual "thin wrapper returns Unit"
+      convention — it returns whether *this* tap was the one that
+      completed the challenge, since `LairRow` needs that synchronously to
+      decide whether to fire the success burst, not just "did anything
+      happen."
+    - **Explicitly scoped to Phase 1 — no push notification yet.** The
+      original design discussion also covered a "5 minutes until a lair
+      goes Featured" FOMO warning that reaches the player even when the
+      app is closed, deliberately vague about which lair (kept as
+      suspense, per explicit answer). That's real net-new infrastructure
+      this app doesn't have at all — a `POST_NOTIFICATIONS` runtime
+      permission, `WorkManager`/`AlarmManager` scheduling, and a
+      *pre-rolled* next-event time instead of the live random roll
+      described above (a background notification can't know "isAfter(now)"
+      live the way the tick loop does) — and was deliberately deferred
+      rather than built alongside the core mechanic, so the tap
+      challenge's own numbers (20 taps/12s, 3x profit, 30-min bonus) could
+      ship and be played first. See Open Questions.
+    - **Verified**: `GameEngineTest.kt`/`FeaturedLairEventTest.kt` cover the
+      first-roll scheduling delay, an event starting on the scheduled lair,
+      tap crediting/outcome (`NOT_ACTIVE`/`TAPPED`/`COMPLETED`), a stale tap
+      after the window closes, the success bonus math (tap gold plus the
+      single-lair instant-production credit), unsuccessful expiry via
+      `tick`, and that both `performLevelUp`/`resetProgress` clear an
+      in-progress event and its schedule (consistent with not persisting
+      any of it — a fresh session always starts with none of this set, so
+      there's nothing to explicitly carry over the way Platinum/Achievement
+      state is). Live on-device: seeded `featuredLairId`/`featuredLairStartedAt`
+      directly via a Room-adjacent in-memory state edit was impractical
+      given the fields aren't persisted at all, so this was instead
+      verified by waiting out the real random interval on a live install —
+      Kobold Warren's card began pulsing gold/white, tapping it (avatar and
+      card both) incremented the "Tap! N / 20" bar and credited gold at
+      exactly 3x its normal per-cycle rate each time, a real haptic buzz
+      fired on every tap, and landing the 20th tap fired the existing coin
+      burst, credited the 30-minute production bonus into the visible gold
+      total, and cleared the flashing border immediately.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,
@@ -3088,6 +3205,17 @@ we'll pin these down as we build each system.
 
 ## Open questions / not yet decided
 
+- **Featured Lair "coming up in 5 minutes" push notification — deliberately
+  deferred (Phase 2)**, per explicit design discussion before v0.49.0's
+  Featured Lair mini-event (see that bullet under Tech stack) shipped.
+  Needs real infrastructure this app doesn't have at all yet: a
+  `POST_NOTIFICATIONS` runtime permission (first time this app would ask
+  for it), `WorkManager`/`AlarmManager` to fire a notification while the
+  process is dead, and a *pre-rolled* next-event time (the live
+  `nextFeaturedLairEventAt` roll the tick loop uses today can't be read by
+  something scheduling a reminder 5 minutes ahead of time while the app
+  is closed). Copy should stay vague about which lair, per explicit
+  answer ("It should be vague") — pure FOMO, not a lair-specific teaser.
 - Whelp/Wyrm collectible system mechanics (how it interacts with lairs)
 - Full currency list — now three, all wired into `GameState`: Gold Pieces
   (primary), Platinum Pieces (premium — the naming question is settled,

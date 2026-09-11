@@ -3,6 +3,17 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.49.0] - 2026-09-11 9:40 AM EDT
+
+- Added the Featured Lair mini-event: at random, one of your owned lairs
+  starts flashing gold on the main screen. Tap it — any lair, with or
+  without a Steward — and every manual tap earns 3x that lair's normal
+  profit, with a small progress bar tracking your taps and a buzz on
+  every hit. Land 20 taps within 12 seconds and you get a bonus of 30
+  minutes of that lair's production on top, instantly. Miss the window
+  and you still keep every gold piece you tapped out — there's no
+  penalty for trying, only a missed bonus.
+
 ## [0.48.0] - 2026-09-10 9:15 PM EDT
 
 - Added an Offline Cap upgrade to the Shop's Permanent tab: raises how

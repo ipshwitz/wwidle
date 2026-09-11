@@ -3,6 +3,11 @@ package com.wyrmwhelp.idlehoard.domain.engine
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
 import com.wyrmwhelp.idlehoard.domain.model.GameState
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_BONUS_PRODUCTION_SECONDS
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_TAPS_REQUIRED
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_TAP_PROFIT_MULTIPLIER
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_WINDOW_SECONDS
+import com.wyrmwhelp.idlehoard.domain.model.FeaturedLairTapOutcome
 import com.wyrmwhelp.idlehoard.domain.model.OFFLINE_CAP_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
@@ -35,6 +40,7 @@ import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.unseenUpgradeOpportunities
 import java.time.Instant
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -450,6 +456,133 @@ class GameEngineTest {
 
         engine.resetProgress()
         assertEquals(raisedCap, engine.state.value.offlineCapHours, 0.0001)
+    }
+
+    @Test
+    fun `a fresh session schedules the first Featured Lair roll instead of starting one immediately`() {
+        val now = Instant.now()
+
+        engine.tick(1.0, now, Random(42))
+
+        assertNull(engine.state.value.featuredLairId)
+        val scheduledAt = engine.state.value.nextFeaturedLairEventAt
+        assertNotNull(scheduledAt)
+        assertTrue(scheduledAt!!.isAfter(now))
+    }
+
+    @Test
+    fun `a Featured Lair event starts once the scheduled time arrives, on an owned lair`() {
+        val now = Instant.now()
+        engine.tick(1.0, now, Random(42))
+        val scheduledAt = engine.state.value.nextFeaturedLairEventAt!!
+
+        engine.tick(1.0, scheduledAt.plusSeconds(1), Random(42))
+
+        // A fresh save only owns Kobold Warren, so it's the only real pick.
+        assertEquals("kobold_warren", engine.state.value.featuredLairId)
+        assertNotNull(engine.state.value.featuredLairStartedAt)
+        assertEquals(0, engine.state.value.featuredLairTapCount)
+    }
+
+    @Test
+    fun `tapping a lair that is not currently Featured does nothing`() {
+        val outcome = engine.tapFeaturedLair("kobold_warren")
+
+        assertEquals(FeaturedLairTapOutcome.NOT_ACTIVE, outcome)
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+    }
+
+    @Test
+    fun `tapping the Featured lair credits 3x its per-cycle profit and increments the tap count`() {
+        val now = Instant.now()
+        engine.loadState(GameState(featuredLairId = "kobold_warren", featuredLairStartedAt = now))
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        val expectedGold = FEATURED_LAIR_TAP_PROFIT_MULTIPLIER * lair.incomePerCycle(1)
+
+        val outcome = engine.tapFeaturedLair("kobold_warren", now.plusSeconds(1))
+
+        assertEquals(FeaturedLairTapOutcome.TAPPED, outcome)
+        assertEquals(expectedGold, engine.state.value.goldPieces, 0.0001)
+        assertEquals(1, engine.state.value.featuredLairTapCount)
+    }
+
+    @Test
+    fun `a stale tap after the window has already closed does not count`() {
+        val now = Instant.now()
+        engine.loadState(GameState(featuredLairId = "kobold_warren", featuredLairStartedAt = now))
+
+        val outcome = engine.tapFeaturedLair("kobold_warren", now.plusSeconds(FEATURED_LAIR_WINDOW_SECONDS + 1))
+
+        assertEquals(FeaturedLairTapOutcome.NOT_ACTIVE, outcome)
+        assertEquals(0.0, engine.state.value.goldPieces, 0.0001)
+    }
+
+    @Test
+    fun `landing the required taps before the window closes grants a bonus and reschedules the next event`() {
+        val lair = CreatureLairCatalog.get("kobold_warren")
+        val now = Instant.now()
+        engine.loadState(GameState(featuredLairId = "kobold_warren", featuredLairStartedAt = now))
+
+        var lastOutcome = FeaturedLairTapOutcome.NOT_ACTIVE
+        repeat(FEATURED_LAIR_TAPS_REQUIRED) {
+            lastOutcome = engine.tapFeaturedLair("kobold_warren", now.plusMillis(100))
+        }
+
+        val tapGoldTotal = FEATURED_LAIR_TAPS_REQUIRED * FEATURED_LAIR_TAP_PROFIT_MULTIPLIER * lair.incomePerCycle(1)
+        val productionSeconds = lair.effectiveProductionSeconds(1)
+        val bonusCycles = Math.floor(FEATURED_LAIR_BONUS_PRODUCTION_SECONDS / productionSeconds)
+        val expectedTotal = tapGoldTotal + bonusCycles * lair.incomePerCycle(1)
+
+        assertEquals(FeaturedLairTapOutcome.COMPLETED, lastOutcome)
+        assertEquals(expectedTotal, engine.state.value.goldPieces, 0.01)
+        assertNull(engine.state.value.featuredLairId)
+        assertEquals(0, engine.state.value.featuredLairTapCount)
+        assertEquals("kobold_warren", engine.state.value.lastFeaturedLairId)
+        assertNotNull(engine.state.value.nextFeaturedLairEventAt)
+    }
+
+    @Test
+    fun `an unsuccessful event expires on its own tick, keeping whatever was already tapped out`() {
+        val now = Instant.now()
+        engine.loadState(GameState(featuredLairId = "kobold_warren", featuredLairStartedAt = now, featuredLairTapCount = 5))
+
+        engine.tick(1.0, now.plusSeconds(FEATURED_LAIR_WINDOW_SECONDS + 1), Random(1))
+
+        assertNull(engine.state.value.featuredLairId)
+        assertEquals(0, engine.state.value.featuredLairTapCount)
+        assertEquals("kobold_warren", engine.state.value.lastFeaturedLairId)
+        assertNotNull(engine.state.value.nextFeaturedLairEventAt)
+    }
+
+    @Test
+    fun `performLevelUp and resetProgress both clear any in-progress Featured Lair event and its schedule`() {
+        val now = Instant.now()
+        engine.loadState(
+            GameState(
+                lifetimeGoldEarned = 1_000_000_000_000_000.0,
+                featuredLairId = "kobold_warren",
+                featuredLairStartedAt = now,
+                featuredLairTapCount = 5,
+                lastFeaturedLairId = "giant_rat_burrow",
+                nextFeaturedLairEventAt = now.plusSeconds(60),
+            ),
+        )
+
+        engine.performLevelUp()
+        assertNull(engine.state.value.featuredLairId)
+        assertNull(engine.state.value.nextFeaturedLairEventAt)
+
+        engine.loadState(
+            engine.state.value.copy(
+                featuredLairId = "kobold_warren",
+                featuredLairStartedAt = now,
+                featuredLairTapCount = 5,
+                nextFeaturedLairEventAt = now.plusSeconds(60),
+            ),
+        )
+        engine.resetProgress()
+        assertNull(engine.state.value.featuredLairId)
+        assertNull(engine.state.value.nextFeaturedLairEventAt)
     }
 
     @Test

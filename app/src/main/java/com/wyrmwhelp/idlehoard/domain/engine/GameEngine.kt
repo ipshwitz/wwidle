@@ -46,11 +46,19 @@ import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
 import com.wyrmwhelp.idlehoard.domain.model.StewardNames
 import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
 import com.wyrmwhelp.idlehoard.domain.model.isLairManaged
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_BONUS_PRODUCTION_SECONDS
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_TAPS_REQUIRED
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_TAP_PROFIT_MULTIPLIER
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_WINDOW_SECONDS
+import com.wyrmwhelp.idlehoard.domain.model.FeaturedLairTapOutcome
+import com.wyrmwhelp.idlehoard.domain.model.pickFeaturedLairId
+import com.wyrmwhelp.idlehoard.domain.model.randomFeaturedLairInterval
 import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.min
+import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -126,10 +134,15 @@ class GameEngine @Inject constructor() {
         tickJob = null
     }
 
-    /** Advances all owned lairs' production by [deltaSeconds] of wall-clock time. */
-    fun tick(deltaSeconds: Double, now: Instant = Instant.now()) {
+    /**
+     * Advances all owned lairs' production by [deltaSeconds] of wall-clock
+     * time, then runs the Featured Lair mini-event's lifecycle
+     * ([updateFeaturedLairEvent]) — clearing an expired window or starting
+     * a freshly-scheduled one — on the result.
+     */
+    fun tick(deltaSeconds: Double, now: Instant = Instant.now(), random: Random = Random.Default) {
         if (deltaSeconds <= 0.0) return
-        _state.update { advance(it, deltaSeconds, now) }
+        _state.update { updateFeaturedLairEvent(advance(it, deltaSeconds, now), now, random) }
         _lairProgress.value = computeLairProgress(_state.value, now)
     }
 
@@ -297,6 +310,77 @@ class GameEngine @Inject constructor() {
             }
         }
         return started
+    }
+
+    /**
+     * The player manually tapping the current Featured Lair
+     * (`domain/model/FeaturedLairEvent.kt`) during its tap challenge.
+     * Every tap that lands while [lairId] is genuinely still Featured
+     * (not a stale tap arriving just after the window closed, or on some
+     * other lair) earns [FEATURED_LAIR_TAP_PROFIT_MULTIPLIER] times that
+     * lair's own per-cycle profit, credited immediately — unlike every
+     * purchase method above, this never fails on affordability, since
+     * nothing is spent. Works identically whether or not [lairId] has a
+     * Steward; the Steward's own auto-collection keeps running
+     * underneath, completely untouched by this. Landing
+     * [FEATURED_LAIR_TAPS_REQUIRED] taps before the window closes
+     * additionally grants [FEATURED_LAIR_BONUS_PRODUCTION_SECONDS] of
+     * instant production for *this lair only*
+     * ([grantInstantProductionForLair] — the single-lair sibling of
+     * [grantInstantProduction]'s account-wide Time Skip credit) and ends
+     * the event right there rather than waiting for
+     * [updateFeaturedLairEvent] to notice the window closed. Missing the
+     * window isn't a separate failure path here —
+     * [updateFeaturedLairEvent] simply lets it expire on its own with
+     * whatever was already tapped out, no bonus, no punishment for
+     * trying. Returns [FeaturedLairTapOutcome.COMPLETED] only on the
+     * exact tap that clears the goal, so the caller knows to fire its
+     * own success celebration rather than checking the tap count itself.
+     */
+    fun tapFeaturedLair(lairId: String, now: Instant = Instant.now(), random: Random = Random.Default): FeaturedLairTapOutcome {
+        var outcome = FeaturedLairTapOutcome.NOT_ACTIVE
+        _state.update { current ->
+            val startedAt = current.featuredLairStartedAt
+            if (current.featuredLairId != lairId || startedAt == null ||
+                Duration.between(startedAt, now).seconds >= FEATURED_LAIR_WINDOW_SECONDS
+            ) {
+                return@update current
+            }
+            val owned = current.ownedLair(lairId)
+            if (owned.count <= 0) return@update current
+
+            val lair = CreatureLairCatalog.get(lairId)
+            val globalIncomeMultiplier = current.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
+            val profitMultiplier = current.platinumProfitMultiplier(now)
+            val gemMultiplier = gemIncomeMultiplier(current.gems, current.gemEfficiencyLevel, current.permanentGemPercentMultiplier())
+            val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(current.everythingProfitUpgradeLevel)
+            val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
+            val achievementMultiplier = current.achievementIncomeMultiplier()
+            val tapGold = FEATURED_LAIR_TAP_PROFIT_MULTIPLIER *
+                lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier, achievementMultiplier)
+
+            val newTapCount = current.featuredLairTapCount + 1
+            val credited = current.copy(
+                goldPieces = current.goldPieces + tapGold,
+                lifetimeGoldEarned = current.lifetimeGoldEarned + tapGold,
+                featuredLairTapCount = newTapCount,
+            )
+
+            if (newTapCount >= FEATURED_LAIR_TAPS_REQUIRED) {
+                outcome = FeaturedLairTapOutcome.COMPLETED
+                grantInstantProductionForLair(credited, lairId, FEATURED_LAIR_BONUS_PRODUCTION_SECONDS, now).copy(
+                    featuredLairId = null,
+                    featuredLairStartedAt = null,
+                    featuredLairTapCount = 0,
+                    lastFeaturedLairId = lairId,
+                    nextFeaturedLairEventAt = now.plus(randomFeaturedLairInterval(random)),
+                )
+            } else {
+                outcome = FeaturedLairTapOutcome.TAPPED
+                credited
+            }
+        }
+        return outcome
     }
 
     /**
@@ -1019,6 +1103,101 @@ class GameEngine @Inject constructor() {
             goldPieces = state.goldPieces + goldEarned,
             lifetimeGoldEarned = state.lifetimeGoldEarned + goldEarned,
         )
+    }
+
+    /**
+     * Credits [seconds] of production for [lairId] alone — the single-lair
+     * sibling of [grantInstantProduction] (which credits every owned lair
+     * at once for a purchased Time Skip), used by [tapFeaturedLair]'s
+     * success bonus instead, which is deliberately scoped to just the
+     * Featured lair. Same managed-vs-unmanaged split as
+     * [grantInstantProduction]: a Steward-managed lair carries the bonus
+     * into its own running cycle progress; an unmanaged lair gets a
+     * standalone credit that doesn't touch its actual
+     * `isLoading`/`cycleProgressSeconds` — a bonus layered on top of the
+     * tap cycle, not a substitute for it.
+     */
+    private fun grantInstantProductionForLair(state: GameState, lairId: String, seconds: Double, now: Instant): GameState {
+        val owned = state.ownedLair(lairId)
+        if (owned.count <= 0 || seconds <= 0.0) return state
+        val lair = CreatureLairCatalog.get(lairId)
+        val globalSpeedMultiplier = state.globalSpeedMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val globalIncomeMultiplier = state.globalIncomeMilestoneMultiplier(CreatureLairCatalog.lairs)
+        val speedMultiplier = state.platinumSpeedMultiplier(now)
+        val profitMultiplier = state.platinumProfitMultiplier(now)
+        val gemMultiplier = gemIncomeMultiplier(state.gems, state.gemEfficiencyLevel, state.permanentGemPercentMultiplier())
+        val everythingProfitUpgradeMultiplier = GpUpgrades.everythingProfitMultiplier(state.everythingProfitUpgradeLevel)
+        val everythingSpeedUpgradeMultiplier = GpUpgrades.everythingSpeedMultiplier(state.everythingSpeedUpgradeLevel)
+        val achievementMultiplier = state.achievementIncomeMultiplier()
+        val upgradeProfitMultiplier = GpUpgrades.lairProfitMultiplier(owned.profitUpgradeLevel) * everythingProfitUpgradeMultiplier
+        val upgradeSpeedMultiplier = GpUpgrades.lairSpeedMultiplier(owned.speedUpgradeLevel) * everythingSpeedUpgradeMultiplier
+        val productionSeconds = lair.effectiveProductionSeconds(owned.count, speedMultiplier, globalSpeedMultiplier, upgradeSpeedMultiplier)
+        val hasUniversalSteward = state.hasUniversalSteward()
+
+        val (updatedOwned, earned) = if (owned.hasSteward || hasUniversalSteward) {
+            var remaining = owned.cycleProgressSeconds + seconds
+            var earned = 0.0
+            while (remaining >= productionSeconds) {
+                remaining -= productionSeconds
+                earned += lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier, achievementMultiplier)
+            }
+            owned.copy(cycleProgressSeconds = remaining) to earned
+        } else {
+            val cycles = kotlin.math.floor(seconds / productionSeconds)
+            owned to cycles * lair.incomePerCycle(owned.count, globalIncomeMultiplier, profitMultiplier, gemMultiplier, upgradeProfitMultiplier, achievementMultiplier)
+        }
+        return state.copy(
+            lairs = state.lairs + (lairId to updatedOwned),
+            goldPieces = state.goldPieces + earned,
+            lifetimeGoldEarned = state.lifetimeGoldEarned + earned,
+        )
+    }
+
+    /**
+     * Runs once per tick (right after [advance]) to manage the Featured
+     * Lair mini-event's lifecycle (`domain/model/FeaturedLairEvent.kt`):
+     * clears an expired, unsuccessful event — the window closed before
+     * [GameState.featuredLairTapCount] reached [FEATURED_LAIR_TAPS_REQUIRED],
+     * but every tap's gold was already credited by [tapFeaturedLair] as it
+     * happened, so there's nothing left to do here but end it and
+     * schedule the next one — and, once [GameState.nextFeaturedLairEventAt]
+     * arrives, starts a fresh event on a random currently-owned lair
+     * ([pickFeaturedLairId], avoiding an immediate repeat of
+     * [GameState.lastFeaturedLairId]). A brand-new save's null
+     * [GameState.nextFeaturedLairEventAt] schedules the *first* roll
+     * rather than firing immediately, so the event can't proc before the
+     * player's even gotten their bearings.
+     */
+    private fun updateFeaturedLairEvent(state: GameState, now: Instant, random: Random): GameState {
+        var next = state
+        val startedAt = next.featuredLairStartedAt
+        if (next.featuredLairId != null && startedAt != null &&
+            Duration.between(startedAt, now).seconds >= FEATURED_LAIR_WINDOW_SECONDS
+        ) {
+            next = next.copy(
+                featuredLairId = null,
+                featuredLairStartedAt = null,
+                featuredLairTapCount = 0,
+                lastFeaturedLairId = next.featuredLairId,
+                nextFeaturedLairEventAt = now.plus(randomFeaturedLairInterval(random)),
+            )
+        }
+        if (next.featuredLairId == null) {
+            val nextAt = next.nextFeaturedLairEventAt
+            next = when {
+                nextAt == null -> next.copy(nextFeaturedLairEventAt = now.plus(randomFeaturedLairInterval(random)))
+                nextAt.isAfter(now) -> next
+                else -> {
+                    val candidate = pickFeaturedLairId(next.lairs, next.lastFeaturedLairId, random)
+                    if (candidate != null) {
+                        next.copy(featuredLairId = candidate, featuredLairStartedAt = now, featuredLairTapCount = 0)
+                    } else {
+                        next.copy(nextFeaturedLairEventAt = now.plus(randomFeaturedLairInterval(random)))
+                    }
+                }
+            }
+        }
+        return next
     }
 
     companion object {

@@ -131,6 +131,9 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                             upgradeProfitMultiplier = upgradeProfitMultiplier,
                             achievementBonusMultiplier = achievementMultiplier,
                             hasUniversalSteward = state.hasUniversalSteward(),
+                            isFeatured = state.featuredLairId == lair.id,
+                            featuredTapCount = state.featuredLairTapCount,
+                            onTapFeatured = { viewModel.tapFeaturedLair(lair.id) },
                         )
                     }
                 }

@@ -1,17 +1,22 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,13 +33,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
+import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_TAPS_REQUIRED
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 
@@ -66,6 +74,26 @@ import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
  * this lair's current actual cycle time (`GameScreen` computes it the same
  * way it computes `goldPerSecond`) — also just passed straight through, for
  * `LairCard`'s "gp / cycle time" line.
+ *
+ * **Featured Lair mini-event (v0.49.0)** — [isFeatured] (true only while
+ * `GameState.featuredLairId` names this exact lair — see
+ * `domain/model/FeaturedLairEvent.kt`) overrides the tap target entirely:
+ * both the avatar and the card become tappable regardless of Steward/load
+ * state, and every tap calls [onTapFeatured] (`GameViewModel.tapFeaturedLair`)
+ * instead of [onStartLoad] — a manual-only bonus layered on top of
+ * whatever's already happening with this lair, never a substitute for the
+ * normal tap-to-start flow. [onTapFeatured] returns whether *this* tap
+ * cleared the goal, reusing the same `coinBurstTrigger` the completed-load
+ * effect already fires (a bigger, dedicated "coins explode all over the
+ * screen" effect wasn't built — this app's stated art style is "reuse
+ * Canvas effects, no sprite pack," and the existing burst already reads as
+ * a celebration) — plus a haptic buzz on every tap, this app's first use
+ * of device haptics (via `LocalHapticFeedback`, which needs no `VIBRATE`
+ * manifest permission, unlike a raw `Vibrator`/`VibrationEffect` call).
+ * [featuredTapCount] drives [FeaturedLairProgressBar], shown below the row
+ * (not inside `LairCard`, which has an established fixed-height/
+ * `IntrinsicSize` layout too fragile to add a persistent new element to —
+ * see that file's own gotcha notes) only while [isFeatured] is true.
  */
 @Composable
 fun LairRow(
@@ -85,6 +113,9 @@ fun LairRow(
     upgradeProfitMultiplier: Double = 1.0,
     achievementBonusMultiplier: Double = 1.0,
     hasUniversalSteward: Boolean = false,
+    isFeatured: Boolean = false,
+    featuredTapCount: Int = 0,
+    onTapFeatured: () -> Boolean = { false },
 ) {
     var coinBurstTrigger by remember { mutableIntStateOf(0) }
     var lastSeenCompletedLoads by remember { mutableIntStateOf(owned.completedLoads) }
@@ -95,54 +126,113 @@ fun LairRow(
         }
     }
 
+    val haptics = LocalHapticFeedback.current
+    val handleTap: () -> Unit = {
+        if (isFeatured) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            if (onTapFeatured()) coinBurstTrigger++
+        } else {
+            onStartLoad()
+        }
+    }
+
     // Managed by either a real per-lair Steward or the account-wide
     // Universal Steward (`domain/model/UniversalSteward.kt`) once at least
     // one unit is owned — either way it runs continuously on its own.
     val isManaged = owned.count > 0 && (owned.hasSteward || hasUniversalSteward)
-    // Tappable only when this lair is owned, isn't managed (tapping a
-    // managed lair does nothing), and isn't already mid-cycle.
+    // Tappable when this lair is owned and isn't already mid-cycle, unless
+    // it's Featured right now — a Featured lair is always tappable
+    // (regardless of Steward/load state), since the tap challenge is a
+    // separate action from the normal gold-collection tap.
     val canStartLoad = owned.count > 0 && !isManaged && !owned.isLoading
+    val canTap = isFeatured || canStartLoad
     // Full brightness once owned, *including* while managed — an
     // auto-collecting lair is continuously earning on its own, not idle, so
     // it shouldn't read as dimmed/disabled the way "not tappable right now"
-    // implies for the other two dim cases (unowned, mid-load).
-    val isBright = owned.count > 0 && (isManaged || !owned.isLoading)
+    // implies for the other two dim cases (unowned, mid-load). A Featured
+    // lair is always bright too, so the flashing border reads clearly.
+    val isBright = owned.count > 0 && (isManaged || !owned.isLoading || isFeatured)
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        CreatureAvatar(
-            lair = lair,
-            enabled = canStartLoad,
-            bright = isBright,
-            onClick = onStartLoad,
-            palette = palette,
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier
-                .fillMaxHeight()
-                .aspectRatio(1f),
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CreatureAvatar(
+                lair = lair,
+                enabled = canTap,
+                bright = isBright,
+                onClick = handleTap,
+                palette = palette,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(1f),
+            )
+            LairCard(
+                lair = lair,
+                owned = owned,
+                goldPieces = goldPieces,
+                buyQuantity = buyQuantity,
+                globalIncomeMultiplier = globalIncomeMultiplier,
+                progress = progress,
+                productionSeconds = productionSeconds,
+                coinBurstTrigger = coinBurstTrigger,
+                onClaim = onClaim,
+                onStartLoad = handleTap,
+                modifier = Modifier.weight(1f),
+                palette = palette,
+                profitBoostMultiplier = profitBoostMultiplier,
+                gemBonusMultiplier = gemBonusMultiplier,
+                upgradeProfitMultiplier = upgradeProfitMultiplier,
+                achievementBonusMultiplier = achievementBonusMultiplier,
+                isManaged = isManaged,
+                isFeatured = isFeatured,
+            )
+        }
+        if (isFeatured) {
+            FeaturedLairProgressBar(
+                tapCount = featuredTapCount,
+                palette = palette,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The Featured Lair tap challenge's own progress bar — "how many of the
+ * [FEATURED_LAIR_TAPS_REQUIRED] taps have landed," shown below the whole
+ * [LairRow] (not inside `LairCard`'s own production progress bar, which is
+ * a completely different number — see `domain/model/FeaturedLairEvent.kt`).
+ */
+@Composable
+private fun FeaturedLairProgressBar(tapCount: Int, palette: FantasyPalette, modifier: Modifier = Modifier) {
+    val fraction = (tapCount.toFloat() / FEATURED_LAIR_TAPS_REQUIRED).coerceIn(0f, 1f)
+    val animatedFraction by animateFloatAsState(targetValue = fraction, label = "featuredTapProgress")
+    Column(modifier = modifier) {
+        Text(
+            text = "Tap! $tapCount / $FEATURED_LAIR_TAPS_REQUIRED",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Serif, color = palette.ink),
         )
-        LairCard(
-            lair = lair,
-            owned = owned,
-            goldPieces = goldPieces,
-            buyQuantity = buyQuantity,
-            globalIncomeMultiplier = globalIncomeMultiplier,
-            progress = progress,
-            productionSeconds = productionSeconds,
-            coinBurstTrigger = coinBurstTrigger,
-            onClaim = onClaim,
-            onStartLoad = onStartLoad,
-            modifier = Modifier.weight(1f),
-            palette = palette,
-            profitBoostMultiplier = profitBoostMultiplier,
-            gemBonusMultiplier = gemBonusMultiplier,
-            upgradeProfitMultiplier = upgradeProfitMultiplier,
-            achievementBonusMultiplier = achievementBonusMultiplier,
-            isManaged = isManaged,
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(palette.woodDark.copy(alpha = 0.35f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fraction = animatedFraction)
+                    .background(Brush.horizontalGradient(listOf(palette.goldBright, palette.goldDeep))),
+            )
+        }
     }
 }
 

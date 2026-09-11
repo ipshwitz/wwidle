@@ -1,6 +1,10 @@
 package com.wyrmwhelp.idlehoard.ui.game
 
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -179,6 +183,12 @@ private const val UNAFFORDABLE_ALPHA = 0.45f
  * `"${gp} gp / ${cycle time}"` via [CycleTimeFormat] instead of the old flat
  * "gp/cycle" label, so the player can actually see how fast a lair is
  * collecting rather than just its per-cycle payout.
+ *
+ * [isFeatured] (v0.49.0, `domain/model/FeaturedLairEvent.kt`) pulses this
+ * card's own border between gold and white and widens it slightly, and
+ * makes the whole card tappable regardless of [isManaged]/`owned.isLoading`
+ * — see `LairRow`'s class doc for the full tap-challenge behavior this
+ * feeds into.
  */
 @Composable
 fun LairCard(
@@ -199,6 +209,7 @@ fun LairCard(
     upgradeProfitMultiplier: Double = 1.0,
     achievementBonusMultiplier: Double = 1.0,
     isManaged: Boolean = false,
+    isFeatured: Boolean = false,
 ) {
     // coerceAtLeast(1): MAX resolves to 0 when even one more unit isn't
     // affordable — falling back to a 1-unit preview keeps the button showing
@@ -217,6 +228,23 @@ fun LairCard(
     )
     val rarity = rarityColor(lair.tier)
 
+    // A pulsing gold-to-white flash on the card's own border while this
+    // lair is Featured (`domain/model/FeaturedLairEvent.kt`) — the "flashing
+    // border" signal for the tap challenge. Always run the infinite
+    // transition (rather than only creating it inside an `if (isFeatured)`
+    // branch) so its animation state doesn't get torn down/rebuilt every
+    // time the event starts and ends; only the *color actually used* below
+    // depends on [isFeatured].
+    val infiniteTransition = rememberInfiniteTransition(label = "featuredBorder")
+    val featuredFlashColor by infiniteTransition.animateColor(
+        initialValue = palette.goldBright,
+        targetValue = Color.White,
+        animationSpec = infiniteRepeatable(animation = tween(durationMillis = 400), repeatMode = RepeatMode.Reverse),
+        label = "featuredBorderColor",
+    )
+    val borderColor = if (isFeatured) featuredFlashColor else Color.Black.copy(alpha = 0.35f)
+    val borderWidth = if (isFeatured) 3.dp else 1.5.dp
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -228,9 +256,9 @@ fun LairCard(
                 ),
             )
             .background(rarity.copy(alpha = 0.16f))
-            .border(1.5.dp, Color.Black.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+            .border(borderWidth, borderColor, RoundedCornerShape(14.dp))
             .clickable(
-                enabled = owned.count > 0 && !isManaged && !owned.isLoading,
+                enabled = isFeatured || (owned.count > 0 && !isManaged && !owned.isLoading),
                 onClick = onStartLoad,
             ),
     ) {

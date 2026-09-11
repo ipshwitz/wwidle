@@ -12,6 +12,7 @@ import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.engine.GameEngine
 import com.wyrmwhelp.idlehoard.domain.engine.OfflineEarnings
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
+import com.wyrmwhelp.idlehoard.domain.model.FeaturedLairTapOutcome
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.MilestoneAnnouncement
 import com.wyrmwhelp.idlehoard.domain.model.PLATINUM_AD_REWARD_PP
@@ -907,6 +908,18 @@ class GameViewModel @Inject constructor(
     /** The player tapping a lair to start its production cycle — see `GameEngine.startLairLoad`. */
     fun startLairLoad(lairId: String) {
         gameEngine.startLairLoad(lairId)
+    }
+
+    /**
+     * The player tapping the current Featured Lair during its tap
+     * challenge — see `GameEngine.tapFeaturedLair`. Unlike this class's
+     * other thin wrappers, returns whether *this specific tap* was the
+     * one that cleared the goal, since `LairRow` needs that synchronously
+     * to fire its own success coin-burst/haptics rather than a generic
+     * "did anything happen" signal.
+     */
+    fun tapFeaturedLair(lairId: String): Boolean {
+        return gameEngine.tapFeaturedLair(lairId) == FeaturedLairTapOutcome.COMPLETED
     }
 
     /** The Shop's permanent-boost tiles (2x/5x/10x Speed, 1.5x/2x/5x Profit, 1.5x/2x/5x Gem %). See `GameEngine.purchasePermanentBoost`. */

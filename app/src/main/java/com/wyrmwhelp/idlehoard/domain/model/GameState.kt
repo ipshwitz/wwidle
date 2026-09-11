@@ -224,6 +224,29 @@ data class GameState(
      * `withAchievementsSeen`.
      */
     val seenAchievements: Set<String> = emptySet(),
+    /**
+     * The lair id currently "Featured" for the tap-challenge mini-event
+     * (`domain/model/FeaturedLairEvent.kt`), or null if none is active
+     * right now. Any owned lair is eligible, Steward-managed or not — a
+     * manual-tap-only bonus layered on top of whatever that lair's
+     * Steward is already doing, never a replacement for it.
+     * **Deliberately not persisted** — absent from `GameStateEntity`/
+     * `GameStateDto` entirely, same simplification as [BuyQuantity]
+     * resetting to `X1` every launch: this and the four fields below are
+     * a few-second session moment, not save-worthy progress, so an
+     * event (or its schedule) in flight when the app closes just
+     * silently rerolls on the next launch rather than needing to
+     * survive one.
+     */
+    val featuredLairId: String? = null,
+    /** When the current [featuredLairId] event started — its tap window closes [FEATURED_LAIR_WINDOW_SECONDS] after this. Not persisted, see [featuredLairId]'s doc. */
+    val featuredLairStartedAt: Instant? = null,
+    /** Manual taps landed so far in the current [featuredLairId] window — reaching [FEATURED_LAIR_TAPS_REQUIRED] before it closes grants the bonus (`GameEngine.tapFeaturedLair`). Not persisted, see [featuredLairId]'s doc. */
+    val featuredLairTapCount: Int = 0,
+    /** The lair id most recently Featured, kept only so the next random pick ([pickFeaturedLairId]) can avoid repeating it back-to-back. Not persisted, see [featuredLairId]'s doc. */
+    val lastFeaturedLairId: String? = null,
+    /** When the next Featured Lair event becomes eligible to start, or null before the first roll of a session. Purely random — deliberately not scaled by playtime or progress, see `domain/model/FeaturedLairEvent.kt`. Not persisted, see [featuredLairId]'s doc. */
+    val nextFeaturedLairEventAt: Instant? = null,
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)
