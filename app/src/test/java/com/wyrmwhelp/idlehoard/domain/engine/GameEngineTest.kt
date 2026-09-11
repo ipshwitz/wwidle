@@ -3,6 +3,7 @@ package com.wyrmwhelp.idlehoard.domain.engine
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
 import com.wyrmwhelp.idlehoard.domain.model.GameState
+import com.wyrmwhelp.idlehoard.domain.model.OFFLINE_CAP_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.OwnedLair
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_SPEED_TIERS
@@ -27,6 +28,7 @@ import com.wyrmwhelp.idlehoard.domain.model.costForPermanentBoostPurchase
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.gemsEarnedFromLevelUp
 import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
+import com.wyrmwhelp.idlehoard.domain.model.nextOfflineCapTier
 import com.wyrmwhelp.idlehoard.domain.model.achievementIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenCompletedAchievement
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
@@ -396,6 +398,58 @@ class GameEngineTest {
             engine.state.value.goldPieces,
             0.0001,
         )
+    }
+
+    @Test
+    fun `purchasing the Offline Cap upgrade deducts platinum and raises the cap to the next tier`() {
+        val tier = OFFLINE_CAP_TIERS[0]
+        engine.loadState(GameState(platinumPieces = tier.costPp))
+
+        val bought = engine.purchaseOfflineCapUpgrade()
+
+        assertTrue(bought)
+        assertEquals(0.0, engine.state.value.platinumPieces, 0.0001)
+        assertEquals(tier.hours, engine.state.value.offlineCapHours, 0.0001)
+    }
+
+    @Test
+    fun `Offline Cap purchase fails when platinum is insufficient`() {
+        val tier = OFFLINE_CAP_TIERS[0]
+        engine.loadState(GameState(platinumPieces = tier.costPp - 0.01))
+
+        val bought = engine.purchaseOfflineCapUpgrade()
+
+        assertFalse(bought)
+        assertEquals(4.0, engine.state.value.offlineCapHours, 0.0001)
+    }
+
+    @Test
+    fun `Offline Cap tiers must be bought in order, and the upgrade is maxed once both are owned`() {
+        engine.loadState(GameState(platinumPieces = 1_000.0))
+
+        engine.purchaseOfflineCapUpgrade()
+        assertEquals(OFFLINE_CAP_TIERS[0].hours, engine.state.value.offlineCapHours, 0.0001)
+
+        engine.purchaseOfflineCapUpgrade()
+        assertEquals(OFFLINE_CAP_TIERS[1].hours, engine.state.value.offlineCapHours, 0.0001)
+        assertNull(engine.state.value.nextOfflineCapTier())
+
+        val boughtAgain = engine.purchaseOfflineCapUpgrade()
+        assertFalse(boughtAgain)
+        assertEquals(OFFLINE_CAP_TIERS[1].hours, engine.state.value.offlineCapHours, 0.0001)
+    }
+
+    @Test
+    fun `performLevelUp and resetProgress both carry over a raised Offline Cap`() {
+        engine.loadState(GameState(platinumPieces = 1_000.0, lifetimeGoldEarned = 1_000_000_000_000_000.0))
+        engine.purchaseOfflineCapUpgrade()
+        val raisedCap = engine.state.value.offlineCapHours
+
+        engine.performLevelUp()
+        assertEquals(raisedCap, engine.state.value.offlineCapHours, 0.0001)
+
+        engine.resetProgress()
+        assertEquals(raisedCap, engine.state.value.offlineCapHours, 0.0001)
     }
 
     @Test

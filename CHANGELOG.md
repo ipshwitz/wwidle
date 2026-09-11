@@ -3,6 +3,15 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.48.0] - 2026-09-10 9:15 PM EDT
+
+- Added an Offline Cap upgrade to the Shop's Permanent tab: raises how
+  many hours of production you can collect after being away, 4h → 8h →
+  12h, bought in order with Platinum Pieces (30 pp, then 100 pp). Once
+  both are bought the card just shows "Maxed" — no 24h tier yet, that's
+  being held back until the economy's been played more at these lower
+  caps.
+
 ## [0.47.1] - 2026-09-10 8:40 PM EDT
 
 - Once a Steward's hired, the Stewards screen now leads with their name

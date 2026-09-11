@@ -30,7 +30,10 @@ import java.time.Instant
  * @property lairs Owned-lair state keyed by [CreatureLair.id]. A missing key
  *   means that lair hasn't been claimed yet.
  * @property offlineCapHours Maximum hours of offline production the player can
- *   collect on return, upgradeable via progression.
+ *   collect on return. Starts at 4h; raised outright by the Shop's Platinum-bought
+ *   Offline Cap upgrade (`domain/model/OfflineCapUpgrade.kt`) — 8h, then 12h.
+ *   Survives a Level Up *and* an Account Reset, same treatment as every other
+ *   Platinum-bought permanent boost.
  * @property lastSavedAt Timestamp of the last save, used to compute offline
  *   earnings on the next launch.
  * @property totalLevelUps Number of times the player has Leveled Up (prestiged).

@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.R
 import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
+import com.wyrmwhelp.idlehoard.domain.model.OfflineCapTier
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_GEM_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_PROFIT_TIERS
 import com.wyrmwhelp.idlehoard.domain.model.PERMANENT_SPEED_TIERS
@@ -79,7 +80,10 @@ private enum class ShopTab(val label: String) {
  * account. The other three tabs are every way Platinum actually gets
  * *spent* (see `domain/model/Boosts.kt`): "Permanent" (2x/5x/10x Speed,
  * 1.5x/2x/5x Profit, 1.5x/2x/5x Gem %, each independently repurchasable
- * and stacking with itself), "Temporary" (50x/100x Speed for 5 minutes,
+ * and stacking with itself — plus one ordered, one-time Offline Cap
+ * upgrade, 4h → 8h → 12h, `domain/model/OfflineCapUpgrade.kt`, shown as
+ * a fourth card on this same tab since it's still a permanent Platinum
+ * purchase, just not a repeatable/stacking one), "Temporary" (50x/100x Speed for 5 minutes,
  * 15x/25x Profit for 5-10 minutes, stacking multiplicatively with any
  * other still-running boost in the same category — **the free ad-watch
  * row this tab briefly had (v0.29.0) was pulled back out in v0.34.0**,
@@ -107,6 +111,8 @@ fun ShopContent(
     platinumAdMessage: String?,
     platinumPurchasePrices: Map<String, String>,
     platinumPurchaseMessage: String?,
+    offlineCapHours: Double,
+    nextOfflineCapTier: OfflineCapTier?,
     onBuyPermanentBoost: (PermanentBoostTier) -> Unit,
     onBuyTemporaryBoost: (TemporaryBoostOption) -> Unit,
     onBuyTimeSkip: (TimeSkipOption) -> Unit,
@@ -114,6 +120,7 @@ fun ShopContent(
     onDismissPlatinumAdMessage: () -> Unit,
     onBuyPlatinumPack: (String) -> Unit,
     onDismissPlatinumPurchaseMessage: () -> Unit,
+    onBuyOfflineCapUpgrade: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -140,7 +147,10 @@ fun ShopContent(
                 ShopTab.PERMANENT -> PermanentBoostsTab(
                     platinumPieces = platinumPieces,
                     permanentBoostLevelFor = permanentBoostLevelFor,
+                    offlineCapHours = offlineCapHours,
+                    nextOfflineCapTier = nextOfflineCapTier,
                     onBuyPermanentBoost = onBuyPermanentBoost,
+                    onBuyOfflineCapUpgrade = onBuyOfflineCapUpgrade,
                     palette = palette,
                 )
                 ShopTab.TEMPORARY -> TemporaryBoostsTab(
@@ -286,7 +296,10 @@ private fun GetPlatinumTab(
 private fun PermanentBoostsTab(
     platinumPieces: Double,
     permanentBoostLevelFor: (PermanentBoostTier) -> Int,
+    offlineCapHours: Double,
+    nextOfflineCapTier: OfflineCapTier?,
     onBuyPermanentBoost: (PermanentBoostTier) -> Unit,
+    onBuyOfflineCapUpgrade: () -> Unit,
     palette: FantasyPalette,
     modifier: Modifier = Modifier,
 ) {
@@ -321,6 +334,15 @@ private fun PermanentBoostsTab(
                 platinumPieces = platinumPieces,
                 levelFor = permanentBoostLevelFor,
                 onBuy = onBuyPermanentBoost,
+                palette = palette,
+            )
+        }
+        item {
+            OfflineCapCard(
+                platinumPieces = platinumPieces,
+                offlineCapHours = offlineCapHours,
+                nextTier = nextOfflineCapTier,
+                onBuy = onBuyOfflineCapUpgrade,
                 palette = palette,
             )
         }
@@ -511,6 +533,63 @@ private fun PermanentBoostCategoryCard(
                     onClick = { onBuy(tier) },
                     enabled = platinumPieces >= cost,
                     colors = palette,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The Offline Cap upgrade — a one-time, ordered ladder (4h → 8h → 12h,
+ * `domain/model/OfflineCapUpgrade.kt`), unlike [PermanentBoostCategoryCard]'s
+ * repeatable stacking tiers above it. Shows the current cap and, while
+ * [nextTier] is non-null, a Buy row for it; once every tier's been bought
+ * (`nextTier == null`) shows a plain "Maxed" line instead of a button.
+ */
+@Composable
+private fun OfflineCapCard(
+    platinumPieces: Double,
+    offlineCapHours: Double,
+    nextTier: OfflineCapTier?,
+    onBuy: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    ParchmentCard(palette = palette, modifier = modifier, borderColor = palette.goldDeep.copy(alpha = 0.8f)) {
+        Text(
+            text = "Offline Cap",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+        )
+        Text(
+            text = "Raises how many hours of production you can collect after being away.",
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.ink.copy(alpha = 0.7f),
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Currently ${GoldFormat.format(offlineCapHours)}h",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.85f),
+            )
+            if (nextTier != null) {
+                WoodenButton(
+                    text = "Buy ${GoldFormat.format(nextTier.hours)}h — ${GoldFormat.format(nextTier.costPp)} pp",
+                    onClick = onBuy,
+                    enabled = platinumPieces >= nextTier.costPp,
+                    colors = palette,
+                )
+            } else {
+                Text(
+                    text = "Maxed",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.ink.copy(alpha = 0.6f),
                 )
             }
         }

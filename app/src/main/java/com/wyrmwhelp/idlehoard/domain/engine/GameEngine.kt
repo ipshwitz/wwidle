@@ -38,6 +38,7 @@ import com.wyrmwhelp.idlehoard.domain.model.withPermanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.withStewardOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.withUpgradeOpportunitiesSeen
 import com.wyrmwhelp.idlehoard.domain.model.withAchievementsSeen
+import com.wyrmwhelp.idlehoard.domain.model.nextOfflineCapTier
 import com.wyrmwhelp.idlehoard.domain.model.achievementIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
@@ -318,6 +319,28 @@ class GameEngine @Inject constructor() {
                 current.withPermanentBoostLevel(tier, currentLevel + 1).copy(
                     platinumPieces = current.platinumPieces - cost,
                 )
+            }
+        }
+        return bought
+    }
+
+    /**
+     * Buys the next tier of the Shop's Offline Cap upgrade with Platinum
+     * Pieces (`domain/model/OfflineCapUpgrade.kt`) — unlike
+     * [purchasePermanentBoost], this is a one-time, ordered ladder (4h →
+     * 8h → 12h), not a repeatable stacking purchase, so it fails once
+     * [GameState.nextOfflineCapTier] is null (every tier already bought),
+     * not just on affordability.
+     */
+    fun purchaseOfflineCapUpgrade(): Boolean {
+        var bought = false
+        _state.update { current ->
+            val tier = current.nextOfflineCapTier()
+            if (tier == null || current.platinumPieces < tier.costPp) {
+                current
+            } else {
+                bought = true
+                current.copy(platinumPieces = current.platinumPieces - tier.costPp, offlineCapHours = tier.hours)
             }
         }
         return bought
@@ -632,7 +655,11 @@ class GameEngine @Inject constructor() {
      * reset, same treatment as Platinum — a completed achievement (and the
      * permanent "Achievement Bonus" it contributes) is a lifetime
      * accomplishment, not run progress, so a full reset shouldn't erase it
-     * either.
+     * either. [GameState.offlineCapHours] survives too — it's raised by its
+     * own Platinum-bought upgrade (`domain/model/OfflineCapUpgrade.kt`),
+     * the same category as the boost tiers above (this was a real gap
+     * fixed alongside adding that upgrade: [performLevelUp] already
+     * carried it, but this method didn't).
      */
     fun resetProgress() {
         _state.update { current ->
@@ -648,6 +675,7 @@ class GameEngine @Inject constructor() {
                 permanentGemBoost2xLevel = current.permanentGemBoost2xLevel,
                 permanentGemBoost5xLevel = current.permanentGemBoost5xLevel,
                 activeTemporaryBoosts = current.activeTemporaryBoosts,
+                offlineCapHours = current.offlineCapHours,
                 highestLairCounts = current.highestLairCounts,
                 everHiredStewardForLairs = current.everHiredStewardForLairs,
                 everMaxedStewardEfficiencyForLairs = current.everMaxedStewardEfficiencyForLairs,

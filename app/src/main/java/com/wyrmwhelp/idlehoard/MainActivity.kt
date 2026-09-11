@@ -33,6 +33,7 @@ import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenCompletedAchievement
 import com.wyrmwhelp.idlehoard.ui.achievements.AchievementsContent
+import com.wyrmwhelp.idlehoard.domain.model.nextOfflineCapTier
 import com.wyrmwhelp.idlehoard.domain.model.permanentBoostLevel
 import com.wyrmwhelp.idlehoard.domain.model.platinumAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.ui.common.ComingSoonPlaceholder
@@ -192,6 +193,8 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                             platinumAdMessage = platinumAdMessage,
                             platinumPurchasePrices = platinumPurchasePrices,
                             platinumPurchaseMessage = platinumPurchaseMessage,
+                            offlineCapHours = gameState.offlineCapHours,
+                            nextOfflineCapTier = gameState.nextOfflineCapTier(),
                             onBuyPermanentBoost = gameViewModel::purchasePermanentBoost,
                             onBuyTemporaryBoost = gameViewModel::purchaseTemporaryBoost,
                             onBuyTimeSkip = gameViewModel::purchaseTimeSkip,
@@ -203,6 +206,7 @@ private fun WyrmWhelpApp(gameViewModel: GameViewModel) {
                                 (context as? Activity)?.let { gameViewModel.buyPlatinumPack(it, productId) }
                             },
                             onDismissPlatinumPurchaseMessage = gameViewModel::dismissPlatinumPurchaseMessage,
+                            onBuyOfflineCapUpgrade = gameViewModel::purchaseOfflineCapUpgrade,
                         )
                     }
                 }

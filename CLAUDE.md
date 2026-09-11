@@ -194,10 +194,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.47.1** (Named Stewards — hiring a Steward now
-     rolls a random D&D-flavored name+epithet, tier-appropriate to the
-     lair; once hired, the Stewards screen leads with that name instead
-     of the lair's — purely cosmetic, see the `StewardNames` bullet
+   - Current version: **0.48.0** (Offline Cap upgrade — a new Shop
+     Permanent-tab purchase raising `GameState.offlineCapHours` through
+     an ordered ladder, 4h → 8h → 12h, bought with Platinum Pieces — see
+     `domain/model/OfflineCapUpgrade.kt` and the Platinum Upgrades bullet
      under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
@@ -2581,6 +2581,33 @@ These apply to every change made in this repo, however small:
       12 hours/100 pp, 24 hours/180 pp, 7 days/1,000 pp) per explicit
       request; no logic change, `purchaseTimeSkip`/`grantInstantProduction`
       already worked generically off the list.
+    - **Offline Cap upgrade (v0.48.0)** (`domain/model/OfflineCapUpgrade.kt`)
+      — a fourth card on the Permanent tab, but a fundamentally different
+      shape from the three above: a **one-time, ordered ladder**, not a
+      repeatable/stacking tier. `OfflineCapTier(hours, costPp)` sets
+      `GameState.offlineCapHours` outright (not an amount added to the
+      current value); `OFFLINE_CAP_TIERS` is just two entries, 8h/30pp
+      then 12h/100pp — explicit request was "Go 4 -> 8 -> 12 (24 seems
+      too high right now)," so a further 24h tier was deliberately held
+      back rather than guessed at. `GameState.nextOfflineCapTier()`
+      (the first tier whose `hours` exceeds the current cap, or null once
+      both are bought) is the sole gate — there's no separate level
+      counter, `offlineCapHours` itself is the ground truth for "which
+      tier is next." `GameEngine.purchaseOfflineCapUpgrade()` is the
+      atomic afford-check-and-deduct (same shape as
+      `purchasePermanentBoost`), failing once `nextOfflineCapTier()` is
+      null (every tier owned), not just on affordability.
+      `ShopContent.kt`'s `OfflineCapCard` (`PermanentBoostsTab`'s 4th
+      `item`) shows "Currently Xh" plus either a "Buy Yh — Z pp" button
+      or, once maxed, a plain "Maxed" label — no `PermanentBoostCategoryCard`/`BoostRow`
+      reuse, since neither fits an ordered ladder with no owned-count or
+      "maxed" state of its own. Survives both a Level Up and an Account
+      Reset, same treatment as every other Platinum-bought permanent
+      boost — this actually caught a real gap: `GameEngine.resetProgress()`
+      (added back in v0.45.0 for Account Reset) had never carried
+      `offlineCapHours` over at all, even though `performLevelUp()`
+      already did; fixed alongside adding this upgrade rather than
+      shipping a new way to lose it on reset.
     - **Persistence** — Room bumped to **version 9**: the old
       `speedBoostLevel`/`profitBoostLevel` `GameStateEntity` columns are
       gone, replaced by the same nine flat `Int` columns plus one
@@ -2886,8 +2913,9 @@ These apply to every change made in this repo, however small:
   earnings settle.
 - **Offline earnings:** `GameState.lastSavedAt` (whichever save — local or
   cloud — won the merge) feeds `GameEngine.applyOfflineEarnings()`, capped by
-  `offlineCapHours` (default 4h, upgradeable via game progression, not
-  implemented yet).
+  `offlineCapHours` (default 4h; raised outright by the Shop's Platinum-bought
+  Offline Cap upgrade, 8h then 12h — see `domain/model/OfflineCapUpgrade.kt`
+  and the Platinum Upgrades bullet under Tech stack).
 - **Resilience:** every network step (sign-in, download, upload) in
   `GameViewModel` is wrapped individually so a failure degrades to local-only
   play instead of blocking or crashing — see `Log.w(TAG, ...)` call sites.

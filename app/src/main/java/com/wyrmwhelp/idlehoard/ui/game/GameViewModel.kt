@@ -914,6 +914,11 @@ class GameViewModel @Inject constructor(
         gameEngine.purchasePermanentBoost(tier)
     }
 
+    /** The Shop's Offline Cap upgrade tile (4h → 8h → 12h). See `GameEngine.purchaseOfflineCapUpgrade`. */
+    fun purchaseOfflineCapUpgrade() {
+        gameEngine.purchaseOfflineCapUpgrade()
+    }
+
     /** The Shop's temporary-boost tiles (50x/100x Speed, 15x/25x Profit). See `GameEngine.purchaseTemporaryBoost`. */
     fun purchaseTemporaryBoost(option: TemporaryBoostOption) {
         gameEngine.purchaseTemporaryBoost(option)
