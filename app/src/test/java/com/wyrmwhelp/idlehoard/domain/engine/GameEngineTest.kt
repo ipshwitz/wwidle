@@ -35,6 +35,8 @@ import com.wyrmwhelp.idlehoard.domain.model.unseenUpgradeOpportunities
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -1460,6 +1462,34 @@ class GameEngineTest {
         engine.loadState(engine.state.value.copy(lifetimeGoldEarned = 4_000_000_000_000_000.0)) // -> 300 gems
         engine.performLevelUp()
         assertEquals(300L, engine.state.value.highestGemsEverEarned)
+    }
+
+    @Test
+    fun `hiring a Steward assigns a flavor name that resets on the next hire after a Level Up`() {
+        engine.loadState(
+            GameState(
+                goldPieces = 1_000_000_000_000_000_000.0,
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+            ),
+        )
+        engine.hireSteward("kobold_warren")
+        val firstName = engine.state.value.ownedLair("kobold_warren").stewardName
+        assertNotNull(firstName)
+        assertTrue(firstName!!.isNotBlank())
+
+        engine.loadState(engine.state.value.copy(lifetimeGoldEarned = 1_000_000_000_000_000.0))
+        engine.performLevelUp()
+        assertNull(engine.state.value.ownedLair("kobold_warren").stewardName)
+        assertFalse(engine.state.value.ownedLair("kobold_warren").hasSteward)
+
+        engine.loadState(
+            engine.state.value.copy(
+                goldPieces = 1_000_000_000_000_000_000.0,
+                lairs = mapOf("kobold_warren" to OwnedLair(lairId = "kobold_warren", count = 1)),
+            ),
+        )
+        engine.hireSteward("kobold_warren")
+        assertNotNull(engine.state.value.ownedLair("kobold_warren").stewardName)
     }
 
     @Test

@@ -3,6 +3,15 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.47.0] - 2026-09-10 8:20 PM EDT
+
+- Stewards now get a name. Hiring one for a lair rolls a random D&D-flavored
+  name and epithet, shown right under "Steward Hired" on the Stewards
+  screen — a nervous local hand for Kobold Warren, a grand legend for
+  Ancient Dragon's Hoard. Purely for fun, no effect on anything. Gets a
+  fresh name the next time you hire after a Level Up resets that lair's
+  Steward.
+
 ## [0.46.0] - 2026-09-10 8:40 PM EDT
 
 - Added Achievements: a new menu section with 68 permanent, one-time

@@ -64,6 +64,7 @@ private fun OwnedLair.toEntity(): OwnedLairEntity = OwnedLairEntity(
     profitUpgradeLevel = profitUpgradeLevel,
     speedUpgradeLevel = speedUpgradeLevel,
     stewardEfficiencyLevel = stewardEfficiencyLevel,
+    stewardName = stewardName,
 )
 
 fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = GameState(
@@ -117,6 +118,7 @@ private fun OwnedLairEntity.toDomain(): OwnedLair = OwnedLair(
     profitUpgradeLevel = profitUpgradeLevel,
     speedUpgradeLevel = speedUpgradeLevel,
     stewardEfficiencyLevel = stewardEfficiencyLevel,
+    stewardName = stewardName,
 )
 
 /** Plain JSON mirror of [ActiveTemporaryBoost] for [GameStateEntity.activeTemporaryBoostsJson]'s single-column encoding. */

@@ -15,4 +15,6 @@ data class OwnedLairEntity(
     val profitUpgradeLevel: Int = 0,
     val speedUpgradeLevel: Int = 0,
     val stewardEfficiencyLevel: Int = 0,
+    /** [com.wyrmwhelp.idlehoard.domain.model.OwnedLair.stewardName] — a plain nullable column, no JSON encoding needed for a single string. */
+    val stewardName: String? = null,
 )

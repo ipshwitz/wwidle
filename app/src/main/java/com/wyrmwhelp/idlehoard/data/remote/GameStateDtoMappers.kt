@@ -56,6 +56,7 @@ private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
     profitUpgradeLevel = profitUpgradeLevel,
     speedUpgradeLevel = speedUpgradeLevel,
     stewardEfficiencyLevel = stewardEfficiencyLevel,
+    stewardName = stewardName,
 )
 
 private fun ActiveTemporaryBoost.toDto(): ActiveTemporaryBoostDto = ActiveTemporaryBoostDto(
@@ -115,6 +116,7 @@ private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(
     profitUpgradeLevel = profitUpgradeLevel,
     speedUpgradeLevel = speedUpgradeLevel,
     stewardEfficiencyLevel = stewardEfficiencyLevel,
+    stewardName = stewardName,
 )
 
 private fun ActiveTemporaryBoostDto.toDomain(): ActiveTemporaryBoost = ActiveTemporaryBoost(

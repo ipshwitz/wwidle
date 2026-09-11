@@ -194,10 +194,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.46.0** (Achievements — a new menu section of 68
-     permanent, one-time accomplishments that each add a small permanent
-     bonus to every lair's income, forever — see the `Achievements`
-     bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.47.0** (Named Stewards — hiring a Steward now
+     rolls a random D&D-flavored name+epithet, tier-appropriate to the
+     lair, shown on the Stewards screen — purely cosmetic, see the
+     `StewardNames` bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1355,6 +1355,66 @@ These apply to every change made in this repo, however small:
       the Assets section — Adult Dragon's Lair / Ancient Dragon's Hoard,
       completing all 14 tiers) renders correctly on the main screen
       alongside the seeded state.
+  - **Named Stewards (v0.47.0)** — hiring a Steward for a lair
+    (`GameEngine.hireSteward`) now rolls a random D&D 5E-flavored name +
+    epithet (`domain/model/StewardNames.kt`, `OwnedLair.stewardName`),
+    added per explicit request ("what if we gave the Stewards names?
+    ...need to fit the D&D 5E theme"), confirmed via a short design pass
+    (random-per-hire vs. fixed-per-lair-forever, flat vs. tier-scaled
+    naming, name-only vs. name+epithet — all three landed on the
+    richer/more dynamic option). Purely cosmetic — `stewardName` has zero
+    effect on any formula anywhere in the game, unlike literally every
+    other field `OwnedLair` carries.
+    - **Tier-scaled grandeur** — `StewardNames.randomStewardName(tier)`
+      picks from one of four hand-written 10-name pools keyed on the
+      lair's own `CreatureLair.tier`, matching how this game already
+      ties everything else (art, rarity color, milestone theming) to a
+      lair's real 5E Challenge Rating: HUMBLE (tiers 0-3, CR 1/8-1/2 —
+      nervous locals like "Pell Higgins, the Nervous"), JOURNEYMAN
+      (tiers 4-7, CR 1/2-2 — competent hired hands like "Borin
+      Stonefist, the Reliable"), VETERAN (tiers 8-10, CR 3-6 — seasoned
+      adventurers like "Sera Blackthorn, the Unyielding"), LEGENDARY
+      (tiers 11-13, CR 10-24 — epic figures like "Sir Aldric Emberbane,
+      Dragonsbane"). 40 names total, each pre-combined as one
+      "Name, Epithet" display string rather than separate fields, since
+      nothing else in the app ever needs them apart.
+    - **Random per hire, not fixed per lair** — confirmed explicitly: a
+      lair's Steward gets a fresh name every time one is actually hired,
+      not the same name forever. `randomStewardName` takes an optional
+      `Random` param (default `Random.Default`) purely so
+      `StewardNamesTest.kt` can seed it deterministically — the first
+      "randomness" anywhere in this game's domain layer, unlike every
+      other formula here, which is a pure deterministic function of
+      state.
+    - **Gated the same way `StewardEfficiency.kt` already is** —
+      deliberately **not** wired to the account-wide Universal Steward
+      (`domain/model/UniversalSteward.kt`): that one never claims a
+      specific per-lair hire ("no more per-lair Steward costs," see its
+      own class doc), so there's no one specific person to name. Only a
+      genuine `OwnedLair.hasSteward` hire gets a `stewardName`; a lair
+      managed purely by the Universal Steward shows the same "Steward
+      Hired" text with no name line underneath.
+    - **`StewardsContent.kt`'s `StewardRow`** — the hired-state
+      `Column` gained a second, italic, smaller `Text` under "Steward
+      Hired" showing `OwnedLair.stewardName` when non-null; unchanged
+      for the Universal-Steward-only case.
+    - **Resets implicitly** — `stewardName` resets to null alongside
+      `OwnedLair.hasSteward` on a Level Up or Account Reset (both
+      already rebuild `lairs` from scratch), same as every other
+      per-lair Steward field; no special-casing needed in
+      `performLevelUp`/`resetProgress`.
+    - **Persistence**: Room bumped to **database version 19** for one
+      new nullable `stewardName` column on `OwnedLairEntity` — plain
+      `String?`, no JSON encoding needed for a single value, same
+      pattern as `selectedAvatarId`. The Supabase `OwnedLairDto` mirrors
+      it with a `null` default for older cloud saves.
+    - **Verified live on-device**: seeded a save with gold to hire both
+      Kobold Warren's and Ancient Dragon's Hoard's Stewards — hiring
+      correctly assigned "Fenna Marsh, Sharp-Eyed" (from the HUMBLE
+      pool) to Kobold Warren and "Baldric Ironsong, the Immortal" (from
+      the LEGENDARY pool) to Ancient Dragon's Hoard, both rendering
+      correctly under their "Steward Hired" badges; confirmed the name
+      persisted to the real Room database via a direct DB read.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,

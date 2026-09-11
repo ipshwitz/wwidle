@@ -37,6 +37,11 @@ package com.wyrmwhelp.idlehoard.domain.model
  *   [profitUpgradeLevel]/[speedUpgradeLevel], requires [hasSteward] to
  *   already be true before the first tier can be bought at all. Resets
  *   on a Level Up implicitly, same as those two.
+ * @property stewardName Flavor-only D&D-style name+epithet
+ *   (`domain/model/StewardNames.kt`) rolled the moment [hasSteward]
+ *   actually gets hired — null whenever it's false. Purely cosmetic, no
+ *   effect on any formula; resets implicitly alongside [hasSteward], and
+ *   a fresh hire afterward rolls a new one rather than reusing the old.
  */
 data class OwnedLair(
     val lairId: String,
@@ -48,4 +53,5 @@ data class OwnedLair(
     val profitUpgradeLevel: Int = 0,
     val speedUpgradeLevel: Int = 0,
     val stewardEfficiencyLevel: Int = 0,
+    val stewardName: String? = null,
 )

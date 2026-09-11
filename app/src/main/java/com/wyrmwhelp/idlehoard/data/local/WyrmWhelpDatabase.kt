@@ -4,6 +4,10 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
+ * Bumped to version 19 for the named-Stewards feature (v0.47.0): one new
+ * nullable `stewardName` column on [OwnedLairEntity] (see
+ * `GameStateMappers.kt`) — see `domain/model/StewardNames.kt`. Plain
+ * nullable `String` column, no JSON encoding needed for a single value.
  * Bumped to version 18 for the Achievements feature (v0.46.0): nine new
  * [GameStateEntity] columns tracking permanent, never-resetting
  * lifetime-accomplishment stats — `highestLairCountsJson`,
@@ -78,7 +82,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 18,
+    version = 19,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

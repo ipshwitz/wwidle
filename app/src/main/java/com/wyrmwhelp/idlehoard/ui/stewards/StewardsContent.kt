@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
@@ -247,6 +248,13 @@ private fun IntroCard(palette: FantasyPalette, modifier: Modifier = Modifier) {
  * renders below the hire status for that same lair's own Steward
  * Efficiency line — moved here from the Upgrades screen in v0.44.1 so it
  * sits right next to the Steward it upgrades.
+ *
+ * A real per-lair hire also shows [OwnedLair.stewardName]
+ * (`domain/model/StewardNames.kt`) as a small italic line under "Steward
+ * Hired" — flavor only, no effect on anything. The Universal-Steward-only
+ * case shows the same "Steward Hired" text with no name underneath, since
+ * that one never claims a specific hire to name (see that file's class
+ * doc).
  */
 @Composable
 private fun StewardRow(
@@ -279,12 +287,22 @@ private fun StewardRow(
                 )
             }
             if (owned.hasSteward || hasUniversalSteward) {
-                Text(
-                    text = "Steward Hired",
-                    fontWeight = FontWeight.Bold,
-                    color = palette.goldDeep,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Steward Hired",
+                        fontWeight = FontWeight.Bold,
+                        color = palette.goldDeep,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    owned.stewardName?.let { name ->
+                        Text(
+                            text = name,
+                            fontStyle = FontStyle.Italic,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = palette.ink.copy(alpha = 0.75f),
+                        )
+                    }
+                }
             } else {
                 WoodenButton(
                     text = "Hire — ${GoldFormat.format(lair.stewardCostGp)} gp",

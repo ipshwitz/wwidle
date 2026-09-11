@@ -42,6 +42,7 @@ import com.wyrmwhelp.idlehoard.domain.model.achievementIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.TimeSkipOption
 import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
 import com.wyrmwhelp.idlehoard.domain.model.StewardEfficiency
+import com.wyrmwhelp.idlehoard.domain.model.StewardNames
 import com.wyrmwhelp.idlehoard.domain.model.hasUniversalSteward
 import com.wyrmwhelp.idlehoard.domain.model.isLairManaged
 import java.time.Duration
@@ -210,11 +211,14 @@ class GameEngine @Inject constructor() {
 
     /**
      * Hires a Steward for [lairId], who will auto-collect finished production
-     * cycles from then on. Returns true if hired, false if already hired, the
-     * lair isn't owned yet, the player can't afford it, or the account-wide
-     * Universal Steward (`domain/model/UniversalSteward.kt`) already covers
-     * it — no reason to spend real gold on a redundant per-lair hire once
-     * every owned lair auto-collects anyway.
+     * cycles from then on — and gets a fresh flavor-only D&D-style name
+     * (`domain/model/StewardNames.kt`, `OwnedLair.stewardName`) rolled for
+     * this specific hire, appropriate to the lair's own tier. Returns true
+     * if hired, false if already hired, the lair isn't owned yet, the
+     * player can't afford it, or the account-wide Universal Steward
+     * (`domain/model/UniversalSteward.kt`) already covers it — no reason to
+     * spend real gold on a redundant per-lair hire once every owned lair
+     * auto-collects anyway.
      */
     fun hireSteward(lairId: String): Boolean {
         val lair = CreatureLairCatalog.get(lairId)
@@ -227,7 +231,7 @@ class GameEngine @Inject constructor() {
                 hired = true
                 current.copy(
                     goldPieces = current.goldPieces - lair.stewardCostGp,
-                    lairs = current.lairs + (lairId to owned.copy(hasSteward = true)),
+                    lairs = current.lairs + (lairId to owned.copy(hasSteward = true, stewardName = StewardNames.randomStewardName(lair.tier))),
                     everHiredStewardForLairs = current.everHiredStewardForLairs + lairId,
                 )
             }
