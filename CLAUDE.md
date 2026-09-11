@@ -194,9 +194,8 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.49.0** (Featured Lair mini-event — a random
-     lair flashes on the main screen for a short manual-tap challenge,
-     3x profit per tap plus a bonus for clearing the goal — see
+   - Current version: **0.49.1** (Featured Lair tap challenge retuned to
+     50 taps in 20 seconds, up from 20 taps in 12 — see
      `domain/model/FeaturedLairEvent.kt` and the bullet under Tech stack
      and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
@@ -1452,13 +1451,15 @@ These apply to every change made in this repo, however small:
       event starts and ends — only which color is actually *used* depends
       on `isFeatured`) and both the avatar and the card become tappable
       regardless of Steward/load state. Every tap during the
-      `FEATURED_LAIR_WINDOW_SECONDS` (12s) window earns
+      `FEATURED_LAIR_WINDOW_SECONDS` (20s, tuned up from 12s in v0.49.1 —
+      see that constant's own doc) window earns
       `FEATURED_LAIR_TAP_PROFIT_MULTIPLIER` (3x) that lair's own per-cycle
       profit, credited immediately via `GameEngine.tapFeaturedLair` — not
       deferred to a success/failure resolution, which is *why* missing the
       goal can't be a real "failure": every gold piece is already banked as
-      it's tapped. Landing `FEATURED_LAIR_TAPS_REQUIRED` (20) taps before
-      the window closes additionally grants
+      it's tapped. Landing `FEATURED_LAIR_TAPS_REQUIRED` (50, also tuned up
+      from 20 in v0.49.1 — "the tap was too easy" at the original pace)
+      taps before the window closes additionally grants
       `FEATURED_LAIR_BONUS_PRODUCTION_SECONDS` (1,800s/30 min) of that
       lair's own production, instantly, via a new
       `GameEngine.grantInstantProductionForLair` — the single-lair sibling
@@ -1527,8 +1528,10 @@ These apply to every change made in this repo, however small:
       described above (a background notification can't know "isAfter(now)"
       live the way the tick loop does) — and was deliberately deferred
       rather than built alongside the core mechanic, so the tap
-      challenge's own numbers (20 taps/12s, 3x profit, 30-min bonus) could
-      ship and be played first. See Open Questions.
+      challenge's own numbers (originally 20 taps/12s, retuned to 50
+      taps/20s in v0.49.1 — see [FEATURED_LAIR_TAPS_REQUIRED]'s doc —
+      plus 3x profit, 30-min bonus) could ship and be played first. See
+      Open Questions.
     - **Verified**: `GameEngineTest.kt`/`FeaturedLairEventTest.kt` cover the
       first-roll scheduling delay, an event starting on the scheduled lair,
       tap crediting/outcome (`NOT_ACTIVE`/`TAPPED`/`COMPLETED`), a stale tap

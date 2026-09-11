@@ -3,6 +3,13 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.49.1] - 2026-09-11 10:05 AM EDT
+
+- Tuned the Featured Lair tap challenge — it was too easy at 20 taps in 12
+  seconds. Now 50 taps in 20 seconds: a longer window so the progress bar
+  actually reads as filling up, but a noticeably faster pace required to
+  clear it.
+
 ## [0.49.0] - 2026-09-11 9:40 AM EDT
 
 - Added the Featured Lair mini-event: at random, one of your owned lairs

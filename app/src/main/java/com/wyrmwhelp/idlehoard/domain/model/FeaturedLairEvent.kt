@@ -19,9 +19,17 @@ import kotlin.random.Random
  * the goal isn't a failure state — every tap's gold is already banked, so
  * there's simply no bonus, never a loss for trying. First-pass placeholder
  * numbers, not playtested, same as everywhere else in the economy.
+ *
+ * **Tuned in v0.49.1** — the original 20 taps/12s (per explicit feedback,
+ * "the tap was too easy") averaged under 2 taps/sec, comfortably slow for
+ * a real thumb. Per explicit follow-up ("a little longer... time to fill
+ * up the status bar... 50 taps in 20 seconds"), both numbers moved up
+ * together: the window is longer (so the progress bar reads as a real
+ * fill rather than an instant blip) but the required pace is genuinely
+ * higher — 50 taps in 20s averages 2.5 taps/sec, up from 1.67.
  */
-const val FEATURED_LAIR_TAPS_REQUIRED = 20
-const val FEATURED_LAIR_WINDOW_SECONDS = 12L
+const val FEATURED_LAIR_TAPS_REQUIRED = 50
+const val FEATURED_LAIR_WINDOW_SECONDS = 20L
 const val FEATURED_LAIR_TAP_PROFIT_MULTIPLIER = 3.0
 const val FEATURED_LAIR_BONUS_PRODUCTION_SECONDS = 1800.0 // 30 minutes
 
