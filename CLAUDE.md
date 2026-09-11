@@ -194,10 +194,11 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.47.0** (Named Stewards — hiring a Steward now
+   - Current version: **0.47.1** (Named Stewards — hiring a Steward now
      rolls a random D&D-flavored name+epithet, tier-appropriate to the
-     lair, shown on the Stewards screen — purely cosmetic, see the
-     `StewardNames` bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+     lair; once hired, the Stewards screen leads with that name instead
+     of the lair's — purely cosmetic, see the `StewardNames` bullet
+     under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1355,7 +1356,7 @@ These apply to every change made in this repo, however small:
       the Assets section — Adult Dragon's Lair / Ancient Dragon's Hoard,
       completing all 14 tiers) renders correctly on the main screen
       alongside the seeded state.
-  - **Named Stewards (v0.47.0)** — hiring a Steward for a lair
+  - **Named Stewards (v0.47.0, promoted to the row's title in v0.47.1)** — hiring a Steward for a lair
     (`GameEngine.hireSteward`) now rolls a random D&D 5E-flavored name +
     epithet (`domain/model/StewardNames.kt`, `OwnedLair.stewardName`),
     added per explicit request ("what if we gave the Stewards names?
@@ -1392,12 +1393,24 @@ These apply to every change made in this repo, however small:
       specific per-lair hire ("no more per-lair Steward costs," see its
       own class doc), so there's no one specific person to name. Only a
       genuine `OwnedLair.hasSteward` hire gets a `stewardName`; a lair
-      managed purely by the Universal Steward shows the same "Steward
-      Hired" text with no name line underneath.
-    - **`StewardsContent.kt`'s `StewardRow`** — the hired-state
-      `Column` gained a second, italic, smaller `Text` under "Steward
-      Hired" showing `OwnedLair.stewardName` when non-null; unchanged
-      for the Universal-Steward-only case.
+      managed purely by the Universal Steward keeps the lair's own name
+      as the row's title, since there's no specific person to promote.
+    - **`StewardsContent.kt`'s `StewardRow`** — **v0.47.0 first showed
+      the name as a small italic line under "Steward Hired"**, with the
+      row's title still `CreatureLair.name`; per immediate explicit
+      follow-up ("show the Steward's name... instead of having the name
+      below the words Steward Hired"), **v0.47.1 swapped the two**: the
+      row's own title is now `owned.stewardName ?: lair.name` (the
+      Steward's name once hired, falling back to the lair's own name
+      otherwise — covers both the not-yet-hired and
+      Universal-Steward-only cases in one expression, since `stewardName`
+      is null in both), and the subtitle becomes `"${lair.name} —
+      Owned: ${owned.count}"` once a name is showing (just `"Owned:
+      ${owned.count}"` otherwise) — so the lair's own name never
+      disappears, it just moves down to stay identifiable. "Steward
+      Hired" on the right reverted to a single plain `Text`, no longer
+      needing the name underneath it now that the name is the row's own
+      headline.
     - **Resets implicitly** — `stewardName` resets to null alongside
       `OwnedLair.hasSteward` on a Level Up or Account Reset (both
       already rebuild `lairs` from scratch), same as every other
@@ -1412,9 +1425,12 @@ These apply to every change made in this repo, however small:
       Kobold Warren's and Ancient Dragon's Hoard's Stewards — hiring
       correctly assigned "Fenna Marsh, Sharp-Eyed" (from the HUMBLE
       pool) to Kobold Warren and "Baldric Ironsong, the Immortal" (from
-      the LEGENDARY pool) to Ancient Dragon's Hoard, both rendering
-      correctly under their "Steward Hired" badges; confirmed the name
-      persisted to the real Room database via a direct DB read.
+      the LEGENDARY pool) to Ancient Dragon's Hoard; confirmed the name
+      persisted to the real Room database via a direct DB read. After
+      the v0.47.1 layout swap, re-verified both rows: "Fenna Marsh,
+      Sharp-Eyed" / "Kobold Warren — Owned: 1" and "Baldric Ironsong,
+      the Immortal" / "Ancient Dragon's Hoard — Owned: 1", each still
+      correctly paired with its own "Steward Hired" badge.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,

@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wyrmwhelp.idlehoard.domain.model.CreatureLair
@@ -249,12 +248,13 @@ private fun IntroCard(palette: FantasyPalette, modifier: Modifier = Modifier) {
  * Efficiency line — moved here from the Upgrades screen in v0.44.1 so it
  * sits right next to the Steward it upgrades.
  *
- * A real per-lair hire also shows [OwnedLair.stewardName]
- * (`domain/model/StewardNames.kt`) as a small italic line under "Steward
- * Hired" — flavor only, no effect on anything. The Universal-Steward-only
- * case shows the same "Steward Hired" text with no name underneath, since
- * that one never claims a specific hire to name (see that file's class
- * doc).
+ * A real per-lair hire also replaces the row's own title — normally
+ * [CreatureLair.name] — with [OwnedLair.stewardName]
+ * (`domain/model/StewardNames.kt`), pushing the lair's own name down into
+ * the subtitle alongside the owned count instead; flavor only, no effect
+ * on anything. The Universal-Steward-only case keeps the lair name as the
+ * title, since that one never claims a specific hire to name (see that
+ * file's class doc) — there's no name to promote.
  */
 @Composable
 private fun StewardRow(
@@ -276,33 +276,23 @@ private fun StewardRow(
         ) {
             Column {
                 Text(
-                    text = lair.name,
+                    text = owned.stewardName ?: lair.name,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
                 )
                 Text(
-                    text = "Owned: ${owned.count}",
+                    text = if (owned.stewardName != null) "${lair.name} — Owned: ${owned.count}" else "Owned: ${owned.count}",
                     style = MaterialTheme.typography.bodySmall,
                     color = palette.ink.copy(alpha = 0.7f),
                 )
             }
             if (owned.hasSteward || hasUniversalSteward) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "Steward Hired",
-                        fontWeight = FontWeight.Bold,
-                        color = palette.goldDeep,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    owned.stewardName?.let { name ->
-                        Text(
-                            text = name,
-                            fontStyle = FontStyle.Italic,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = palette.ink.copy(alpha = 0.75f),
-                        )
-                    }
-                }
+                Text(
+                    text = "Steward Hired",
+                    fontWeight = FontWeight.Bold,
+                    color = palette.goldDeep,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             } else {
                 WoodenButton(
                     text = "Hire — ${GoldFormat.format(lair.stewardCostGp)} gp",

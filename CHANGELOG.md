@@ -3,6 +3,13 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.47.1] - 2026-09-10 8:40 PM EDT
+
+- Once a Steward's hired, the Stewards screen now leads with their name
+  instead of the lair's — "Fenna Marsh, Sharp-Eyed" up top, "Kobold
+  Warren — Owned: 1" underneath — instead of burying the name below
+  "Steward Hired".
+
 ## [0.47.0] - 2026-09-10 8:20 PM EDT
 
 - Stewards now get a name. Hiring one for a lair rolls a random D&D-flavored
