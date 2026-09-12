@@ -730,9 +730,9 @@ class GameEngine @Inject constructor() {
      * ([GameState.lastPlatinumAdWatchedAt] and friends) reset as well —
      * they're not "bought with Platinum," just the mechanism to earn more of
      * it, so clearing them only benefits the player. `GameViewModel.resetAccount()`
-     * pairs this with clearing the player's leaderboard username
-     * (`AuthRepository.clearUsername`), which lives outside [GameState]
-     * entirely.
+     * pairs this with rolling the player's leaderboard username back to a
+     * fresh auto-generated placeholder (`AuthRepository.regenerateUsername`),
+     * which lives outside [GameState] entirely.
      *
      * Every persistent Achievement-tracking stat ([GameState.highestLairCounts]
      * and its siblings — see `domain/model/Achievement.kt`) also survives a

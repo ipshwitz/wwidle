@@ -194,10 +194,11 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.49.1** (Featured Lair tap challenge retuned to
-     50 taps in 20 seconds, up from 20 taps in 12 — see
-     `domain/model/FeaturedLairEvent.kt` and the bullet under Tech stack
-     and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.50.0** (Auto-generated leaderboard usernames —
+     every account, guest included, gets a placeholder `AnonymousNNNNNN`
+     name the instant it exists, so guests now show up on the leaderboard
+     too — see `SQL/006_auto_generate_usernames.sql` and the bullet under
+     Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1009,6 +1010,72 @@ These apply to every change made in this repo, however small:
     `NotFoundRestException` above (surfaced honestly, not silently) —
     expected, not a regression, until the script is applied. Already
     run and confirmed working as of v0.39.1.
+  - **Auto-generated leaderboard usernames (v0.50.0)** — every account,
+    guest included, now gets a placeholder `AnonymousNNNNNN` username the
+    instant it exists, closing the gap the leaderboard had shipped with
+    since v0.41.0 (a guest could watch the board but never appear on it,
+    since only a signed-in player had ever set a real name). Built from an
+    explicit design discussion: guests and not-yet-named signed-in players
+    both get the placeholder (a unification, not guest-only — "It should
+    cover both"), a guest sees theirs read-only, and a signed-in player
+    can freely overwrite theirs, matching the answer "The only difference
+    is a signed in user that hasn't picked their username yet has the
+    ability to edit it - while a guest who hasn't signed in yet, can't."
+    - **`SQL/006_auto_generate_usernames.sql`** (run once, same
+      manual-dashboard-script category as `001`/`003`/`004`/`005`) adds
+      the actual generation: a real Postgres sequence
+      (`anonymous_username_seq`, starting at 100,000) feeds a
+      `handle_new_user()` trigger function on `auth.users` insert — the
+      standard Supabase "auto-create a profile row on signup" pattern —
+      that inserts `'Anonymous' || nextval(...)` into `public.profiles`.
+      Deliberately a sequence, not `random()`: guarantees no collision
+      against `profiles_username_lower_idx`'s existing uniqueness, so no
+      retry logic is needed anywhere that generates one. The trigger only
+      needs to fire on `auth.users` INSERT, and in this app that only ever
+      happens once per player, at `AuthRepository.ensureSignedIn()`'s
+      anonymous sign-in moment — neither `signUp` (upgrades that same
+      session via `updateUser`) nor `signIn` (switches to a different,
+      already-existing account) ever inserts a new row, so one trigger
+      genuinely covers every player exactly once regardless of whether
+      they ever add a real email. The script also backfills every
+      pre-existing account (guest or signed-in) that predates it and has
+      no `profiles` row yet, so this isn't only a going-forward fix —
+      existing installs pick up a name the next time
+      `refresh_leaderboards()` runs, no app update required.
+    - **Visibility vs. editability are two separate things now, not one
+      combined gate.** `GameViewModel._username`/`refreshUsernameState()`
+      fetch unconditionally for everyone (the old "guest — clear without a
+      network call" shortcut is gone, since a guest's `profiles` row now
+      genuinely exists); only `submitUsername`/`UsernameField` — the
+      *write* path — stay gated to `userEmail != null`.
+      `SettingsContent.kt`'s `AccountCard` shows a guest a plain
+      "Username: AnonymousXXXXXX" line plus a "Sign in to change your
+      username" hint instead of the editable field. `LeaderboardContent.kt`'s
+      `GuestNoteCard` copy changed to match — it used to explain why a
+      guest would never see themselves on the board at all; now they
+      already do, so it just nudges them to pick a real name via sign-in,
+      and `GameViewModel.loadLeaderboard`'s `fetchCurrentUserEntry` call
+      is no longer gated on `userEmail` either, since a guest can now
+      genuinely have a real ranked entry to fetch.
+    - **Reserved "Anonymous" prefix** — `domain/model/Username.kt`'s
+      `isValidUsername` now also rejects anything starting with
+      "Anonymous" (case-insensitive), so a real, chosen username can never
+      impersonate the auto-generated placeholders — confusing on a
+      leaderboard where a genuine `AnonymousNNNNNN` entry is also always a
+      real possibility. Unit-tested in `UsernameTest.kt`.
+    - **Account Reset regenerates rather than deletes.** Before this
+      version, `AuthRepository.clearUsername()` deleted the `profiles`
+      row outright (matching the old "guests just don't have one"
+      invariant); doing that now would leave a player with *no* row at
+      all after a Reset, breaking the new "everyone always has a
+      username" guarantee this feature exists to establish. Replaced with
+      `regenerateUsername()`, calling a new `regenerate_own_username()`
+      RPC (`SECURITY DEFINER`, same safety shape as `delete_own_account()`
+      from `005` — elevated privilege to pull from the sequence, but its
+      `where user_id = auth.uid()` clause pins it to the caller's own row)
+      that rolls the row back to a fresh auto-generated name instead — a
+      Reset getting a fresh anonymous identity fits the same "fresh start"
+      framing as everything else it wipes.
   - **Leaderboard (v0.41.0)** — three ranked boards (All-Time / Weekly /
     Monthly gold earned), reachable from the menu as "Leaderboard" (no
     sign art yet — falls back to `FloatingMenu`'s plain-`Surface`
@@ -1017,8 +1084,11 @@ These apply to every change made in this repo, however small:
     `GameState.lifetimeGoldEarned` deltas over each window (the user's own
     answer, plus the exact reset times — "Monthly resets the last day of
     every month at 11:59pm EST. Weekly resets every Sunday night at
-    11:59pm EST. The rankings update once every hour"); guests excluded
-    entirely (only players with a `profiles` username ever appear); the
+    11:59pm EST. The rankings update once every hour"); only players with a
+    `profiles` username ever appear — **since v0.50.0 that's genuinely
+    everyone, guests included** (see the Auto-generated usernames bullet
+    below — originally, before that version, this meant guests were
+    excluded entirely, since only a signed-in player could set one); the
     screen shows a top-50 list plus the current player's own rank pinned
     below it if they're outside that top 50.
     **Rankings are computed server-side, once an hour — never live, and

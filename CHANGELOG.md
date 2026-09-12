@@ -3,6 +3,16 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.50.0] - 2026-09-11 11:20 AM EDT
+
+- Every player now shows up on the leaderboard, guests included. The moment
+  an account exists it gets an auto-assigned name like "Anonymous587625" —
+  visible (but not editable) in Settings for a guest, and freely
+  changeable once you sign in and pick a real one. Real usernames can no
+  longer start with "Anonymous," so nobody can impersonate a guest's
+  auto-assigned name. Resetting your account now rolls your name back to
+  a fresh auto-assigned one instead of removing it entirely.
+
 ## [0.49.1] - 2026-09-11 10:05 AM EDT
 
 - Tuned the Featured Lair tap challenge — it was too easy at 20 taps in 12

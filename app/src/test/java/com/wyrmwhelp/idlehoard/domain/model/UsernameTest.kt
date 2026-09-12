@@ -27,4 +27,11 @@ class UsernameTest {
         assertFalse(isValidUsername("dragon@lord"))
         assertFalse(isValidUsername("dragon.lord"))
     }
+
+    @Test
+    fun `rejects anything starting with Anonymous, case-insensitively, reserved for auto-generated names`() {
+        assertFalse(isValidUsername("Anonymous123"))
+        assertFalse(isValidUsername("anonymous_guy"))
+        assertFalse(isValidUsername("ANONYMOUSxyz"))
+    }
 }

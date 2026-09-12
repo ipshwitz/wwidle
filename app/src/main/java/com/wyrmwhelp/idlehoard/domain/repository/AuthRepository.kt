@@ -12,8 +12,12 @@ package com.wyrmwhelp.idlehoard.domain.repository
  * switches to a *different*, already-existing permanent account (a
  * different user id), so callers must reconcile local vs. that account's
  * cloud save afterward — see `GameViewModel.signIn`. [currentUsername]/
- * [setUsername] back the leaderboard-username prompt shown once a guest
- * finishes registering — see `GameViewModel.needsUsername`.
+ * [setUsername]/[regenerateUsername] back the inline leaderboard-username
+ * field in Settings' Account card — see `GameViewModel.submitUsername`.
+ * Every account (guest included) already has a placeholder `AnonymousNNNNNN`
+ * username the moment it exists (v0.50.0, `SQL/006_auto_generate_usernames.sql`'s
+ * trigger), so [currentUsername] is only ever null before that script has
+ * been run against a given Supabase project, not as an ordinary state.
  */
 interface AuthRepository {
 
@@ -84,12 +88,18 @@ interface AuthRepository {
     suspend fun setUsername(username: String)
 
     /**
-     * Removes the current session's `profiles` row, so a later
-     * [currentUsername] read goes back to null — backs Settings' "Reset
-     * Account" (`GameViewModel.resetAccount`). A no-op (not an error) if
-     * there's no active session or no username was ever set.
+     * Rolls the current session's `profiles.username` back to a fresh
+     * auto-generated `AnonymousNNNNNN` placeholder — backs Settings' "Reset
+     * Account" (`GameViewModel.resetAccount`), a fresh run getting a fresh
+     * anonymous identity same as everything else Reset wipes. Calls the
+     * `regenerate_own_username()` RPC (`SQL/006_auto_generate_usernames.sql`)
+     * rather than deleting the row outright (the pre-v0.50.0 behavior) —
+     * every player is guaranteed to always have *some* username now (see
+     * that script's trigger), so deleting the row instead of replacing it
+     * would leave this account invisible on the leaderboard until some
+     * other event happened to recreate it, which nothing does.
      */
-    suspend fun clearUsername()
+    suspend fun regenerateUsername()
 
     /**
      * Permanently deletes the current session's own Supabase account —

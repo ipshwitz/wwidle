@@ -92,11 +92,8 @@ class SupabaseAuthRepository @Inject constructor(
         }
     }
 
-    override suspend fun clearUsername() {
-        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
-        supabaseClient.from(PROFILES_TABLE).delete {
-            filter { eq("user_id", userId) }
-        }
+    override suspend fun regenerateUsername() {
+        supabaseClient.postgrest.rpc("regenerate_own_username")
     }
 
     override suspend fun deleteAccount() {

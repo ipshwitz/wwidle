@@ -274,11 +274,22 @@ private enum class AuthFormMode { SignUp, SignIn }
  * design, which auto-popped a `Dialog` the instant registration completed.
  * That's gone entirely now: there's no "needs a username" trigger anymore,
  * just this field, always sitting here for a signed-in player to fill in
- * or change whenever they want. It only ever renders inside this
- * `userEmail != null` branch, so — matching the explicit "only usable once
- * logged in" requirement — a guest never sees it at all, the same gating
- * `SyncCard`'s "Sync Now" and `ShopContent`'s "Buy Platinum Pieces" already
- * use for account-tied actions.
+ * or change whenever they want.
+ *
+ * **A guest sees the same [username] too, since v0.50.0 — just read-only.**
+ * Every account (guest included) is auto-assigned a placeholder
+ * `AnonymousNNNNNN` name the instant it exists
+ * (`SQL/006_auto_generate_usernames.sql`'s trigger), so guests now show up
+ * on the leaderboard from session one — the guest branch below renders a
+ * plain "Username: AnonymousXXXXXX" line plus a "Sign in to change your
+ * username" hint, but not [UsernameField] itself, which stays gated to
+ * `userEmail != null` — editing a name only makes sense once there's a
+ * permanent account to attach it to; a guest's identity (and thus its
+ * placeholder name) doesn't survive a reinstall regardless. This is
+ * unrelated to `SyncCard`'s "Sync Now"/`ShopContent`'s "Buy Platinum
+ * Pieces" gating, which stays sign-in-only for its own reasons (a
+ * recoverable account, real money) — only the username's *visibility*
+ * changed here, not those.
  */
 @Composable
 private fun AccountCard(
@@ -342,6 +353,20 @@ private fun AccountCard(
                 palette = palette,
             )
             return@ParchmentCard
+        }
+
+        if (username != null) {
+            Text(
+                text = "Username: $username",
+                style = MaterialTheme.typography.bodyMedium,
+                color = palette.ink,
+            )
+            Text(
+                text = "Sign in to change your username.",
+                style = MaterialTheme.typography.bodySmall,
+                color = palette.ink.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.height(8.dp))
         }
 
         Text(

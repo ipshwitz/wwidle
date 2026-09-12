@@ -45,11 +45,14 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * itself, it just reads whatever that job last computed (so a number here
  * can lag reality by up to an hour; there's no live-updating attempted).
  *
- * Only players with a `profiles` username ever appear on a board at all —
- * guests are excluded by design (see that SQL script's join) — but a guest
- * can still *view* every board, same "look, don't touch" treatment as
- * `ShopContent`'s ad-watch tab; [GuestNoteCard] explains why they never see
- * themselves in it instead of hiding the screen outright.
+ * Every player with a `profiles` username appears on a board — since
+ * v0.50.0 that's genuinely everyone, guest included (see
+ * `SQL/006_auto_generate_usernames.sql`'s trigger, which auto-assigns a
+ * placeholder `AnonymousNNNNNN` name the instant an account exists, no
+ * longer just players who explicitly set a real one). [GuestNoteCard] used
+ * to explain why a guest would never see themselves here at all; now it
+ * just nudges them to pick a real name via sign-in instead, since they're
+ * already competing under the auto-assigned one.
  *
  * Pure display plus callbacks — [entries]/[currentUserEntry]/[isLoading]/
  * [errorMessage] are `GameViewModel.loadLeaderboard`'s state, passed in by
@@ -169,7 +172,8 @@ private fun LeaderboardRow(entry: LeaderboardEntry, palette: FantasyPalette, mod
 private fun GuestNoteCard(palette: FantasyPalette, modifier: Modifier = Modifier) {
     ParchmentCard(palette = palette, modifier = modifier) {
         Text(
-            text = "Sign in and set a leaderboard username (Settings → Account) to compete here yourself.",
+            text = "You're competing under an auto-assigned guest name. Sign in and choose a " +
+                "real username (Settings → Account) to make it your own.",
             style = MaterialTheme.typography.bodySmall,
             color = palette.ink.copy(alpha = 0.8f),
         )

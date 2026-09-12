@@ -179,13 +179,16 @@ class GameViewModel @Inject constructor(
     private val _lastSyncedAt = MutableStateFlow<Instant?>(null)
     val lastSyncedAt: StateFlow<Instant?> = _lastSyncedAt.asStateFlow()
 
-    // The signed-in player's leaderboard username (`profiles` table) — null
-    // for guests, and null for a signed-in player who hasn't set one yet.
-    // Edited inline in Settings' Account card (SettingsContent.kt) rather
-    // than through a separate pop-up — there's no "needs a username" flag
-    // driving an unprompted dialog; the field just always shows whatever
-    // this currently holds, and only Settings ever renders it (gated to
-    // signed-in players there, same as the rest of the Account card).
+    // The player's leaderboard username (`profiles` table) — since v0.50.0
+    // (`SQL/006_auto_generate_usernames.sql`'s trigger), this is non-null
+    // for basically everyone, guest included: an auto-generated
+    // "AnonymousNNNNNN" placeholder exists the instant the account itself
+    // does. Only actually null before that script has been run against a
+    // given Supabase project, or on a genuine fetch failure. Shown inline in
+    // Settings' Account card (SettingsContent.kt) — editable there only for
+    // a signed-in player (`submitUsername`); a guest sees the same value
+    // read-only with a "sign in to change it" hint, since there's no
+    // account yet to attach a chosen name to permanently.
     private val _username = MutableStateFlow<String?>(null)
     val username: StateFlow<String?> = _username.asStateFlow()
 
@@ -217,16 +220,18 @@ class GameViewModel @Inject constructor(
     val leaderboardError: StateFlow<String?> = _leaderboardError.asStateFlow()
 
     /**
-     * Fetches [period]'s top entries plus the current player's own (if
-     * signed in) — called once when the Leaderboard section opens
-     * (`MainActivity`'s `LaunchedEffect(openSection)`) and again on every
-     * tab switch. `leaderboard_rankings` has a public-read RLS policy, so
-     * the top list itself is fetched for guests too (a guest just never
-     * gets a [currentUserLeaderboardEntry], since there's no account for
-     * `fetchCurrentUserEntry` to look up) — only skipping the *whole*
-     * fetch for guests would be wrong here, unlike `refreshUsernameState`'s
-     * genuinely-nothing-to-fetch shortcut, since the board itself has
-     * nothing to do with whether the viewer is signed in.
+     * Fetches [period]'s top entries plus the current player's own — called
+     * once when the Leaderboard section opens (`MainActivity`'s
+     * `LaunchedEffect(openSection)`) and again on every tab switch.
+     * `leaderboard_rankings` has a public-read RLS policy, so the top list
+     * is fetched regardless of sign-in state, same as the per-user entry
+     * fetch below it — since v0.50.0 a guest has a real `profiles` username
+     * (`SQL/006_auto_generate_usernames.sql`) and so can genuinely appear in
+     * `leaderboard_rankings` too, [fetchCurrentUserEntry] is no longer
+     * gated on [userEmail] being non-null the way it used to be; it simply
+     * returns null itself if this session's own `user_id` isn't in the
+     * current rankings for [period] (e.g. a brand-new guest with nothing
+     * earned yet this period).
      */
     fun loadLeaderboard(period: LeaderboardPeriod = _leaderboardPeriod.value) {
         _leaderboardPeriod.value = period
@@ -235,7 +240,7 @@ class GameViewModel @Inject constructor(
             _leaderboardError.value = null
             runCatching {
                 val top = leaderboardRepository.fetchTop(period)
-                val own = if (_userEmail.value != null) leaderboardRepository.fetchCurrentUserEntry(period) else null
+                val own = leaderboardRepository.fetchCurrentUserEntry(period)
                 top to own
             }
                 .onSuccess { (top, own) ->
@@ -509,12 +514,16 @@ class GameViewModel @Inject constructor(
     /**
      * Settings' "Reset Account" — wipes the current run back to a fresh save
      * (see [GameEngine.resetProgress]'s doc for exactly what does/doesn't
-     * carry over) and clears the player's leaderboard username, if any.
-     * Works for a guest or a signed-in account alike — unlike [deleteAccount],
-     * this never touches the Supabase auth session itself, only game
-     * progress. Local Room and (if signed in) the cloud row are both
-     * overwritten with the fresh state via [GameRepository.replaceGameState]/
-     * [CloudSaveRepository.uploadSave] so nothing from the old run lingers.
+     * carry over) and rolls the player's leaderboard username back to a
+     * fresh auto-generated `AnonymousNNNNNN` placeholder (see
+     * [AuthRepository.regenerateUsername]'s doc for why this regenerates
+     * rather than clearing to nothing, unlike pre-v0.50.0 behavior — every
+     * account always has *some* username now). Works for a guest or a
+     * signed-in account alike — unlike [deleteAccount], this never touches
+     * the Supabase auth session itself, only game progress. Local Room and
+     * (if signed in) the cloud row are both overwritten with the fresh state
+     * via [GameRepository.replaceGameState]/[CloudSaveRepository.uploadSave]
+     * so nothing from the old run lingers.
      */
     fun resetAccount() {
         if (_isAccountActionInProgress.value) return
@@ -526,9 +535,9 @@ class GameViewModel @Inject constructor(
             gameRepository.replaceGameState(fresh)
             val userId = currentUserId
             if (userId != null) {
-                runCatching { authRepository.clearUsername() }
-                    .onFailure { Log.w(TAG, "Clearing username on reset failed", it) }
-                _username.value = null
+                runCatching { authRepository.regenerateUsername() }
+                    .onFailure { Log.w(TAG, "Regenerating username on reset failed", it) }
+                refreshUsernameState()
                 runCatching { cloudSaveRepository.uploadSave(userId, fresh) }
                     .onSuccess { _lastSyncedAt.value = Instant.now() }
                     .onFailure { Log.w(TAG, "Cloud upload after account reset failed", it) }
@@ -586,18 +595,15 @@ class GameViewModel @Inject constructor(
 
     /**
      * Refreshes [username] to match the current session — called after
-     * every point [userEmail] changes. A guest (null email) just clears it
-     * without a network call, since guests are never shown the username
-     * field at all (see `SettingsContent`'s `AccountCard`). Also covers a
-     * pre-existing account signing in from before this feature shipped,
-     * since it's checked fresh on every sign-in/sign-up, not just once at
-     * account creation.
+     * every point [userEmail] changes (a sign-in/sign-up/sign-out switches
+     * which account's `profiles` row applies) and once more after
+     * [resetAccount] regenerates it. Fetches unconditionally, guest or
+     * signed-in alike — since v0.50.0 every account has a `profiles` row
+     * from the moment it's created (see [AuthRepository]'s class doc), so
+     * there's no "guest has nothing to fetch" shortcut to take anymore the
+     * way this method itself used to have one before that version.
      */
     private suspend fun refreshUsernameState() {
-        if (_userEmail.value == null) {
-            _username.value = null
-            return
-        }
         _username.value = runCatching { authRepository.currentUsername() }
             .onFailure { Log.w(TAG, "Fetching username failed", it) }
             .getOrNull()
@@ -612,7 +618,8 @@ class GameViewModel @Inject constructor(
     fun submitUsername(username: String) {
         if (_isUsernameActionInProgress.value) return
         if (!isValidUsername(username)) {
-            _usernameMessage.value = "Usernames are 3-20 letters, numbers, or underscores."
+            _usernameMessage.value = "Usernames are 3-20 letters, numbers, or underscores, " +
+                "and can't start with \"Anonymous\"."
             return
         }
         viewModelScope.launch {
