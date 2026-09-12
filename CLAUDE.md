@@ -221,14 +221,16 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.52.2** (`calendar-state-new.png`'s "ready to
-     claim" glow re-exported with real alpha and confirmed live on-device
-     — see the Assets section and [CHANGELOG.md](CHANGELOG.md)). Daily
-     Reward itself shipped in 0.51.0 — a 28-day login streak paying a
-     climbing percentage of current Gold every day and a Gems bonus every
-     7 days; 0.52.0 added the once-per-day auto-popup gate and the
-     ad-double option; 0.52.1 dropped the day-28 finale from 20 to 15
-     Platinum Pieces now that doubling it reaches 30 for free.
+   - Current version: **0.52.3** (removed `DailyRewardButton`'s
+     day-number badge entirely now that the glow alone signals "ready to
+     claim" — see the bullet under Tech stack and
+     [CHANGELOG.md](CHANGELOG.md)). Daily Reward itself shipped in
+     0.51.0 — a 28-day login streak paying a climbing percentage of
+     current Gold every day and a Gems bonus every 7 days; 0.52.0 added
+     the once-per-day auto-popup gate and the ad-double option; 0.52.1
+     dropped the day-28 finale from 20 to 15 Platinum Pieces now that
+     doubling it reaches 30 for free; 0.52.2 fixed the "ready to claim"
+     glow's real-alpha export.
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1801,13 +1803,20 @@ These apply to every change made in this repo, however small:
       already covers it. Watching this ad also counts toward the
       account-wide Universal Steward total (`GameEngine.recordAdWatched()`,
       now called from five placements, not four).
-    - **Real two-state icon art** — `DailyRewardButton` uses
-      `calendar_state_normal`/`calendar_state_new` (see the Assets
-      section for the alpha-channel bug its first export had, and the
-      v0.52.2 re-export that fixed it) rather than a placeholder,
-      swapping between the two based on [canClaim]. A small gold
-      `DayBadge` overlaps the icon's corner with the current day number,
-      since the art itself doesn't encode a specific day.
+    - **Real two-state icon art, no day-number badge (v0.52.3)** —
+      `DailyRewardButton` uses `calendar_state_normal`/`calendar_state_new`
+      (see the Assets section for the alpha-channel bug its first export
+      had, and the v0.52.2 re-export that fixed it) rather than a
+      placeholder, swapping between the two based on [canClaim]. v0.51.0
+      originally overlaid a small gold `DayBadge` with the current day
+      number on the icon's corner; removed per explicit follow-up once
+      the glow itself was confirmed working — "we are using the glow
+      effect to make it clear they need to click on it, let's get rid of
+      that number completely" — since the glow alone is now the "something's
+      ready" signal and the day count is still shown inside
+      `DailyRewardDialog` itself. `DailyRewardButton` dropped its `day`
+      parameter entirely along with the badge (`GameScreen` no longer
+      computes `nextDailyRewardDay()` just to pass it in).
     - **Verified live on-device** across all three payout types: seeded
       via a direct Room DB edit (network disabled first — see the Auth
       section's cloud-merge gotcha below, which bit this testing pass

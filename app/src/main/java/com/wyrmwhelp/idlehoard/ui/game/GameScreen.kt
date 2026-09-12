@@ -29,7 +29,6 @@ import com.wyrmwhelp.idlehoard.domain.model.availableIncomeBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.incomeBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.canClaimDailyReward
-import com.wyrmwhelp.idlehoard.domain.model.nextDailyRewardDay
 import com.wyrmwhelp.idlehoard.domain.model.previewDailyRewardPayout
 import com.wyrmwhelp.idlehoard.domain.model.shouldAutoShowDailyRewardPopup
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
@@ -189,7 +188,6 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
 
         DailyRewardButton(
             canClaim = state.canClaimDailyReward(),
-            day = state.nextDailyRewardDay(),
             onClick = { showDailyRewardDialog = true },
             // Matches QuickAdBoostButton's own bottom inset exactly, mirrored
             // to the opposite corner — see that composable's doc for why.

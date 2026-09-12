@@ -3,6 +3,13 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.52.3] - 2026-09-12 2:20 PM EDT
+
+- Removed the day-number badge from the Daily Reward calendar icon — now
+  that the glow itself clearly shows when there's something to claim,
+  the little number was just clutter (and stuck around confusingly even
+  right after claiming).
+
 ## [0.52.2] - 2026-09-12 2:05 PM EDT
 
 - Fixed the Daily Reward icon's "ready to claim" glow, which never
