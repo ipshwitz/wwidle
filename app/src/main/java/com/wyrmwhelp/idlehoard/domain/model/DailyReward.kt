@@ -37,7 +37,11 @@ import java.time.LocalDate
  *   thousands-plus range a well-progressed save's Level Ups can reach,
  *   where a flat 100 would be meaningless.
  * - **Day [DAILY_REWARD_CYCLE_DAYS] (28) — the cycle finale**: **just**
- *   [DAILY_REWARD_FINAL_PLATINUM] (20) Platinum Pieces, deliberately
+ *   [DAILY_REWARD_FINAL_PLATINUM] (15 — lowered from an original 20 once
+ *   "Watch Ad to Double" shipped, since the ad option now lets a player
+ *   reach 30 pp for free, well past the original flat 20; the plain,
+ *   no-ad claim dropping to 15 keeps that a real, deliberate step up
+ *   rather than a trivial one-tap bonus) Platinum Pieces, deliberately
  *   nothing else that day (no Gold%, no Gems, even though 28 is also a
  *   multiple of 7) — a clean, singular "you made it the whole cycle"
  *   payout, then the very next claim starts a fresh cycle back at Day 1.
@@ -50,7 +54,7 @@ const val DAILY_REWARD_GOLD_PERCENT_PER_DAY = 0.5
 val DAILY_REWARD_GEM_DAYS: Set<Int> = setOf(7, 14, 21)
 const val DAILY_REWARD_GEM_MINIMUM = 100L
 const val DAILY_REWARD_GEM_PERCENT_OF_HELD = 0.05
-const val DAILY_REWARD_FINAL_PLATINUM = 20.0
+const val DAILY_REWARD_FINAL_PLATINUM = 15.0
 
 /** One claim's actual payout — see this file's class doc for how each field is computed. */
 data class DailyRewardPayout(

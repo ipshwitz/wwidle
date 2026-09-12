@@ -225,18 +225,17 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.52.0** (Daily Reward's auto-popup now only
-     interrupts once per calendar day — ignoring it risks genuinely
-     missing out, per explicit design — and a "Watch Ad to Double" option
-     was added to it, its own new rewarded placement. See the bullet
-     under Tech stack and [CHANGELOG.md](CHANGELOG.md)). Daily Reward
-     itself shipped in 0.51.0 — a 28-day login streak paying a climbing
-     percentage of current Gold every day, a Gems bonus every 7 days, and
-     20 Platinum Pieces for completing the full cycle; its "ready to
-     claim" icon state's intended yellow glow was confirmed in 0.51.1 to
-     not actually render (a real alpha-channel export issue in the art
-     itself, not a code bug — see the Assets section) and still needs a
-     corrected re-export.
+   - Current version: **0.52.1** (the Daily Reward's day-28 finale
+     dropped from 20 to 15 Platinum Pieces, now that "Watch Ad to
+     Double" can turn it into 30 for free — see the bullet under Tech
+     stack and [CHANGELOG.md](CHANGELOG.md)). Daily Reward itself shipped
+     in 0.51.0 — a 28-day login streak paying a climbing percentage of
+     current Gold every day and a Gems bonus every 7 days; 0.52.0 added
+     the once-per-day auto-popup gate and the ad-double option. Its
+     "ready to claim" icon state's intended yellow glow was confirmed in
+     0.51.1 to not actually render (a real alpha-channel export issue in
+     the art itself, not a code bug — see the Assets section); a
+     corrected re-export is expected but not yet confirmed working.
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1703,12 +1702,17 @@ These apply to every change made in this repo, however small:
       (a first Level Up can grant as few as 50-150 Gems, where another
       flat 100 is huge), the percentage takes over once Gems climb into
       the thousands a well-progressed save's Level Ups reach; and day 28
-      — the cycle finale — pays **just** 20 Platinum Pieces, deliberately
-      nothing else that day even though it's also a multiple of 7 ("Day
-      28 is JUST the PP, then everything resets again at day 1"),
-      confirmed explicitly rather than assumed. First-pass placeholder
-      numbers throughout, not playtested, same as everywhere else in the
-      economy.
+      — the cycle finale — pays **just** 15 Platinum Pieces (originally
+      20 at v0.51.0's launch; lowered once v0.52.0's "Watch Ad to
+      Double" shipped — see that bullet below — since doubling the
+      *original* 20 would have made the guaranteed no-ad claim worth as
+      much as most players would bother earning it for; 15 keeps the ad
+      option's 30 a real, deliberate step up rather than doubling an
+      already-generous flat number), deliberately nothing else that day
+      even though it's also a multiple of 7 ("Day 28 is JUST the PP,
+      then everything resets again at day 1"), confirmed explicitly
+      rather than assumed. First-pass placeholder numbers throughout,
+      not playtested, same as everywhere else in the economy.
     - **`GameState.dailyRewardStreakDay`/`dailyRewardLastClaimedEpochDay`**
       are the only two new persisted fields — the day-in-cycle most
       recently claimed, and the calendar date (as an epoch *day*, from

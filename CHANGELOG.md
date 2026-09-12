@@ -3,6 +3,13 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.52.1] - 2026-09-12 1:45 PM EDT
+
+- Lowered the Daily Reward's day-28 finale from 20 to 15 Platinum
+  Pieces — now that "Watch Ad to Double" can turn it into 30 for free,
+  15 keeps that a real step up instead of doubling an already-generous
+  flat number.
+
 ## [0.52.0] - 2026-09-12 1:15 PM EDT
 
 - The Daily Reward pop-up now only interrupts you automatically once per
