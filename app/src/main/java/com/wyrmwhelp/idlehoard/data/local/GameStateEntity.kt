@@ -105,6 +105,8 @@ data class GameStateEntity(
     val dailyRewardStreakDay: Int = 0,
     /** [com.wyrmwhelp.idlehoard.domain.model.GameState.dailyRewardLastClaimedEpochDay] — a plain nullable `Long` column (an epoch day, not epoch millis). */
     val dailyRewardLastClaimedEpochDay: Long? = null,
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.dailyRewardAutoPopupShownEpochDay] — a plain nullable `Long` column (an epoch day, not epoch millis). */
+    val dailyRewardAutoPopupShownEpochDay: Long? = null,
 ) {
     companion object {
         const val SINGLETON_ID = 0

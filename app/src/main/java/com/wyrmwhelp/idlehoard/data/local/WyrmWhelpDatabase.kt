@@ -4,7 +4,11 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 20 for the Daily Reward feature (v0.51.0): two new
+ * Bumped to version 21 for the Daily Reward auto-popup tracking (v0.52.0):
+ * one new [GameStateEntity] column — `dailyRewardAutoPopupShownEpochDay`
+ * (plain nullable `Long`, same epoch-day shape as its sibling below) —
+ * see `domain/model/DailyReward.kt`'s `shouldAutoShowDailyRewardPopup`.
+ * Version 20 was the Daily Reward feature itself (v0.51.0): two new
  * [GameStateEntity] columns — `dailyRewardStreakDay` (plain `Int`) and
  * `dailyRewardLastClaimedEpochDay` (plain nullable `Long`, an epoch *day*
  * from `java.time.LocalDate.toEpochDay()`, not epoch millis like every
@@ -87,7 +91,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 20,
+    version = 21,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

@@ -1006,6 +1006,61 @@ class GameViewModel @Inject constructor(
         gameEngine.claimDailyReward()
     }
 
+    /**
+     * Marks today as the day the Daily Reward's automatic pop-up has
+     * already shown — called once by `GameScreen`'s `LaunchedEffect` the
+     * moment it actually auto-shows the dialog, so a relaunch later that
+     * same day won't show it again unprompted. See
+     * `GameEngine.markDailyRewardPopupShown`/
+     * `GameState.shouldAutoShowDailyRewardPopup`.
+     */
+    fun markDailyRewardPopupShown() {
+        gameEngine.markDailyRewardPopupShown()
+    }
+
+    // Result text from a failed Daily Reward ad-watch attempt — same
+    // one-message shape as _adUnavailableMessage (Welcome Back's own ad
+    // slot). No cooldown message needed here, unlike the Shop's ad-watch
+    // rewards — the Daily Reward claim itself is already once-per-day, so
+    // there's nothing extra to gate the ad option on.
+    private val _dailyRewardAdUnavailableMessage = MutableStateFlow<String?>(null)
+    val dailyRewardAdUnavailableMessage: StateFlow<String?> = _dailyRewardAdUnavailableMessage.asStateFlow()
+
+    /**
+     * The Daily Reward dialog's "Watch Ad to Double" button. Unlike
+     * [watchAdToDoubleOfflineEarnings] (where the base earnings are
+     * already credited before the dialog even shows, so watching the ad
+     * just adds a second matching credit), nothing is granted for today's
+     * Daily Reward yet at this point — [GameEngine.claimDailyReward] with
+     * `multiplier = 2.0` does the actual (doubled) claim atomically the
+     * moment the ad finishes, computed off live state same as a plain
+     * claim. `DailyRewardDialog` doesn't need an explicit "close on
+     * success" callback here: once this claim lands, `GameState.canClaimDailyReward()`
+     * flips false, and the dialog (still reading that same state
+     * reactively) simply re-renders into its own "already claimed" view
+     * on the next recomposition — the player closes it themselves from
+     * there, same as after a plain claim's dialog would if it didn't
+     * auto-dismiss.
+     */
+    fun watchAdToDoubleDailyReward(activity: Activity) {
+        _dailyRewardAdUnavailableMessage.value = null
+        adManager.showAd(
+            placement = RewardedPlacement.DAILY_REWARD_DOUBLE,
+            activity = activity,
+            onRewardEarned = {
+                recordAdWatched()
+                gameEngine.claimDailyReward(multiplier = 2.0)
+            },
+            onUnavailable = {
+                _dailyRewardAdUnavailableMessage.value = "Ad isn't ready yet — try again in a moment."
+            },
+        )
+    }
+
+    fun dismissDailyRewardAdMessage() {
+        _dailyRewardAdUnavailableMessage.value = null
+    }
+
     private companion object {
         const val TAG = "GameViewModel"
         const val AUTOSAVE_INTERVAL_MS = 30_000L

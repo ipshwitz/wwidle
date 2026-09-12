@@ -462,17 +462,51 @@ class GameEngineTest {
     }
 
     @Test
-    fun `performLevelUp and resetProgress both carry over the Daily Reward streak`() {
+    fun `performLevelUp and resetProgress both carry over the Daily Reward streak and auto-popup tracking`() {
         val today = LocalDate.of(2026, 1, 15)
-        engine.loadState(GameState(dailyRewardStreakDay = 12, dailyRewardLastClaimedEpochDay = today.toEpochDay()))
+        engine.loadState(
+            GameState(
+                dailyRewardStreakDay = 12,
+                dailyRewardLastClaimedEpochDay = today.toEpochDay(),
+                dailyRewardAutoPopupShownEpochDay = today.toEpochDay(),
+            ),
+        )
 
         engine.performLevelUp()
         assertEquals(12, engine.state.value.dailyRewardStreakDay)
         assertEquals(today.toEpochDay(), engine.state.value.dailyRewardLastClaimedEpochDay)
+        assertEquals(today.toEpochDay(), engine.state.value.dailyRewardAutoPopupShownEpochDay)
 
         engine.resetProgress()
         assertEquals(12, engine.state.value.dailyRewardStreakDay)
         assertEquals(today.toEpochDay(), engine.state.value.dailyRewardLastClaimedEpochDay)
+        assertEquals(today.toEpochDay(), engine.state.value.dailyRewardAutoPopupShownEpochDay)
+    }
+
+    @Test
+    fun `markDailyRewardPopupShown stamps today without touching the claim streak`() {
+        val today = LocalDate.of(2026, 1, 15)
+        engine.loadState(GameState(dailyRewardStreakDay = 3, dailyRewardLastClaimedEpochDay = today.minusDays(1).toEpochDay()))
+
+        engine.markDailyRewardPopupShown(today)
+
+        assertEquals(today.toEpochDay(), engine.state.value.dailyRewardAutoPopupShownEpochDay)
+        assertEquals(3, engine.state.value.dailyRewardStreakDay)
+        assertEquals(today.minusDays(1).toEpochDay(), engine.state.value.dailyRewardLastClaimedEpochDay)
+    }
+
+    @Test
+    fun `claimDailyReward with a multiplier doubles gold, gems, and platinum alike`() {
+        val today = LocalDate.of(2026, 1, 15)
+        engine.loadState(GameState(goldPieces = 1_000.0, gems = 10_000L, dailyRewardStreakDay = 6, dailyRewardLastClaimedEpochDay = today.minusDays(1).toEpochDay()))
+
+        val payout = engine.claimDailyReward(today, multiplier = 2.0)
+
+        assertEquals(7, payout!!.day)
+        assertEquals(70.0, payout.goldAwarded, 0.0001) // 2x the plain 35.0 (day 7 * 0.5% of 1,000)
+        assertEquals(1_000L, payout.gemsAwarded) // 2x the plain 500 (5% of 10,000)
+        assertEquals(1_070.0, engine.state.value.goldPieces, 0.0001)
+        assertEquals(11_000L, engine.state.value.gems)
     }
 
     @Test

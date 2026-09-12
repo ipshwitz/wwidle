@@ -59,12 +59,24 @@ import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
  * A player can back out without claiming (the small "Maybe later" text) —
  * the reward isn't lost, just deferred to the next time this dialog opens
  * that same day, via [DailyRewardButton] or Settings.
+ *
+ * **"Watch Ad to Double"** sits alongside the plain Claim button — unlike
+ * [WelcomeBackDialog], nothing is granted yet at this point, so watching
+ * the ad doesn't add a second credit on top of an already-applied one; it
+ * atomically claims the *doubled* payout instead
+ * (`GameEngine.claimDailyReward`'s `multiplier`). No explicit "close on
+ * success" wiring is needed here: once that claim lands, [canClaim] flips
+ * false on the next recomposition and this same dialog naturally re-renders
+ * into its own already-claimed view, same as it would after any other
+ * claim.
  */
 @Composable
 fun DailyRewardDialog(
     canClaim: Boolean,
     payout: DailyRewardPayout,
+    adUnavailableMessage: String?,
     onClaim: () -> Unit,
+    onWatchAdToDouble: () -> Unit,
     onDismiss: () -> Unit,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -134,6 +146,18 @@ fun DailyRewardDialog(
                 }
                 Spacer(Modifier.height(18.dp))
                 WoodenButton(text = "Claim", onClick = onClaim, colors = palette)
+                Spacer(Modifier.height(8.dp))
+                WoodenButton(text = "Watch Ad to Double", onClick = onWatchAdToDouble, colors = palette)
+                adUnavailableMessage?.let { message ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontStyle = FontStyle.Italic,
+                            color = palette.ink.copy(alpha = 0.7f),
+                        ),
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 Text(
                     text = "Maybe later",

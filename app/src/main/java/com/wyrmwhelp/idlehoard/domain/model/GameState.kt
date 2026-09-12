@@ -268,6 +268,18 @@ data class GameState(
      * Level Up and an Account Reset, same as [dailyRewardStreakDay].
      */
     val dailyRewardLastClaimedEpochDay: Long? = null,
+    /**
+     * The calendar date (epoch day) the Daily Reward's *automatic* pop-up
+     * last actually showed itself, or null if never — see
+     * `shouldAutoShowDailyRewardPopup`. Separate from
+     * [dailyRewardLastClaimedEpochDay]: a claim being available and the
+     * auto-popup having already shown today are independent facts, per
+     * explicit design ("only show once per day automatically, otherwise
+     * not again until the user clicks on the calendar icon... if they
+     * choose to ignore it, they have the chance of missing out"). Survives
+     * a Level Up and an Account Reset, same as [dailyRewardStreakDay].
+     */
+    val dailyRewardAutoPopupShownEpochDay: Long? = null,
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

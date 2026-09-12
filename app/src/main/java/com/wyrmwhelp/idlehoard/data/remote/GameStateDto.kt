@@ -46,6 +46,7 @@ data class GameStateDto(
     @SerialName("seen_achievements") val seenAchievements: List<String> = emptyList(),
     @SerialName("daily_reward_streak_day") val dailyRewardStreakDay: Int = 0,
     @SerialName("daily_reward_last_claimed_epoch_day") val dailyRewardLastClaimedEpochDay: Long? = null,
+    @SerialName("daily_reward_auto_popup_shown_epoch_day") val dailyRewardAutoPopupShownEpochDay: Long? = null,
 )
 
 /** JSON mirror of [com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost]. */

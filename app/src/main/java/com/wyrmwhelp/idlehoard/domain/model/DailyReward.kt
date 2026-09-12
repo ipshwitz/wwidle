@@ -58,7 +58,14 @@ data class DailyRewardPayout(
     val goldAwarded: Double,
     val gemsAwarded: Long,
     val platinumAwarded: Double,
-)
+) {
+    /** Scales every awarded amount by [multiplier] — used by `GameEngine.claimDailyReward`'s "Watch Ad to Double" path. */
+    fun scaledBy(multiplier: Double): DailyRewardPayout = copy(
+        goldAwarded = goldAwarded * multiplier,
+        gemsAwarded = (gemsAwarded * multiplier).toLong(),
+        platinumAwarded = platinumAwarded * multiplier,
+    )
+}
 
 /**
  * True once a new calendar day has turned over since
@@ -68,6 +75,23 @@ data class DailyRewardPayout(
  */
 fun GameState.canClaimDailyReward(today: LocalDate = LocalDate.now()): Boolean =
     dailyRewardLastClaimedEpochDay != today.toEpochDay()
+
+/**
+ * True the first time the main screen loads on a new calendar day with a
+ * claim available — the sole gate on the *automatic* pop-up
+ * (`GameScreen`'s `LaunchedEffect`), separate from [canClaimDailyReward]
+ * itself. Per explicit design: the auto-popup should interrupt at most
+ * once a day, even across multiple app opens that same day — dismissing
+ * or ignoring it is a real "you might miss out" moment, not something
+ * that keeps re-asking. [GameState.dailyRewardAutoPopupShownEpochDay] is
+ * stamped the instant the popup actually shows
+ * (`GameEngine.markDailyRewardPopupShown`), independent of whether the
+ * player then claims, watches an ad, or dismisses it — manually opening
+ * [DailyRewardButton]/Settings afterward is unaffected either way, since
+ * those never consult this function.
+ */
+fun GameState.shouldAutoShowDailyRewardPopup(today: LocalDate = LocalDate.now()): Boolean =
+    canClaimDailyReward(today) && dailyRewardAutoPopupShownEpochDay != today.toEpochDay()
 
 /**
  * The day-in-cycle (1-[DAILY_REWARD_CYCLE_DAYS]) that claiming right now

@@ -3,6 +3,16 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.52.0] - 2026-09-12 1:15 PM EDT
+
+- The Daily Reward pop-up now only interrupts you automatically once per
+  day — dismiss or ignore it and it won't ask again until you open it
+  yourself (the calendar icon or Settings), so there's a real chance of
+  missing out if you skip it.
+- Added "Watch Ad to Double" to the Daily Reward pop-up — watch a short
+  ad to claim double whatever that day is offering (Gold, Gems, or the
+  Platinum finale alike).
+
 ## [0.51.1] - 2026-09-12 8:55 AM EDT
 
 - Verified the Daily Reward icon's "ready to claim" glow live on-device

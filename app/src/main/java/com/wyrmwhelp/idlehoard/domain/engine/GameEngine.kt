@@ -654,9 +654,11 @@ class GameEngine @Inject constructor() {
      * [GameState.selectedAvatarId]), every persistent Achievement-tracking
      * stat ([GameState.highestLairCounts] and its siblings — see
      * `domain/model/Achievement.kt`, permanent lifetime accomplishments
-     * that a Level Up can't un-complete), the Daily Reward streak
-     * ([GameState.dailyRewardStreakDay]/[GameState.dailyRewardLastClaimedEpochDay]
-     * — see `domain/model/DailyReward.kt`; real-world login consistency has
+     * that a Level Up can't un-complete), the Daily Reward streak and its
+     * auto-popup tracking ([GameState.dailyRewardStreakDay]/
+     * [GameState.dailyRewardLastClaimedEpochDay]/
+     * [GameState.dailyRewardAutoPopupShownEpochDay] — see
+     * `domain/model/DailyReward.kt`; real-world login consistency has
      * nothing to do with which run is currently in progress), and —
      * critically — [GameState.lifetimeGoldEarned] itself all carry over
      * unchanged; only the gold side of the *current run* (and the old Gem
@@ -714,6 +716,7 @@ class GameEngine @Inject constructor() {
                     seenAchievements = current.seenAchievements,
                     dailyRewardStreakDay = current.dailyRewardStreakDay,
                     dailyRewardLastClaimedEpochDay = current.dailyRewardLastClaimedEpochDay,
+                    dailyRewardAutoPopupShownEpochDay = current.dailyRewardAutoPopupShownEpochDay,
                 )
             }
         }
@@ -749,9 +752,10 @@ class GameEngine @Inject constructor() {
      * reset, same treatment as Platinum — a completed achievement (and the
      * permanent "Achievement Bonus" it contributes) is a lifetime
      * accomplishment, not run progress, so a full reset shouldn't erase it
-     * either. The Daily Reward streak
-     * ([GameState.dailyRewardStreakDay]/[GameState.dailyRewardLastClaimedEpochDay]
-     * — see `domain/model/DailyReward.kt`) survives too, for the same
+     * either. The Daily Reward streak and its auto-popup tracking
+     * ([GameState.dailyRewardStreakDay]/[GameState.dailyRewardLastClaimedEpochDay]/
+     * [GameState.dailyRewardAutoPopupShownEpochDay]
+     * — see `domain/model/DailyReward.kt`) survive too, for the same
      * reason — real-world login consistency shouldn't be punished just
      * because the player wanted to restart their in-game progress.
      * [GameState.offlineCapHours] survives too — it's raised by its
@@ -787,6 +791,7 @@ class GameEngine @Inject constructor() {
                 seenAchievements = current.seenAchievements,
                 dailyRewardStreakDay = current.dailyRewardStreakDay,
                 dailyRewardLastClaimedEpochDay = current.dailyRewardLastClaimedEpochDay,
+                dailyRewardAutoPopupShownEpochDay = current.dailyRewardAutoPopupShownEpochDay,
             )
         }
         _lairProgress.value = computeLairProgress(_state.value, Instant.now())
@@ -917,9 +922,10 @@ class GameEngine @Inject constructor() {
     /**
      * Records one rewarded ad watched, toward the account-wide Universal
      * Steward (`domain/model/UniversalSteward.kt`) — called once from
-     * `GameViewModel` for every one of its four `onRewardEarned`
-     * callbacks (Welcome Back's double, the Shop's Platinum ad, and both
-     * Speed/Income ad-boosts), regardless of whether that specific
+     * `GameViewModel` for every one of its five `onRewardEarned`
+     * callbacks (Welcome Back's double, the Shop's Platinum ad, both
+     * Speed/Income ad-boosts, and the Daily Reward double), regardless
+     * of whether that specific
      * reward's own cooldown check above ends up granting anything — the
      * player genuinely watched an ad either way, so it should still
      * count. [GameState.totalAdsWatched] only ever grows. Returns true
@@ -962,21 +968,23 @@ class GameEngine @Inject constructor() {
     /**
      * Claims the Daily Reward for [today] if a new calendar day has turned
      * over since the last claim — see `domain/model/DailyReward.kt` for the
-     * full reward shape and streak rules. Computes the payout off the
+     * full reward shape and streak rules. Computes the base payout off the
      * *live* Gold/Gems balances inside this same [_state] update (not off
      * whatever a caller may have already previewed) so it can never grant
-     * against a stale snapshot, then credits it and stamps the streak
-     * atomically. Returns the actual payout granted, or null if today's
-     * reward was already claimed.
+     * against a stale snapshot, scales it by [multiplier] (2.0 for the
+     * dialog's "Watch Ad to Double" — see `GameViewModel.watchAdToDoubleDailyReward`;
+     * 1.0, the default, for a plain claim), then credits the result and
+     * stamps the streak atomically. Returns the actual payout granted, or
+     * null if today's reward was already claimed.
      */
-    fun claimDailyReward(today: LocalDate = LocalDate.now()): DailyRewardPayout? {
+    fun claimDailyReward(today: LocalDate = LocalDate.now(), multiplier: Double = 1.0): DailyRewardPayout? {
         var payout: DailyRewardPayout? = null
         _state.update { current ->
             if (!current.canClaimDailyReward(today)) {
                 current
             } else {
                 val day = current.nextDailyRewardDay(today)
-                val result = computeDailyRewardPayout(day, current.goldPieces, current.gems)
+                val result = computeDailyRewardPayout(day, current.goldPieces, current.gems).scaledBy(multiplier)
                 payout = result
                 current.copy(
                     goldPieces = current.goldPieces + result.goldAwarded,
@@ -989,6 +997,17 @@ class GameEngine @Inject constructor() {
             }
         }
         return payout
+    }
+
+    /**
+     * Stamps [today] as the day the Daily Reward's automatic pop-up last
+     * showed — called once from `GameScreen`'s `LaunchedEffect` the moment
+     * it actually decides to auto-show, so the same calendar day never
+     * triggers it again even across app restarts. See
+     * `GameState.shouldAutoShowDailyRewardPopup`.
+     */
+    fun markDailyRewardPopupShown(today: LocalDate = LocalDate.now()) {
+        _state.update { it.copy(dailyRewardAutoPopupShownEpochDay = today.toEpochDay()) }
     }
 
     /**

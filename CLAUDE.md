@@ -225,14 +225,18 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.51.1** (Daily Reward's "ready to claim" icon
-     state confirmed live — its intended yellow glow doesn't actually
-     render, a real alpha-channel export issue in the art itself, not a
-     code bug — see the Assets section and [CHANGELOG.md](CHANGELOG.md)).
-     Daily Reward itself shipped in 0.51.0 — a 28-day login streak paying
-     a climbing percentage of current Gold every day, a Gems bonus every
-     7 days, and 20 Platinum Pieces for completing the full cycle — see
-     the bullet under Tech stack.
+   - Current version: **0.52.0** (Daily Reward's auto-popup now only
+     interrupts once per calendar day — ignoring it risks genuinely
+     missing out, per explicit design — and a "Watch Ad to Double" option
+     was added to it, its own new rewarded placement. See the bullet
+     under Tech stack and [CHANGELOG.md](CHANGELOG.md)). Daily Reward
+     itself shipped in 0.51.0 — a 28-day login streak paying a climbing
+     percentage of current Gold every day, a Gems bonus every 7 days, and
+     20 Platinum Pieces for completing the full cycle; its "ready to
+     claim" icon state's intended yellow glow was confirmed in 0.51.1 to
+     not actually render (a real alpha-channel export issue in the art
+     itself, not a code bug — see the Assets section) and still needs a
+     corrected re-export.
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -276,6 +280,22 @@ These apply to every change made in this repo, however small:
   looks inexplicable mid-test, the fastest way to tell real bug from queue
   lag is a fully isolated repro — fresh `pm clear` + relaunch, one single
   deliberate tap, one screenshot.
+- **Hand-editing the Room database for a live test must pull `.db`,
+  `.db-wal`, and `.db-shm` together, never the base file alone** — Room
+  runs in WAL mode, so a recent write can sit in the not-yet-checkpointed
+  `-wal` file with the base `.db` showing a stale or even empty snapshot
+  on its own. Editing/pushing just the base file back overwrites the
+  device's real `-wal` too (this project's convention removes it
+  afterward to avoid replaying stale entries over the edit), which is
+  genuinely destructive if that WAL was the only place the real data
+  lived at that moment — caught live during Daily Reward testing (see
+  that feature's own "Verified live" note under Tech stack): a save
+  temporarily read back as all-zero after exactly this mistake, though
+  this app's cloud-merge-on-launch resilience recovered it automatically
+  since the cloud copy's far higher net worth correctly won the merge.
+  Always pull all three files, and ideally sanity-check a known real
+  value (e.g. the gold total) comes back from the pulled `.db` before
+  editing or pushing anything.
 - **Cold start got much slower (~5s → ~15s on this emulator) after adding
   the Google Mobile Ads SDK** (`AdManager`'s `init` block runs
   `MobileAds.initialize()` + starts loading a rewarded ad the moment Hilt
@@ -1716,12 +1736,7 @@ These apply to every change made in this repo, however small:
       defaults for older cloud saves.
     - **Three ways to claim, per explicit design** — an auto-popup the
       first time the main screen loads with a claim available
-      (`GameScreen`'s `LaunchedEffect(Unit)`, gated on
-      `canClaimDailyReward()` so it naturally never re-fires the same
-      day even across multiple app opens; deliberately *not* new
-      `GameViewModel` state, since `GameScreen` stays mounted for the
-      whole session anyway — see the "menu sections are overlays"
-      architecture note elsewhere in this file), a persistent floating
+      (`GameScreen`'s `LaunchedEffect(Unit)`), a persistent floating
       icon (`DailyRewardButton`, bottom-*start* — "Floating Calendar
       Icon (left), Menu (center), Ads (right)," per explicit layout
       answer, mirroring `QuickAdBoostButton`'s bottom-end placement and
@@ -1738,6 +1753,57 @@ These apply to every change made in this repo, however small:
       player back out without claiming — the reward isn't lost, just
       deferred to the next time any of the three entry points is used
       that same day.
+    - **The auto-popup fires at most once per calendar day, not once per
+      app launch (v0.52.0)** — a real correction, not the original
+      design: v0.51.0 gated the popup purely on `canClaimDailyReward()`
+      via a local `remember`ed boolean, which meant it re-showed on
+      *every* fresh app launch that day (the local flag resets with the
+      process) as long as the reward stayed unclaimed. Per explicit
+      follow-up ("should only show once per day automatically, otherwise
+      not again until the user clicks on the calendar icon... if they
+      choose to ignore it, they have the chance of missing out"), a new
+      persisted `GameState.dailyRewardAutoPopupShownEpochDay` (epoch day,
+      same shape as `dailyRewardLastClaimedEpochDay`) is stamped the
+      instant the popup actually auto-shows
+      (`GameEngine.markDailyRewardPopupShown`), independent of whether
+      the player then claims or dismisses it.
+      `GameState.shouldAutoShowDailyRewardPopup()` (`canClaimDailyReward()
+      && dailyRewardAutoPopupShownEpochDay != today`) is the real gate
+      `GameScreen` now checks — manually opening
+      [DailyRewardButton]/Settings is completely unaffected either way,
+      since neither ever consults this function. Survives a Level Up and
+      an Account Reset, same as the streak fields themselves. Persistence:
+      Room bumped to **database version 21** for this one new nullable
+      `Long` column; the Supabase `GameStateDto` mirrors it with a null
+      default for older cloud saves.
+    - **"Watch Ad to Double" (v0.52.0)** — a new rewarded placement
+      (`RewardedPlacement.DAILY_REWARD_DOUBLE`, ad unit id
+      `ca-app-pub-1913393601233746/3801343278`) sits alongside the plain
+      Claim button in `DailyRewardDialog`. Unlike `WelcomeBackDialog`
+      (where the base earnings are already credited before that dialog
+      even shows, so watching the ad there just adds a second matching
+      credit), nothing is granted for the Daily Reward yet at the point
+      this button is offered — `GameEngine.claimDailyReward` gained a
+      `multiplier: Double = 1.0` parameter, and
+      `GameViewModel.watchAdToDoubleDailyReward` calls it with `2.0` the
+      moment the ad finishes, computed off *live* Gold/Gems atomically
+      inside the same claim, same as a plain claim. `DailyRewardPayout.scaledBy(multiplier)`
+      is the pure scaling step (gold, Gems, and Platinum alike — doubling
+      the day-28 finale's flat pp payout works the same way as doubling
+      an ordinary day's Gold%). No explicit "close the dialog on ad
+      success" wiring exists or is needed: once that claim lands,
+      `canClaimDailyReward()` flips false, and since `DailyRewardDialog`
+      already reads that same state reactively, it simply re-renders into
+      its own already-claimed view on the next recomposition — confirmed
+      live, the dialog swapped to "You've already claimed today's
+      reward" immediately once the ad's reward callback fired, with no
+      dedicated close callback ever wired for that path. Since a Daily
+      Reward claim is already gated to once per calendar day regardless
+      of how it's claimed, the ad option needs no separate cooldown of
+      its own — canClaim going false after either path (ad or plain)
+      already covers it. Watching this ad also counts toward the
+      account-wide Universal Steward total (`GameEngine.recordAdWatched()`,
+      now called from five placements, not four).
     - **Real two-state icon art, though the "ready" state's glow doesn't
       actually show yet** — `DailyRewardButton` uses
       `calendar_state_normal`/`calendar_state_new` (see the Assets
@@ -1763,6 +1829,36 @@ These apply to every change made in this repo, however small:
       claiming it correctly credited exactly 20 pp with no Gold/Gems
       change, then rolled the next preview back to "Day 1," confirming
       the cycle wraps rather than continuing to Day 29.
+    - **v0.52.0's two changes verified live on-device too**, both against
+      the real dev save: seeded `dailyRewardLastClaimedEpochDay = null`
+      (unclaimed) with `dailyRewardAutoPopupShownEpochDay` stamped to
+      today — confirmed the auto-popup correctly did *not* appear on
+      launch despite a real claim being available, while manually tapping
+      the (still-gold, "ready to claim") floating icon still opened the
+      dialog normally. Tapping "Watch Ad to Double" from there played a
+      real test ad end to end; on "Reward granted," Gold rose from
+      577.66Qa to 583.44Qa gp (matching double the shown 2.89Qa preview,
+      plus a few seconds of ongoing production), and the dialog — left
+      untouched, no tap after closing the ad — had already flipped on its
+      own to "You've already claimed today's reward," confirming the
+      reactive-close design needs no explicit wiring. **A real testing
+      mistake happened and self-corrected during this pass, worth
+      recording**: a DB edit that pulled only the base `.db` file without
+      its `-wal`/`-shm` siblings caught the table mid-write (empty at
+      that instant, since the real committed row was still sitting in an
+      unflushed WAL) and silently overwrote the live device file with
+      that near-empty snapshot — deleting the real save's `-wal` in the
+      process. Confirmed by the very next launch showing 0 gold and the
+      default shield avatar. This app's own cloud-merge-on-launch
+      resilience (see the Auth section) recovered it completely with no
+      further action — cloud's much higher net worth correctly won the
+      merge over the freshly-wiped local state. **Always pull `.db`,
+      `.db-wal`, and `.db-shm` together** (and ideally verify a known
+      real value comes back before pushing anything) before hand-editing
+      this app's Room database for a test — reading the base file alone
+      can show a stale or outright empty snapshot when Room's WAL hasn't
+      checkpointed yet, and overwriting device state from that snapshot
+      is genuinely destructive, not just non-representative.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,
@@ -3308,7 +3404,7 @@ same as the existing "Enable Anonymous Sign-Ins" toggle):
 Free-to-play: rewarded ads (boosts, offline-earnings multipliers) + optional IAP
 (gems, time-skips, cosmetics). No forced interstitials.
 
-**Rewarded ads — all four placements live, AdMob app id
+**Rewarded ads — all five placements live, AdMob app id
 `ca-app-pub-1913393601233746~8060140149`** (in the manifest — see the
 `AdManager` bullet under Tech stack for the full picture, including the
 test-device safeguard that must stay in debug builds):
@@ -3319,8 +3415,15 @@ test-device safeguard that must stay in debug builds):
   0.18.1) — earns 2 Platinum Pieces, once every 24 hours (cooldown tracked
   on the save itself, not ad-network- or device-side — see the "Shop's
   Watch an Ad" bullet under Tech stack). Ad unit id
-  `ca-app-pub-1913393601233746/9425192707`. The only one of the four still
+  `ca-app-pub-1913393601233746/9425192707`. The only one of the five still
   actually offered from the Shop.
+- **Daily Reward "Watch Ad to Double"** (live, 0.52.0) — doubles whatever
+  that day's Daily Reward claim would pay out (Gold, Gems, or the
+  Platinum finale alike — see `domain/model/DailyReward.kt`'s bullet
+  under Tech stack). Ad unit id
+  `ca-app-pub-1913393601233746/3801343278`. Per explicit note, this
+  studio plans to lean on ad placements like this one over IAP for
+  whatever modest income the app makes.
 - **Main screen "Watch an Ad" popup (Speed boost)** (live, 0.29.0; open
   to guests, no real money involved) — grants a free 2x Speed boost for
   4 hours, up to 4 independent watches at a time, each on its own

@@ -31,6 +31,7 @@ import com.wyrmwhelp.idlehoard.domain.model.incomeBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.canClaimDailyReward
 import com.wyrmwhelp.idlehoard.domain.model.nextDailyRewardDay
 import com.wyrmwhelp.idlehoard.domain.model.previewDailyRewardPayout
+import com.wyrmwhelp.idlehoard.domain.model.shouldAutoShowDailyRewardPopup
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
@@ -53,22 +54,24 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val universalStewardUnlocked by viewModel.universalStewardUnlocked.collectAsStateWithLifecycle()
     val speedBoostAdMessage by viewModel.speedBoostAdMessage.collectAsStateWithLifecycle()
     val incomeBoostAdMessage by viewModel.incomeBoostAdMessage.collectAsStateWithLifecycle()
+    val dailyRewardAdUnavailableMessage by viewModel.dailyRewardAdUnavailableMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAvatarPicker by remember { mutableStateOf(false) }
     var showDailyRewardDialog by remember { mutableStateOf(false) }
-    var hasAutoShownDailyReward by remember { mutableStateOf(false) }
 
-    // Auto-popup once per app launch (not once per day — the state
-    // already gates on that itself) the first time this screen composes,
-    // if a claim happens to be available. GameScreen stays mounted for the
-    // whole session (see this app's "menu sections are overlays, the game
-    // is never actually left" architecture), so this only ever fires once
-    // per real app open, matching the explicit "a daily reward popup when
-    // they first login" request without needing any new ViewModel state.
+    // Auto-popup at most once per *calendar day*, not once per app launch —
+    // per explicit design, ignoring it is a real "you might miss out"
+    // moment, so it must not keep re-asking on every relaunch that same
+    // day. `shouldAutoShowDailyRewardPopup` reads the persisted
+    // `dailyRewardAutoPopupShownEpochDay` for that cross-launch gate;
+    // `LaunchedEffect(Unit)` itself only ever fires once per this
+    // composable's lifetime (which spans the whole session — see this
+    // app's "menu sections are overlays, the game is never actually left"
+    // architecture), so no extra local flag is needed on top.
     LaunchedEffect(Unit) {
-        if (!hasAutoShownDailyReward && state.canClaimDailyReward()) {
+        if (state.shouldAutoShowDailyRewardPopup()) {
             showDailyRewardDialog = true
-            hasAutoShownDailyReward = true
+            viewModel.markDailyRewardPopupShown()
         }
     }
 
@@ -230,11 +233,18 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
         DailyRewardDialog(
             canClaim = state.canClaimDailyReward(),
             payout = state.previewDailyRewardPayout(),
+            adUnavailableMessage = dailyRewardAdUnavailableMessage,
             onClaim = {
                 viewModel.claimDailyReward()
                 showDailyRewardDialog = false
             },
-            onDismiss = { showDailyRewardDialog = false },
+            onWatchAdToDouble = {
+                (context as? Activity)?.let { viewModel.watchAdToDoubleDailyReward(it) }
+            },
+            onDismiss = {
+                showDailyRewardDialog = false
+                viewModel.dismissDailyRewardAdMessage()
+            },
         )
     }
 

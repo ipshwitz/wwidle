@@ -33,6 +33,9 @@ enum class RewardedPlacement(val adUnitId: String) {
 
     /** Quick-access ad-watch popup's "Watch an Ad" for a temporary 2x Income boost — see `GameViewModel.watchAdForIncomeBoost`. */
     AD_BOOST_INCOME("ca-app-pub-1913393601233746/9610995150"),
+
+    /** Daily Reward dialog's "Watch Ad to Double" — see `GameViewModel.watchAdToDoubleDailyReward`. */
+    DAILY_REWARD_DOUBLE("ca-app-pub-1913393601233746/3801343278"),
 }
 
 /**

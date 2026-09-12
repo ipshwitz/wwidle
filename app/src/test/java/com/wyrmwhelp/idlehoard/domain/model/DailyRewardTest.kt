@@ -94,4 +94,41 @@ class DailyRewardTest {
         val payout = computeDailyRewardPayout(day = 8, currentGold = 0.0, currentGems = 1_000_000L)
         assertEquals(0L, payout.gemsAwarded)
     }
+
+    @Test
+    fun `scaledBy doubles every awarded amount`() {
+        val payout = computeDailyRewardPayout(day = 7, currentGold = 1_000.0, currentGems = 10_000L).scaledBy(2.0)
+        assertEquals(70.0, payout.goldAwarded, 0.0001) // 2x the plain 35.0
+        assertEquals(1_000L, payout.gemsAwarded) // 2x the plain 500
+    }
+
+    @Test
+    fun `scaledBy doubles the day 28 finale's platinum too`() {
+        val payout = computeDailyRewardPayout(day = DAILY_REWARD_CYCLE_DAYS, currentGold = 0.0, currentGems = 0L).scaledBy(2.0)
+        assertEquals(DAILY_REWARD_FINAL_PLATINUM * 2, payout.platinumAwarded, 0.0)
+    }
+
+    @Test
+    fun `the auto-popup should show when a claim is available and it hasn't shown yet today`() {
+        val state = GameState()
+        assertTrue(state.shouldAutoShowDailyRewardPopup(today))
+    }
+
+    @Test
+    fun `the auto-popup should not show again the same day once it already has, even if unclaimed`() {
+        val state = GameState(dailyRewardAutoPopupShownEpochDay = today.toEpochDay())
+        assertFalse(state.shouldAutoShowDailyRewardPopup(today))
+    }
+
+    @Test
+    fun `the auto-popup should show again on a new day even if it showed yesterday`() {
+        val state = GameState(dailyRewardAutoPopupShownEpochDay = today.minusDays(1).toEpochDay())
+        assertTrue(state.shouldAutoShowDailyRewardPopup(today))
+    }
+
+    @Test
+    fun `the auto-popup never shows once today's reward is already claimed, regardless of the popup flag`() {
+        val state = GameState(dailyRewardLastClaimedEpochDay = today.toEpochDay())
+        assertFalse(state.shouldAutoShowDailyRewardPopup(today))
+    }
 }

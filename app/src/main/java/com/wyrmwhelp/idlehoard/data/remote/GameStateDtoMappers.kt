@@ -47,6 +47,7 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     seenAchievements = seenAchievements.toList(),
     dailyRewardStreakDay = dailyRewardStreakDay,
     dailyRewardLastClaimedEpochDay = dailyRewardLastClaimedEpochDay,
+    dailyRewardAutoPopupShownEpochDay = dailyRewardAutoPopupShownEpochDay,
 )
 
 private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
@@ -108,6 +109,7 @@ fun GameStateDto.toDomain(): GameState = GameState(
     seenAchievements = seenAchievements.toSet(),
     dailyRewardStreakDay = dailyRewardStreakDay,
     dailyRewardLastClaimedEpochDay = dailyRewardLastClaimedEpochDay,
+    dailyRewardAutoPopupShownEpochDay = dailyRewardAutoPopupShownEpochDay,
 )
 
 private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(
