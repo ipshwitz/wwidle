@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.52.2] - 2026-09-12 2:05 PM EDT
+
+- Fixed the Daily Reward icon's "ready to claim" glow, which never
+  actually showed up — the art's glow color was there but sitting fully
+  transparent, so it looked identical to the normal icon. Re-exported
+  with real opacity (and made bigger/brighter) and confirmed live —
+  claimable days now show a real yellow glow around the calendar icon.
+
 ## [0.52.1] - 2026-09-12 1:45 PM EDT
 
 - Lowered the Daily Reward's day-28 finale from 20 to 15 Platinum
