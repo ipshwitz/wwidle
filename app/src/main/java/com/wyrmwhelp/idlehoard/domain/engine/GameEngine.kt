@@ -53,8 +53,13 @@ import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_WINDOW_SECONDS
 import com.wyrmwhelp.idlehoard.domain.model.FeaturedLairTapOutcome
 import com.wyrmwhelp.idlehoard.domain.model.pickFeaturedLairId
 import com.wyrmwhelp.idlehoard.domain.model.randomFeaturedLairInterval
+import com.wyrmwhelp.idlehoard.domain.model.DailyRewardPayout
+import com.wyrmwhelp.idlehoard.domain.model.canClaimDailyReward
+import com.wyrmwhelp.idlehoard.domain.model.computeDailyRewardPayout
+import com.wyrmwhelp.idlehoard.domain.model.nextDailyRewardDay
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.min
@@ -649,7 +654,10 @@ class GameEngine @Inject constructor() {
      * [GameState.selectedAvatarId]), every persistent Achievement-tracking
      * stat ([GameState.highestLairCounts] and its siblings — see
      * `domain/model/Achievement.kt`, permanent lifetime accomplishments
-     * that a Level Up can't un-complete), and —
+     * that a Level Up can't un-complete), the Daily Reward streak
+     * ([GameState.dailyRewardStreakDay]/[GameState.dailyRewardLastClaimedEpochDay]
+     * — see `domain/model/DailyReward.kt`; real-world login consistency has
+     * nothing to do with which run is currently in progress), and —
      * critically — [GameState.lifetimeGoldEarned] itself all carry over
      * unchanged; only the gold side of the *current run* (and the old Gem
      * batch) resets. That includes every Gold Pieces upgrade
@@ -704,6 +712,8 @@ class GameEngine @Inject constructor() {
                     everMaxedAnyLairSpeedLine = current.everMaxedAnyLairSpeedLine,
                     highestGemsEverEarned = maxOf(current.highestGemsEverEarned, gemsEarned),
                     seenAchievements = current.seenAchievements,
+                    dailyRewardStreakDay = current.dailyRewardStreakDay,
+                    dailyRewardLastClaimedEpochDay = current.dailyRewardLastClaimedEpochDay,
                 )
             }
         }
@@ -739,7 +749,12 @@ class GameEngine @Inject constructor() {
      * reset, same treatment as Platinum — a completed achievement (and the
      * permanent "Achievement Bonus" it contributes) is a lifetime
      * accomplishment, not run progress, so a full reset shouldn't erase it
-     * either. [GameState.offlineCapHours] survives too — it's raised by its
+     * either. The Daily Reward streak
+     * ([GameState.dailyRewardStreakDay]/[GameState.dailyRewardLastClaimedEpochDay]
+     * — see `domain/model/DailyReward.kt`) survives too, for the same
+     * reason — real-world login consistency shouldn't be punished just
+     * because the player wanted to restart their in-game progress.
+     * [GameState.offlineCapHours] survives too — it's raised by its
      * own Platinum-bought upgrade (`domain/model/OfflineCapUpgrade.kt`),
      * the same category as the boost tiers above (this was a real gap
      * fixed alongside adding that upgrade: [performLevelUp] already
@@ -770,6 +785,8 @@ class GameEngine @Inject constructor() {
                 everMaxedAnyLairSpeedLine = current.everMaxedAnyLairSpeedLine,
                 highestGemsEverEarned = current.highestGemsEverEarned,
                 seenAchievements = current.seenAchievements,
+                dailyRewardStreakDay = current.dailyRewardStreakDay,
+                dailyRewardLastClaimedEpochDay = current.dailyRewardLastClaimedEpochDay,
             )
         }
         _lairProgress.value = computeLairProgress(_state.value, Instant.now())
@@ -940,6 +957,38 @@ class GameEngine @Inject constructor() {
             }
         }
         return granted
+    }
+
+    /**
+     * Claims the Daily Reward for [today] if a new calendar day has turned
+     * over since the last claim — see `domain/model/DailyReward.kt` for the
+     * full reward shape and streak rules. Computes the payout off the
+     * *live* Gold/Gems balances inside this same [_state] update (not off
+     * whatever a caller may have already previewed) so it can never grant
+     * against a stale snapshot, then credits it and stamps the streak
+     * atomically. Returns the actual payout granted, or null if today's
+     * reward was already claimed.
+     */
+    fun claimDailyReward(today: LocalDate = LocalDate.now()): DailyRewardPayout? {
+        var payout: DailyRewardPayout? = null
+        _state.update { current ->
+            if (!current.canClaimDailyReward(today)) {
+                current
+            } else {
+                val day = current.nextDailyRewardDay(today)
+                val result = computeDailyRewardPayout(day, current.goldPieces, current.gems)
+                payout = result
+                current.copy(
+                    goldPieces = current.goldPieces + result.goldAwarded,
+                    lifetimeGoldEarned = current.lifetimeGoldEarned + result.goldAwarded,
+                    gems = current.gems + result.gemsAwarded,
+                    platinumPieces = current.platinumPieces + result.platinumAwarded,
+                    dailyRewardStreakDay = day,
+                    dailyRewardLastClaimedEpochDay = today.toEpochDay(),
+                )
+            }
+        }
+        return payout
     }
 
     /**

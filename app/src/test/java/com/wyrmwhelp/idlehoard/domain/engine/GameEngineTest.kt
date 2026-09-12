@@ -2,6 +2,8 @@ package com.wyrmwhelp.idlehoard.domain.engine
 
 import com.wyrmwhelp.idlehoard.domain.catalog.CreatureLairCatalog
 import com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost
+import com.wyrmwhelp.idlehoard.domain.model.DAILY_REWARD_CYCLE_DAYS
+import com.wyrmwhelp.idlehoard.domain.model.DAILY_REWARD_FINAL_PLATINUM
 import com.wyrmwhelp.idlehoard.domain.model.GameState
 import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_BONUS_PRODUCTION_SECONDS
 import com.wyrmwhelp.idlehoard.domain.model.FEATURED_LAIR_TAPS_REQUIRED
@@ -40,6 +42,7 @@ import com.wyrmwhelp.idlehoard.domain.model.hasUnseenStewardOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.hasUnseenUpgradeOpportunity
 import com.wyrmwhelp.idlehoard.domain.model.unseenUpgradeOpportunities
 import java.time.Instant
+import java.time.LocalDate
 import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -456,6 +459,66 @@ class GameEngineTest {
 
         engine.resetProgress()
         assertEquals(raisedCap, engine.state.value.offlineCapHours, 0.0001)
+    }
+
+    @Test
+    fun `performLevelUp and resetProgress both carry over the Daily Reward streak`() {
+        val today = LocalDate.of(2026, 1, 15)
+        engine.loadState(GameState(dailyRewardStreakDay = 12, dailyRewardLastClaimedEpochDay = today.toEpochDay()))
+
+        engine.performLevelUp()
+        assertEquals(12, engine.state.value.dailyRewardStreakDay)
+        assertEquals(today.toEpochDay(), engine.state.value.dailyRewardLastClaimedEpochDay)
+
+        engine.resetProgress()
+        assertEquals(12, engine.state.value.dailyRewardStreakDay)
+        assertEquals(today.toEpochDay(), engine.state.value.dailyRewardLastClaimedEpochDay)
+    }
+
+    @Test
+    fun `claimDailyReward credits gold, stamps the streak, and cannot be claimed twice the same day`() {
+        val today = LocalDate.of(2026, 1, 15)
+        engine.loadState(GameState(goldPieces = 1_000.0))
+
+        val payout = engine.claimDailyReward(today)
+
+        assertNotNull(payout)
+        assertEquals(1, payout!!.day)
+        assertEquals(5.0, payout.goldAwarded, 0.0001) // day 1 * 0.5% of 1,000
+        assertEquals(1_005.0, engine.state.value.goldPieces, 0.0001)
+        assertEquals(1, engine.state.value.dailyRewardStreakDay)
+        assertEquals(today.toEpochDay(), engine.state.value.dailyRewardLastClaimedEpochDay)
+
+        val secondAttempt = engine.claimDailyReward(today)
+        assertNull(secondAttempt)
+        assertEquals(1_005.0, engine.state.value.goldPieces, 0.0001) // unchanged — no double-grant
+    }
+
+    @Test
+    fun `claimDailyReward on day 28 grants only platinum and the next claim restarts at day 1`() {
+        val today = LocalDate.of(2026, 1, 15)
+        engine.loadState(
+            GameState(
+                goldPieces = 1_000.0,
+                gems = 10_000L,
+                dailyRewardStreakDay = DAILY_REWARD_CYCLE_DAYS - 1,
+                dailyRewardLastClaimedEpochDay = today.minusDays(1).toEpochDay(),
+            ),
+        )
+
+        val payout = engine.claimDailyReward(today)
+
+        assertEquals(DAILY_REWARD_CYCLE_DAYS, payout!!.day)
+        assertEquals(0.0, payout.goldAwarded, 0.0)
+        assertEquals(0L, payout.gemsAwarded)
+        assertEquals(DAILY_REWARD_FINAL_PLATINUM, payout.platinumAwarded, 0.0)
+        assertEquals(DAILY_REWARD_FINAL_PLATINUM, engine.state.value.platinumPieces, 0.0001)
+        assertEquals(1_000.0, engine.state.value.goldPieces, 0.0001) // untouched on the finale day
+        assertEquals(10_000L, engine.state.value.gems) // untouched on the finale day
+
+        val nextDay = today.plusDays(1)
+        val nextPayout = engine.claimDailyReward(nextDay)
+        assertEquals(1, nextPayout!!.day)
     }
 
     @Test

@@ -49,6 +49,8 @@ fun GameState.toEntities(): Pair<GameStateEntity, List<OwnedLairEntity>> {
         everMaxedAnyLairSpeedLine = everMaxedAnyLairSpeedLine,
         highestGemsEverEarned = highestGemsEverEarned,
         seenAchievementsJson = Json.encodeToString(seenAchievements.toList()),
+        dailyRewardStreakDay = dailyRewardStreakDay,
+        dailyRewardLastClaimedEpochDay = dailyRewardLastClaimedEpochDay,
     )
     val lairEntities = lairs.values.map { it.toEntity() }
     return stateEntity to lairEntities
@@ -106,6 +108,8 @@ fun GameStateEntity.toDomain(lairEntities: List<OwnedLairEntity>): GameState = G
     everMaxedAnyLairSpeedLine = everMaxedAnyLairSpeedLine,
     highestGemsEverEarned = highestGemsEverEarned,
     seenAchievements = Json.decodeFromString<List<String>>(seenAchievementsJson).toSet(),
+    dailyRewardStreakDay = dailyRewardStreakDay,
+    dailyRewardLastClaimedEpochDay = dailyRewardLastClaimedEpochDay,
 )
 
 private fun OwnedLairEntity.toDomain(): OwnedLair = OwnedLair(

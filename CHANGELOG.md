@@ -3,6 +3,15 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.51.0] - 2026-09-12 8:30 AM EDT
+
+- Added a Daily Reward: log in once a day to claim a growing percentage of
+  your current Gold (0.5% more each day of a 28-day streak), plus a bonus
+  batch of Gems every 7 days, and 20 Platinum Pieces for making it the
+  whole 28 days. Miss a day and the streak resets. Claim it from the
+  pop-up that greets you on login, the new wooden icon in the bottom-left
+  corner (mirroring the ad-watch icon on the right), or from Settings.
+
 ## [0.50.0] - 2026-09-11 11:20 AM EDT
 
 - Every player now shows up on the leaderboard, guests included. The moment

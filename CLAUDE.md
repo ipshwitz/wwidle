@@ -176,6 +176,19 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   as `LairRow`'s creature portraits) small enough that the square's white
   corners fall outside the visible circle, so the opaque background never
   actually shows.
+  `calendar-state-normal.png` / `calendar-state-new.png` (v0.51.0) →
+  `drawable-nodpi/calendar_state_normal.png` / `calendar_state_new.png`,
+  the two-state icon for `DailyRewardButton` (a hand-illustrated hanging
+  rune-scroll "calendar" banner, its 4x7 grid of rune squares echoing the
+  28-day cycle). Square (1144x1144), shown whole (no circular crop) since
+  the banner's own silhouette — pointed rod tips, tapering tassels — isn't
+  circular. `calendar-state-normal.png` has a genuinely transparent
+  background; `calendar-state-new.png` (the claimable/"ready" state) has
+  a solid bright-yellow one instead of transparency — used as supplied
+  rather than re-exported, same as every other art asset in this file
+  when it arrives slightly different from expectation (see
+  `lair-young-dragon.png`'s note above) — it reads fine as a glow effect
+  for the claimable state regardless.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -194,11 +207,10 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.50.0** (Auto-generated leaderboard usernames —
-     every account, guest included, gets a placeholder `AnonymousNNNNNN`
-     name the instant it exists, so guests now show up on the leaderboard
-     too — see `SQL/006_auto_generate_usernames.sql` and the bullet under
-     Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.51.0** (Daily Reward — a 28-day login streak
+     paying a climbing percentage of current Gold every day, a Gems bonus
+     every 7 days, and 20 Platinum Pieces for completing the full cycle —
+     see the bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1621,6 +1633,109 @@ These apply to every change made in this repo, however small:
       fired on every tap, and landing the 20th tap fired the existing coin
       burst, credited the 30-minute production bonus into the visible gold
       total, and cleared the flashing border immediately.
+  - **Daily Reward (v0.51.0)** (`domain/model/DailyReward.kt`) — a
+    real-world login-streak mechanic, the first reward in this game keyed
+    on actual calendar days rather than playtime, purchases, or a random
+    roll. Built from an explicit multi-round design discussion before any
+    code — confirmed answers: the daily percentage is based on *current*
+    Gold Pieces balance ("the only fair way to do this," since it's the
+    number the player actually watches on the header, not
+    [lifetimeGoldEarned]), a 28-day cycle rather than 30 ("this way
+    everything falls neatly" — four even weeks, so every 7-day milestone
+    lines up exactly and the finale doesn't need to special-case a
+    30/31-day month), plain calendar-day comparisons rather than a
+    rolling 24h/48h window ("claiming at 11:58pm then again at 12:01am
+    isn't such a bonus that it's a game changer" — the simpler approach
+    wins here, unlike the exploit-conscious rolling-window advice that's
+    the norm elsewhere in mobile gaming), and a hard reset to Day 1 on
+    any missed calendar day (no grace window — acceptable specifically
+    because a real push-notification reminder system is planned before
+    this ships for real, unlike the still-deferred Featured Lair
+    reminder below).
+    - **The reward shape, three types stacking independently**: every day
+      1-27 pays `day × 0.5%` of the player's current `goldPieces` (a
+      climbing percentage that never resets mid-cycle just because a
+      milestone day also happens to fall that day); every 7th day (7,
+      14, 21 — day 28 is excluded, see below) additionally pays
+      `max(100, 5% of current Gems)` — the flat floor matters most early
+      (a first Level Up can grant as few as 50-150 Gems, where another
+      flat 100 is huge), the percentage takes over once Gems climb into
+      the thousands a well-progressed save's Level Ups reach; and day 28
+      — the cycle finale — pays **just** 20 Platinum Pieces, deliberately
+      nothing else that day even though it's also a multiple of 7 ("Day
+      28 is JUST the PP, then everything resets again at day 1"),
+      confirmed explicitly rather than assumed. First-pass placeholder
+      numbers throughout, not playtested, same as everywhere else in the
+      economy.
+    - **`GameState.dailyRewardStreakDay`/`dailyRewardLastClaimedEpochDay`**
+      are the only two new persisted fields — the day-in-cycle most
+      recently claimed, and the calendar date (as an epoch *day*, from
+      `LocalDate.toEpochDay()`, not epoch millis like every other
+      timestamp field in this class) it was claimed on. `canClaimDailyReward`/
+      `nextDailyRewardDay` are the pure functions deriving "is a claim
+      available right now" and "what day would claiming right now grant"
+      off just those two fields plus today's real date — continuing the
+      streak by one if the gap since the last claim is exactly one day
+      and the streak hasn't already hit 28, restarting at Day 1
+      otherwise (first-ever claim, a missed day, or the day right after
+      completing a full cycle). Unlike the Featured Lair event's fields,
+      **these genuinely persist** — real multi-day player commitment, not
+      a few-second session moment — and, per explicit design reasoning
+      (real-world login consistency has nothing to do with which game
+      run is in progress), survive both a Level Up and an Account Reset,
+      the same treatment [totalAdsWatched]/Platinum/Achievement stats
+      get. `GameEngine.claimDailyReward(today)` is the one atomic entry
+      point — computes the payout off *live* Gold/Gems balances inside
+      the same state update (never a stale caller-supplied preview),
+      credits it, and stamps the streak; returns null if today's reward
+      was already claimed. Persistence: Room bumped to **database
+      version 20** for the two new plain columns (`Int`, nullable
+      `Long`), and the Supabase `GameStateDto` mirrors both with `0`/null
+      defaults for older cloud saves.
+    - **Three ways to claim, per explicit design** — an auto-popup the
+      first time the main screen loads with a claim available
+      (`GameScreen`'s `LaunchedEffect(Unit)`, gated on
+      `canClaimDailyReward()` so it naturally never re-fires the same
+      day even across multiple app opens; deliberately *not* new
+      `GameViewModel` state, since `GameScreen` stays mounted for the
+      whole session anyway — see the "menu sections are overlays"
+      architecture note elsewhere in this file), a persistent floating
+      icon (`DailyRewardButton`, bottom-*start* — "Floating Calendar
+      Icon (left), Menu (center), Ads (right)," per explicit layout
+      answer, mirroring `QuickAdBoostButton`'s bottom-end placement and
+      sizing exactly), and a `DailyRewardCard` quick-claim option in
+      Settings' Account tab. All three open/use the same
+      `DailyRewardDialog` — a live preview
+      (`GameState.previewDailyRewardPayout()`, pure, off current state)
+      with an explicit "Claim" tap required, same convention as every
+      other reward dialog in this app (nothing auto-grants just from the
+      popup appearing); tapping while already claimed today shows a
+      plain "come back tomorrow" notice instead, matching
+      `QuickAdBoostButton`'s own "stays tappable regardless, just shows
+      the current state" convention. A "Maybe later" link lets the
+      player back out without claiming — the reward isn't lost, just
+      deferred to the next time any of the three entry points is used
+      that same day.
+    - **Real two-state icon art** — `DailyRewardButton` uses
+      `calendar_state_normal`/`calendar_state_new` (see the Assets
+      section) rather than a placeholder, swapping between the two based
+      on [canClaim]. A small gold `DayBadge` overlaps the icon's corner
+      with the current day number, since the art itself doesn't encode a
+      specific day.
+    - **Verified live on-device** across all three payout types: seeded
+      via a direct Room DB edit (network disabled first — see the Auth
+      section's cloud-merge gotcha below, which bit this testing pass
+      exactly as documented). Day 1 auto-popup showed "44.72T gp" against
+      an 8.94Qa gp balance (exactly 0.5% — confirmed by hand); claiming
+      moved the floating icon from gold "Day 1" to muted "Day 1" and the
+      Settings card to its disabled "already claimed" state. Seeding a
+      Day 7 claim against a 10,000-Gem balance correctly showed "+ 500
+      Gems!" (the 5% branch, since it beats the 100 floor) alongside the
+      climbing 3.5% Gold cut. Seeding Day 27 (claimed yesterday) rolled
+      over to "Day 28 of 28 — You made it the whole cycle! — 20 pp," and
+      claiming it correctly credited exactly 20 pp with no Gold/Gems
+      change, then rolled the next preview back to "Day 1," confirming
+      the cycle wraps rather than continuing to Day 29.
   - **`AdManager`** (`ads/AdManager.kt`) — the app's ad integration, via the
     Google Mobile Ads SDK (`play-services-ads`). `@Singleton`, same
     app-scoped pattern as `GameEngine`: constructed once by Hilt,

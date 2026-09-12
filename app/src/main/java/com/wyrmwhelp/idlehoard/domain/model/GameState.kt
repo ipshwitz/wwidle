@@ -247,6 +247,27 @@ data class GameState(
     val lastFeaturedLairId: String? = null,
     /** When the next Featured Lair event becomes eligible to start, or null before the first roll of a session. Purely random — deliberately not scaled by playtime or progress, see `domain/model/FeaturedLairEvent.kt`. Not persisted, see [featuredLairId]'s doc. */
     val nextFeaturedLairEventAt: Instant? = null,
+    /**
+     * The day-in-cycle (1-[DAILY_REWARD_CYCLE_DAYS]) most recently claimed
+     * from the Daily Reward system (`domain/model/DailyReward.kt`), or 0 if
+     * never claimed. Paired with [dailyRewardLastClaimedEpochDay] to work
+     * out whether the *next* claim continues the streak or restarts it —
+     * see `nextDailyRewardDay`. Unlike the Featured Lair fields above, this
+     * genuinely persists (real multi-day player commitment, not a
+     * few-second session moment) and survives both a Level Up and an
+     * Account Reset, same treatment as [totalAdsWatched] — real-world login
+     * consistency has nothing to do with which specific run is currently in
+     * progress.
+     */
+    val dailyRewardStreakDay: Int = 0,
+    /**
+     * The calendar date (epoch day, i.e. [java.time.LocalDate.toEpochDay])
+     * the Daily Reward was last claimed on, or null if never claimed. A
+     * plain calendar-day comparison (not a rolling 24h window) by explicit
+     * design — see `canClaimDailyReward`/`nextDailyRewardDay`. Survives a
+     * Level Up and an Account Reset, same as [dailyRewardStreakDay].
+     */
+    val dailyRewardLastClaimedEpochDay: Long? = null,
 ) {
     /** Returns the owned state for [lairId], or an unclaimed (count 0) default. */
     fun ownedLair(lairId: String): OwnedLair = lairs[lairId] ?: OwnedLair(lairId)

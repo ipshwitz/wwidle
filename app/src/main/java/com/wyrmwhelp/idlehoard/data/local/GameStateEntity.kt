@@ -101,6 +101,10 @@ data class GameStateEntity(
     val highestGemsEverEarned: Long = 0,
     /** [com.wyrmwhelp.idlehoard.domain.model.GameState.seenAchievements] JSON-encoded as a single column (a small list of achievement id strings), same shape as [seenStewardOpportunitiesJson]. `"[]"` for an empty set, never blank/null. */
     val seenAchievementsJson: String = "[]",
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.dailyRewardStreakDay] — a plain `Int` column. */
+    val dailyRewardStreakDay: Int = 0,
+    /** [com.wyrmwhelp.idlehoard.domain.model.GameState.dailyRewardLastClaimedEpochDay] — a plain nullable `Long` column (an epoch day, not epoch millis). */
+    val dailyRewardLastClaimedEpochDay: Long? = null,
 ) {
     companion object {
         const val SINGLETON_ID = 0

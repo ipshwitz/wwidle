@@ -43,12 +43,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.wyrmwhelp.idlehoard.BuildConfig
+import com.wyrmwhelp.idlehoard.domain.model.DAILY_REWARD_CYCLE_DAYS
+import com.wyrmwhelp.idlehoard.domain.model.DailyRewardPayout
 import com.wyrmwhelp.idlehoard.domain.model.LeaderboardEntry
 import com.wyrmwhelp.idlehoard.domain.model.LeaderboardPeriod
 import com.wyrmwhelp.idlehoard.domain.model.UNIVERSAL_STEWARD_AD_THRESHOLD
 import com.wyrmwhelp.idlehoard.domain.model.isValidUsername
 import com.wyrmwhelp.idlehoard.ui.common.FantasyPalette
 import com.wyrmwhelp.idlehoard.ui.common.WoodenButton
+import com.wyrmwhelp.idlehoard.ui.format.GoldFormat
 import com.wyrmwhelp.idlehoard.ui.leaderboard.LeaderboardContent
 import java.time.Duration
 import java.time.Instant
@@ -116,6 +119,9 @@ fun SettingsContent(
     onSelectLeaderboardPeriod: (LeaderboardPeriod) -> Unit,
     adsWatchedTowardUniversalSteward: Int,
     hasUniversalSteward: Boolean,
+    dailyRewardCanClaim: Boolean,
+    dailyRewardPayout: DailyRewardPayout,
+    onClaimDailyReward: () -> Unit,
     modifier: Modifier = Modifier,
     palette: FantasyPalette = FantasyPalette.Default,
 ) {
@@ -158,6 +164,14 @@ fun SettingsContent(
                             isSyncing = isSyncing,
                             lastSyncedAt = lastSyncedAt,
                             onSyncNow = onSyncNow,
+                            palette = palette,
+                        )
+                    }
+                    item {
+                        DailyRewardCard(
+                            canClaim = dailyRewardCanClaim,
+                            payout = dailyRewardPayout,
+                            onClaim = onClaimDailyReward,
                             palette = palette,
                         )
                     }
@@ -922,6 +936,50 @@ private fun VersionFooter(palette: FantasyPalette, modifier: Modifier = Modifier
         style = MaterialTheme.typography.bodySmall,
         color = palette.ink.copy(alpha = 0.5f),
     )
+}
+
+/**
+ * The Settings quick-claim path for the Daily Reward system (see
+ * `domain/model/DailyReward.kt`) — one of three ways to claim, alongside
+ * the auto-popup on launch and [DailyRewardButton]'s floating icon on the
+ * main screen, per explicit design ("an option under the settings they can
+ * click to claim"). A full [ParchmentCard] rather than an unboxed line like
+ * [UniversalStewardStatusLine] below, since this one is actionable (a real
+ * Claim button), not just a status glance. [dailyRewardCanClaim] disables
+ * the button and swaps the description to a "come back tomorrow" notice,
+ * same as [DailyRewardDialog]'s own already-claimed state.
+ */
+@Composable
+private fun DailyRewardCard(
+    canClaim: Boolean,
+    payout: DailyRewardPayout,
+    onClaim: () -> Unit,
+    palette: FantasyPalette,
+    modifier: Modifier = Modifier,
+) {
+    ParchmentCard(palette = palette, modifier = modifier) {
+        Text(
+            text = "Daily Reward — Day ${payout.day} / $DAILY_REWARD_CYCLE_DAYS",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif, color = palette.ink),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = if (!canClaim) {
+                "Already claimed today — come back tomorrow."
+            } else if (payout.platinumAwarded > 0.0) {
+                "Claim ${GoldFormat.format(payout.platinumAwarded)} pp for finishing the cycle!"
+            } else if (payout.gemsAwarded > 0L) {
+                "Claim ${GoldFormat.format(payout.goldAwarded)} gp + ${GoldFormat.format(payout.gemsAwarded.toDouble())} Gems!"
+            } else {
+                "Claim ${GoldFormat.format(payout.goldAwarded)} gp!"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = palette.ink.copy(alpha = 0.8f),
+        )
+        Spacer(Modifier.height(8.dp))
+        WoodenButton(text = "Claim", onClick = onClaim, enabled = canClaim, colors = palette)
+    }
 }
 
 /**

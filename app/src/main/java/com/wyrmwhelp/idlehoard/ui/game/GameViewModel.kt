@@ -994,6 +994,18 @@ class GameViewModel @Inject constructor(
         _universalStewardUnlocked.value = false
     }
 
+    /**
+     * The Daily Reward pop-up/floating-icon/Settings "Claim" action — see
+     * `GameEngine.claimDailyReward`. A thin wrapper deliberately returning
+     * `Unit` (not the payout) since every call site already has its own
+     * live preview (`GameState.previewDailyRewardPayout`) to show before
+     * tapping, and the state update itself is what the UI actually reacts
+     * to afterward.
+     */
+    fun claimDailyReward() {
+        gameEngine.claimDailyReward()
+    }
+
     private companion object {
         const val TAG = "GameViewModel"
         const val AUTOSAVE_INTERVAL_MS = 30_000L

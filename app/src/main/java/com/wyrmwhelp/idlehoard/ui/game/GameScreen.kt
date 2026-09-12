@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +28,9 @@ import com.wyrmwhelp.idlehoard.domain.model.availableSpeedBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.availableIncomeBoostAdSlots
 import com.wyrmwhelp.idlehoard.domain.model.speedBoostAdCooldownRemaining
 import com.wyrmwhelp.idlehoard.domain.model.incomeBoostAdCooldownRemaining
+import com.wyrmwhelp.idlehoard.domain.model.canClaimDailyReward
+import com.wyrmwhelp.idlehoard.domain.model.nextDailyRewardDay
+import com.wyrmwhelp.idlehoard.domain.model.previewDailyRewardPayout
 import com.wyrmwhelp.idlehoard.domain.model.gemIncomeMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalIncomeMilestoneMultiplier
 import com.wyrmwhelp.idlehoard.domain.model.globalSpeedMilestoneMultiplier
@@ -51,6 +55,22 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
     val incomeBoostAdMessage by viewModel.incomeBoostAdMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAvatarPicker by remember { mutableStateOf(false) }
+    var showDailyRewardDialog by remember { mutableStateOf(false) }
+    var hasAutoShownDailyReward by remember { mutableStateOf(false) }
+
+    // Auto-popup once per app launch (not once per day — the state
+    // already gates on that itself) the first time this screen composes,
+    // if a claim happens to be available. GameScreen stays mounted for the
+    // whole session (see this app's "menu sections are overlays, the game
+    // is never actually left" architecture), so this only ever fires once
+    // per real app open, matching the explicit "a daily reward popup when
+    // they first login" request without needing any new ViewModel state.
+    LaunchedEffect(Unit) {
+        if (!hasAutoShownDailyReward && state.canClaimDailyReward()) {
+            showDailyRewardDialog = true
+            hasAutoShownDailyReward = true
+        }
+    }
 
     // The "Everything" milestone bonuses — same compounding schedule as each
     // lair's own bonus, but keyed on the lowest owned count across all of
@@ -163,6 +183,17 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 24.dp),
         )
+
+        DailyRewardButton(
+            canClaim = state.canClaimDailyReward(),
+            day = state.nextDailyRewardDay(),
+            onClick = { showDailyRewardDialog = true },
+            // Matches QuickAdBoostButton's own bottom inset exactly, mirrored
+            // to the opposite corner — see that composable's doc for why.
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 16.dp, bottom = 24.dp),
+        )
     }
 
     welcomeBack?.let { earnings ->
@@ -193,6 +224,18 @@ fun GameScreen(viewModel: GameViewModel, modifier: Modifier = Modifier) {
 
     if (universalStewardUnlocked) {
         UniversalStewardRewardDialog(onDismiss = viewModel::dismissUniversalStewardUnlocked)
+    }
+
+    if (showDailyRewardDialog) {
+        DailyRewardDialog(
+            canClaim = state.canClaimDailyReward(),
+            payout = state.previewDailyRewardPayout(),
+            onClaim = {
+                viewModel.claimDailyReward()
+                showDailyRewardDialog = false
+            },
+            onDismiss = { showDailyRewardDialog = false },
+        )
     }
 
     if (showAvatarPicker) {

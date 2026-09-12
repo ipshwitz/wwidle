@@ -44,6 +44,8 @@ data class GameStateDto(
     @SerialName("ever_maxed_any_lair_speed_line") val everMaxedAnyLairSpeedLine: Boolean = false,
     @SerialName("highest_gems_ever_earned") val highestGemsEverEarned: Long = 0,
     @SerialName("seen_achievements") val seenAchievements: List<String> = emptyList(),
+    @SerialName("daily_reward_streak_day") val dailyRewardStreakDay: Int = 0,
+    @SerialName("daily_reward_last_claimed_epoch_day") val dailyRewardLastClaimedEpochDay: Long? = null,
 )
 
 /** JSON mirror of [com.wyrmwhelp.idlehoard.domain.model.ActiveTemporaryBoost]. */

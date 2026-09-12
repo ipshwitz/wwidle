@@ -4,7 +4,12 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Bumped to version 19 for the named-Stewards feature (v0.47.0): one new
+ * Bumped to version 20 for the Daily Reward feature (v0.51.0): two new
+ * [GameStateEntity] columns — `dailyRewardStreakDay` (plain `Int`) and
+ * `dailyRewardLastClaimedEpochDay` (plain nullable `Long`, an epoch *day*
+ * from `java.time.LocalDate.toEpochDay()`, not epoch millis like every
+ * other timestamp column here) — see `domain/model/DailyReward.kt`.
+ * Version 19 was the named-Stewards feature (v0.47.0): one new
  * nullable `stewardName` column on [OwnedLairEntity] (see
  * `GameStateMappers.kt`) — see `domain/model/StewardNames.kt`. Plain
  * nullable `String` column, no JSON encoding needed for a single value.
@@ -82,7 +87,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [GameStateEntity::class, OwnedLairEntity::class],
-    version = 19,
+    version = 20,
     exportSchema = false,
 )
 abstract class WyrmWhelpDatabase : RoomDatabase() {

@@ -45,6 +45,8 @@ fun GameState.toDto(): GameStateDto = GameStateDto(
     everMaxedAnyLairSpeedLine = everMaxedAnyLairSpeedLine,
     highestGemsEverEarned = highestGemsEverEarned,
     seenAchievements = seenAchievements.toList(),
+    dailyRewardStreakDay = dailyRewardStreakDay,
+    dailyRewardLastClaimedEpochDay = dailyRewardLastClaimedEpochDay,
 )
 
 private fun OwnedLair.toDto(): OwnedLairDto = OwnedLairDto(
@@ -104,6 +106,8 @@ fun GameStateDto.toDomain(): GameState = GameState(
     everMaxedAnyLairSpeedLine = everMaxedAnyLairSpeedLine,
     highestGemsEverEarned = highestGemsEverEarned,
     seenAchievements = seenAchievements.toSet(),
+    dailyRewardStreakDay = dailyRewardStreakDay,
+    dailyRewardLastClaimedEpochDay = dailyRewardLastClaimedEpochDay,
 )
 
 private fun OwnedLairDto.toDomain(lairId: String): OwnedLair = OwnedLair(
