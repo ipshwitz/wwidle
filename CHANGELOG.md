@@ -3,6 +3,14 @@
 All notable changes to Wyrm & Whelp: Idle Hoard, newest first. Dates/times are US
 Eastern (EST/EDT). See [CLAUDE.md](CLAUDE.md) for the living architecture doc.
 
+## [0.51.1] - 2026-09-12 8:55 AM EDT
+
+- Verified the Daily Reward icon's "ready to claim" glow live on-device
+  and confirmed it doesn't actually show — the yellow highlight in that
+  artwork sits at zero opacity, so it renders identically to the normal
+  icon. No app-code change here; the art itself needs a re-export with
+  real opacity for the glow before it'll appear.
+
 ## [0.51.0] - 2026-09-12 8:30 AM EDT
 
 - Added a Daily Reward: log in once a day to claim a growing percentage of

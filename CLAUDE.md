@@ -182,13 +182,31 @@ not a historical log (that's [CHANGELOG.md](CHANGELOG.md)).
   rune-scroll "calendar" banner, its 4x7 grid of rune squares echoing the
   28-day cycle). Square (1144x1144), shown whole (no circular crop) since
   the banner's own silhouette — pointed rod tips, tapering tassels — isn't
-  circular. `calendar-state-normal.png` has a genuinely transparent
-  background; `calendar-state-new.png` (the claimable/"ready" state) has
-  a solid bright-yellow one instead of transparency — used as supplied
-  rather than re-exported, same as every other art asset in this file
-  when it arrives slightly different from expectation (see
-  `lair-young-dragon.png`'s note above) — it reads fine as a glow effect
-  for the claimable state regardless.
+  circular. **`calendar-state-new.png`'s intended yellow "ready to claim"
+  glow doesn't actually render — confirmed live, not just visually
+  inspected.** A corner-pixel check (this file's own established
+  transparency-verification step) initially looked fine — a plain image
+  viewer shows a solid yellow fill behind the scroll — but a direct
+  per-pixel alpha read (`Bitmap.GetPixel`, not a viewer's composited
+  preview) showed those "yellow" pixels sit at **alpha = 0** (RGB
+  ≈255,243,81 but fully transparent), same as `calendar-state-normal.png`'s
+  own background pixels (also alpha = 0, garbage RGB underneath). Some
+  preview tools render a zero-alpha pixel's stored RGB anyway (which is
+  why one file previewed as checkered-transparent and the other as
+  solid yellow despite both being equally transparent underneath); a
+  spec-compliant alpha-respecting renderer — Android/Compose's `Image`
+  included — treats both identically, so `calendar_state_new` is
+  pixel-for-pixel indistinguishable from `calendar_state_normal` in the
+  actual app. Verified live: forced `canClaim = true` via a direct Room
+  DB edit, confirmed via a temporary debug `contentDescription` that the
+  `canClaim`-gated `if` in `DailyRewardButton` really was selecting
+  `calendar_state_new` (so the bug isn't in this app's own selection
+  logic), then cropped/zoomed the actual rendered icon and found no
+  yellow at all — just the same transparent background as the normal
+  state. **Needs a re-export with real (non-zero) alpha wherever the
+  glow should show** before this state reads as distinct on-device; no
+  code change would fix this, since the file's own pixel data has
+  nothing left to draw once alpha is respected.
 - **`/SQL`** (repo root) holds every SQL script that needs to be run against
   the Supabase project, sequentially numbered (`001_create_cloud_saves_table.sql`,
   `002_...`) in the order they should be applied. Each is a one-time script run
@@ -207,10 +225,14 @@ These apply to every change made in this repo, however small:
    - **Minor (A.B.C → A.(B+1).0):** new features/systems added, backward-compatible.
    - **Major ((A+1).0.0):** breaking save-data changes, ground-up reworks, or the
      jump from pre-release (0.x.x) to first stable release (1.0.0).
-   - Current version: **0.51.0** (Daily Reward — a 28-day login streak
-     paying a climbing percentage of current Gold every day, a Gems bonus
-     every 7 days, and 20 Platinum Pieces for completing the full cycle —
-     see the bullet under Tech stack and [CHANGELOG.md](CHANGELOG.md)).
+   - Current version: **0.51.1** (Daily Reward's "ready to claim" icon
+     state confirmed live — its intended yellow glow doesn't actually
+     render, a real alpha-channel export issue in the art itself, not a
+     code bug — see the Assets section and [CHANGELOG.md](CHANGELOG.md)).
+     Daily Reward itself shipped in 0.51.0 — a 28-day login streak paying
+     a climbing percentage of current Gold every day, a Gems bonus every
+     7 days, and 20 Platinum Pieces for completing the full cycle — see
+     the bullet under Tech stack.
 2. **Log every change in [CHANGELOG.md](CHANGELOG.md)**, newest entry on top, in
    plain simplified language (what changed, not a diff dump), with a date and
    time in US Eastern (EST/EDT) for each entry.
@@ -1716,12 +1738,17 @@ These apply to every change made in this repo, however small:
       player back out without claiming — the reward isn't lost, just
       deferred to the next time any of the three entry points is used
       that same day.
-    - **Real two-state icon art** — `DailyRewardButton` uses
+    - **Real two-state icon art, though the "ready" state's glow doesn't
+      actually show yet** — `DailyRewardButton` uses
       `calendar_state_normal`/`calendar_state_new` (see the Assets
       section) rather than a placeholder, swapping between the two based
-      on [canClaim]. A small gold `DayBadge` overlaps the icon's corner
-      with the current day number, since the art itself doesn't encode a
-      specific day.
+      on [canClaim]; the code side of this is correct and confirmed
+      live, but `calendar_state_new.png`'s intended yellow glow has
+      alpha = 0 across its whole background (see the Assets section's
+      full writeup), so on-device it currently renders identically to
+      the normal state until it's re-exported with real alpha there. A
+      small gold `DayBadge` overlaps the icon's corner with the current
+      day number, since the art itself doesn't encode a specific day.
     - **Verified live on-device** across all three payout types: seeded
       via a direct Room DB edit (network disabled first — see the Auth
       section's cloud-merge gotcha below, which bit this testing pass

@@ -71,7 +71,7 @@ fun DailyRewardButton(
         Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.BottomEnd) {
             Image(
                 painter = painterResource(if (canClaim) R.drawable.calendar_state_new else R.drawable.calendar_state_normal),
-                contentDescription = "Daily Reward",
+                contentDescription = if (canClaim) "Daily Reward ready to claim" else "Daily Reward",
                 modifier = Modifier.size(64.dp),
             )
             DayBadge(day = day, colors = palette, modifier = Modifier.offset(x = 4.dp, y = 4.dp))
